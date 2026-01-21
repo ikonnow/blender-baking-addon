@@ -1,7 +1,9 @@
 import bpy
 import json
 import logging
+import os
 from mathutils import Vector, Color, Matrix, Quaternion
+from bpy.app.handlers import persistent
 
 logger = logging.getLogger(__name__)
 
@@ -171,3 +173,50 @@ class PropertyIO:
                 f"Obsolete keys: {self.stats['skipped_match']}, "
                 f"Read-only skipped: {self.stats['skipped_readonly']}, "
                 f"Errors: {self.stats['error']}")
+
+class AutoLoadHandler:
+    """
+    Manages the automatic loading of default presets on Blender file load.
+    """
+    @staticmethod
+    @persistent
+    def load_default_preset(dummy):
+        """Handler to load default preset on file load if enabled and safe to do so."""
+        # Note: We use the local package name to find preferences
+        package_name = __package__.split('.')[0] if '.' in __package__ else __package__
+        
+        try:
+            prefs = bpy.context.preferences.addons[package_name].preferences
+        except KeyError:
+            return
+
+        if not prefs.auto_load or not prefs.default_preset_path:
+            return
+
+        filepath = prefs.default_preset_path
+        # Remove quotes if user copied as string
+        filepath = filepath.strip('"').strip("'")
+        
+        if not os.path.exists(filepath):
+            return
+
+        # Only load if the current scene is "clean" (has no jobs)
+        scene = bpy.context.scene
+        if scene and hasattr(scene, "BakeJobs") and len(scene.BakeJobs.jobs) == 0:
+            try:
+                with open(filepath, 'r') as f:
+                    data = json.load(f)
+                PropertyIO().from_dict(scene.BakeJobs, data)
+                logger.info(f"BakeTool: Auto-loaded default preset from {filepath}")
+            except Exception as e:
+                logger.warning(f"BakeTool: Failed to auto-load preset: {e}")
+
+    @classmethod
+    def register(cls):
+        if cls.load_default_preset not in bpy.app.handlers.load_post:
+            bpy.app.handlers.load_post.append(cls.load_default_preset)
+
+    @classmethod
+    def unregister(cls):
+        if cls.load_default_preset in bpy.app.handlers.load_post:
+            bpy.app.handlers.load_post.remove(cls.load_default_preset)

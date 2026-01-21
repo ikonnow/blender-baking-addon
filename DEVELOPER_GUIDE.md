@@ -27,8 +27,9 @@ Critical paths like **PBR Conversion** and **Channel Packing** are vectorized us
 The `SELECT_ACTIVE` workflow is handled intelligently in `JobPreparer`. It only validates UVs on the active target object, allowing high-poly source objects to be UV-less. 
 ### 3.1 单元测试用例 (`test_cases/`)
 所有的业务逻辑（命名、任务拆分、NumPy 计算）必须在 `test_cases/` 下有对应的 `test_xxx.py`。
-- **`test_stress_scenarios.py`**: *[New]* 压力测试。验证 100+ 物体、深层材质槽及极限目录深度的导出稳定性。
-- **`test_ui_poll.py`**: *[New]* UI 上下文测试。验证 Operator 的 `poll()` 逻辑在不同场景下的正确性。
+- **`test_stress_scenarios.py`**: 压力测试。验证 100+ 物体、深层材质槽及极限目录深度的导出稳定性。
+- **`test_production_hazards.py`**: *[New]* 生产环境风险测试。验证只读路径、外部链接数据及损坏网格（NaN）的韧性。
+- **`test_ui_poll.py`**: UI 上下文测试。验证 Operator 的 `poll()` 逻辑在不同场景下的正确性。
 ...
 ### 3.5 测试辅助工具 (`helpers.py`)
 - **`JobBuilder`**: *[New]* 链式辅助类。推荐在编写新测试时使用它来快速构建 Job 场景。
@@ -50,6 +51,7 @@ The `SELECT_ACTIVE` workflow is handled intelligently in `JobPreparer`. It only 
 - **运行方式**: 外部终端运行 `python automation/multi_version_test.py`。
 - **能力**: 自动调度系统已安装的 3.6 至 5.0 所有 Blender 版本，并在 Headless 模式下运行全量测试。
 - **改进**: 脚本现在能更好地处理路径差异，并提供详细的错误堆栈回溯。性能报告会在控制台实时输出。
+- **[New] Reports**: 自动化脚本现在会在 `reports/` 目录下生成 ASCII 格式的测试报告，方便导出参考。
 
 ## 4. 开发规范与踩坑记录 (Pitfalls)
 

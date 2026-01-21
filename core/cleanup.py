@@ -57,15 +57,28 @@ class BAKETOOL_OT_EmergencyCleanup(bpy.types.Operator):
                     count_nodes += 1
                     details.append(f"Removed Protection Node from Material '{mat_name}'")
 
-        # 3. Clean up protection images
+        # 3. Clean up protection images and other bake-temp images
         for img in list(bpy.data.images):
-            if img.name.startswith("BT_Protection_Dummy"):
+            if img.name.startswith("BT_Protection_Dummy") or img.name.startswith("BT_TEMP_"):
                 img_name = img.name
-                bpy.data.images.remove(img)
-                count_images += 1
-                details.append(f"Removed Protection Image '{img_name}'")
+                try:
+                    bpy.data.images.remove(img)
+                    count_images += 1
+                    details.append(f"Removed Temp/Protection Image '{img_name}'")
+                except:
+                    pass
+
+        # 4. Clean up temporary attributes (ID Maps)
+        for obj in bpy.data.objects:
+            if obj.type == 'MESH' and hasattr(obj.data, 'attributes'):
+                for i in range(len(obj.data.attributes)-1, -1, -1):
+                    attr = obj.data.attributes[i]
+                    if attr.name.startswith("BT_ATTR_"):
+                        attr_name = attr.name
+                        obj.data.attributes.remove(attr)
+                        details.append(f"Removed Attribute '{attr_name}' from Object '{obj.name}'")
                 
-        # 4. Reset UI States
+        # 5. Reset UI States
         context.scene.is_baking = False
         context.scene.bake_status = "Idle"
         context.scene.bake_progress = 0.0

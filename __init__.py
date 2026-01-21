@@ -21,8 +21,7 @@ from .constants import *
 from bpy.app.handlers import persistent
 from bpy.types import AddonPreferences
 
-# 日志初始化 / Logging initialization
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+# NOTE: No logging.basicConfig here. We use localized loggers.
 logger = logging.getLogger(__name__)
 
 # --- Preferences ---
@@ -48,40 +47,7 @@ class BakeToolPreferences(AddonPreferences):
         row.prop(self, "auto_load")
         row.prop(self, "default_preset_path")
 
-# --- Auto Load Handler ---
-@persistent
-def load_default_preset(dummy):
-    """Handler to load default preset on file load if enabled and safe to do so."""
-    try:
-        prefs = bpy.context.preferences.addons[__name__].preferences
-    except KeyError:
-        return
-
-    if not prefs.auto_load or not prefs.default_preset_path:
-        return
-
-    import os
-    import json
-    from . import preset_handler
-
-    filepath = prefs.default_preset_path
-    # Remove quotes if user copied as string
-    filepath = filepath.strip('"').strip("'")
-    
-    if not os.path.exists(filepath):
-        return
-
-    # Only load if the current scene is "clean" (has no jobs)
-    # This prevents overwriting existing data in saved .blend files
-    scene = bpy.context.scene
-    if scene and hasattr(scene, "BakeJobs") and len(scene.BakeJobs.jobs) == 0:
-        try:
-            with open(filepath, 'r') as f:
-                data = json.load(f)
-            preset_handler.PropertyIO().from_dict(scene.BakeJobs, data)
-            logger.info(f"BakeTool: Auto-loaded default preset from {filepath}")
-        except Exception as e:
-            logger.warning(f"BakeTool: Failed to auto-load preset: {e}")
+from . import preset_handler
 
 bl_info = {
     "name": "Simple Bake Tool",
@@ -182,8 +148,7 @@ def register():
     bpy.types.VIEW3D_MT_object_context_menu.append(menu_func_quick_bake)
     
     # Register Auto Load Handler
-    if load_default_preset not in bpy.app.handlers.load_post:
-        bpy.app.handlers.load_post.append(load_default_preset)
+    preset_handler.AutoLoadHandler.register()
     
     # 制作 keymap // Create keymap
     wm = bpy.context.window_manager
@@ -200,8 +165,7 @@ def register():
     
 def unregister():
     # Remove Auto Load Handler
-    if load_default_preset in bpy.app.handlers.load_post:
-        bpy.app.handlers.load_post.remove(load_default_preset)
+    preset_handler.AutoLoadHandler.unregister()
 
     # Remove from Object Context Menu
     bpy.types.VIEW3D_MT_object_context_menu.remove(menu_func_quick_bake)

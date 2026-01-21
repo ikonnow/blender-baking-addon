@@ -59,10 +59,16 @@ class BakeStateManager:
 
     def _write(self, data):
         try:
+            if not self.log_dir.exists():
+                self.log_dir.mkdir(parents=True, exist_ok=True)
+            
             with open(self.log_file, 'w', encoding='utf-8') as f:
                 json.dump(data, f, indent=4, ensure_ascii=False)
                 f.flush()
-                os.fsync(f.fileno())
+                try:
+                    os.fsync(f.fileno())
+                except:
+                    pass # Some systems/mounts don't support fsync
         except Exception as e:
             print(f"BakeTool Log Error: {e}")
 

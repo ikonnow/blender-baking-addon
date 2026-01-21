@@ -11,11 +11,13 @@ This roadmap outlines the long-term vision for transforming BakeTool into a prof
 *   **Auto-Cage 2.0**: Intelligent proximity-based cage generation for High-to-Low poly baking.
 *   **Automated Texel Density Management**: Smart integration with UV Packing workflows to normalize texel resolution across UDIM tiles.
 *   **Material Semantic Parsing**: Preset auto-detection based on Blender material node structures.
+*   **[New] Data Integrity Audit**: Pre-bake sanity checks for non-manifold geometry and overlapping UVs.
 
 ## Phase 3: Engine Ecosystem (Integration)
 *   **Advanced Game Engine Profiles**: One-click export profiles for Unreal Engine (Packed ORM), Unity (HDRP/URP), and Godot.
 *   **Live Link Connection**: Direct asset bridging to Substance Painter and external game editors.
 *   **Standardized API**: Formalize the `core.engine` API for 3rd-party plugin developers.
+*   **[New] CLI/Headless Mode**: Native support for pipeline automation and render farm integration.
 
 ## Phase 4: High-End Production (Advanced Features)
 *   **AI Denoising for Baking**: Specifically tuned denoising to preserve normal map details.

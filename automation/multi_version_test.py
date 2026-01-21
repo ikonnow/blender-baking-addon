@@ -79,13 +79,33 @@ def main():
             results.append((ver_display, "ERROR", str(e)))
 
     print("-" * 80)
-    print("      FINAL SUMMARY")
+    print(f"      {'FINAL SUMMARY':^70}")
     print("-" * 80)
+    print(f"| {'Blender Version':<45} | {'Status':<10} |")
+    print("|" + "-"*47 + "|" + "-"*12 + "|")
+    
     for ver, status, detail in results:
         status_color = "\033[92m" if status == "PASS" else "\033[91m"
-        print(f" > {ver:<43} : {status_color}[{status}]\033[0m")
-        if status != "PASS":
-            print(f"   \033[90m{detail.splitlines()[-1] if detail.splitlines() else 'Unknown error'}\033[0m")
+        print(f"| {ver:<45} | {status_color}{status:<10}\033[0m |")
+        
+    print("-" * 80)
+    
+    # Save report
+    report_dir = os.path.join(current_dir, "..", "reports")
+    if not os.path.exists(report_dir):
+        os.makedirs(report_dir)
+    
+    report_path = os.path.join(report_dir, "test_report.txt")
+    with open(report_path, "w", encoding="utf-8") as f:
+        f.write("BAKETOOL CROSS-VERSION TEST REPORT\n")
+        f.write("="*40 + "\n")
+        for ver, status, detail in results:
+            f.write(f"[{status}] {ver}\n")
+            if status != "PASS":
+                f.write(f"Details:\n{detail}\n")
+            f.write("-" * 20 + "\n")
+            
+    print(f"\nDetailed report saved to: {os.path.abspath(report_path)}")
     print("="*80 + "\n")
 
 if __name__ == "__main__":
