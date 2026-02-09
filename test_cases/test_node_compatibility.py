@@ -63,7 +63,10 @@ class TestNodeCompatibility(unittest.TestCase):
             with self.handler:
                 # 模拟 PBR BaseColor 转换逻辑
                 # 它应该使用 ShaderNodeMix 且 data_type 为 'RGBA'
-                src = self.handler._create_extension_logic(self.mat, 'pbr_conv_base', get_job_setting())
+                s = get_job_setting()
+                c = s.channels.add()
+                c.id = 'pbr_conv_base'
+                src = self.handler._create_extension_logic(self.mat, 'pbr_conv_base', c)
                 self.assertIsNotNone(src)
                 # 在 4.0+ 中，MixRGB 已被 Mix 节点取代
                 self.assertEqual(src.node.bl_idname, 'ShaderNodeMix')

@@ -2,7 +2,10 @@ import json
 import os
 import time
 import bpy
+import logging
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 class BakeStateManager:
     def __init__(self):
@@ -41,13 +44,28 @@ class BakeStateManager:
         })
         self._write(data)
 
-    def finish_session(self):
-        """正常结束，删除日志"""
+    def reset_ui_state(self, context, status="Idle"):
+        """重置场景中的烘焙状态与进度条属性"""
+        if not context or not hasattr(context, "scene"):
+            return
+            
+        scene = context.scene
+        scene.is_baking = False
+        scene.bake_status = status
+        scene.bake_progress = 0.0
+        # 如果需要清理错误日志，可以在此处有选择地重置，但通常建议由用户手动清除
+        # scene.bake_error_log = "" 
+
+    def finish_session(self, context=None, status="Idle"):
+        """正常结束，删除日志，并可选地重置 UI 状态"""
         if self.log_file.exists():
             try:
                 os.remove(self.log_file)
             except:
                 pass
+        
+        if context:
+            self.reset_ui_state(context, status)
 
     def log_error(self, error_msg):
         """记录错误但不删除文件"""
@@ -70,7 +88,7 @@ class BakeStateManager:
                 except:
                     pass # Some systems/mounts don't support fsync
         except Exception as e:
-            print(f"BakeTool Log Error: {e}")
+            logger.error(f"BakeTool Log Error: {e}")
 
     def read_log(self):
         """读取日志，用于检测崩溃"""

@@ -1,9 +1,30 @@
 import bpy
 import logging
+import traceback
 from contextlib import contextmanager
 from ..constants import CHANNEL_DEFINITIONS, BSDF_COMPATIBILITY_MAP
 
 logger = logging.getLogger(__name__)
+
+def log_error(context, message, state_mgr=None, include_traceback=False):
+    """
+    统一错误日志记录：同时记录到 Python 控制台、场景 UI 和状态管理器。
+    """
+    full_msg = message
+    if include_traceback:
+        full_msg = f"{message}\n{traceback.format_exc()}"
+    
+    # 1. Python Logging
+    logger.error(full_msg)
+    
+    # 2. Scene UI Log
+    if context and hasattr(context, "scene"):
+        context.scene.bake_error_log += f"{message}\n"
+        
+    # 3. Persistence Log (Crash recovery)
+    if state_mgr:
+        try: state_mgr.log_error(message)
+        except: pass
 
 def get_safe_base_name(setting, obj, mat=None, is_batch=False):
     """Naming convention logic."""
@@ -69,6 +90,37 @@ def reset_channels_logic(setting):
             defaults = d.get('defaults', {})
             for k, v in defaults.items():
                 if hasattr(new_chan, k): setattr(new_chan, k, v)
+
+def manage_collection_item(collection, action, index, parent_obj=None, index_prop=""):
+    """
+    Generic helper to manage items in a Blender CollectionProperty.
+    Supports: ADD, DELETE, CLEAR, UP, DOWN.
+    """
+    if action == 'ADD':
+        return collection.add()
+    elif action == 'DELETE':
+        if len(collection) > 0 and 0 <= index < len(collection):
+            collection.remove(index)
+            if parent_obj and index_prop:
+                setattr(parent_obj, index_prop, max(0, index - 1))
+            return True
+    elif action == 'CLEAR':
+        collection.clear()
+        if parent_obj and index_prop:
+            setattr(parent_obj, index_prop, 0)
+        return True
+    elif action in {'UP', 'DOWN'}:
+        if action == 'UP' and index > 0:
+            target_idx = index - 1
+        elif action == 'DOWN' and index < len(collection) - 1:
+            target_idx = index + 1
+        else:
+            return False
+        collection.move(index, target_idx)
+        if parent_obj and index_prop:
+            setattr(parent_obj, index_prop, target_idx)
+        return True
+    return None
 
 @contextmanager
 def safe_context_override(context, active_object=None, selected_objects=None):

@@ -266,3 +266,82 @@ CHANNEL_DEFINITIONS = {
         {'id': 'node_group', 'name': 'Custom Node Group', 'defaults': {'suffix': '_custom_ng'}},
     ]
 }
+
+# --- UI Layout Configuration (Data-Driven UI) ---
+
+CHANNEL_UI_LAYOUT = {
+    'normal': {'type': 'SPECIAL'},
+    'diff': {'type': 'TOGGLES', 'header': 'Light Paths', 'icon': 'LIGHT_SUN', 'props': [('pass_settings.use_direct', 'Dir'), ('pass_settings.use_indirect', 'Ind'), ('pass_settings.use_color', 'Col')]},
+    'gloss': {'type': 'TOGGLES', 'header': 'Light Paths', 'icon': 'LIGHT_SUN', 'props': [('pass_settings.use_direct', 'Dir'), ('pass_settings.use_indirect', 'Ind'), ('pass_settings.use_color', 'Col')]},
+    'tranb': {'type': 'TOGGLES', 'header': 'Light Paths', 'icon': 'LIGHT_SUN', 'props': [('pass_settings.use_direct', 'Dir'), ('pass_settings.use_indirect', 'Ind'), ('pass_settings.use_color', 'Col')]},
+    'combine': {'type': 'SPECIAL'},
+    'ao': {'type': 'PROPS', 'props': [('mesh_settings.samples', 'Samples'), ('mesh_settings.distance', 'Rad/Dist'), ('mesh_settings.inside', 'Inside'), ('mesh_settings.local_only', 'Only Local')]},
+    'bevel': {'type': 'PROPS', 'props': [('mesh_settings.samples', 'Samples'), ('mesh_settings.radius', 'Rad/Dist')]},
+    'bevnor': {'type': 'PROPS', 'props': [('mesh_settings.samples', 'Samples'), ('mesh_settings.radius', 'Rad/Dist')]},
+    'curvature': {'type': 'PROPS', 'props': [('mesh_settings.samples', 'Samples'), ('mesh_settings.radius', 'Radius'), ('mesh_settings.contrast', 'Contrast')]},
+    'wireframe': {'type': 'PROPS', 'props': [('mesh_settings.distance', 'Size'), ('mesh_settings.use_pixel_size', 'Use Pixel Size')]},
+    'position': {'type': 'PROPS', 'props': [('mesh_settings.invert_g', 'Invert G')]},
+    'slope': {'type': 'PROPS', 'props': [('mesh_settings.direction', 'Direction'), ('mesh_settings.invert', 'Invert')]},
+    'thickness': {'type': 'PROPS', 'props': [('mesh_settings.distance', 'Distance'), ('mesh_settings.contrast', 'Contrast')]},
+    'ID_mat': {'type': 'PROPS', 'props': [('mesh_settings.id_count', 'ID Map Count')]},
+    'ID_ele': {'type': 'PROPS', 'props': [('mesh_settings.id_count', 'ID Map Count')]},
+    'ID_UVI': {'type': 'PROPS', 'props': [('mesh_settings.id_count', 'ID Map Count')]},
+    'ID_seam': {'type': 'PROPS', 'props': [('mesh_settings.id_count', 'ID Map Count')]},
+    'pbr_conv_base': {'type': 'SPECIAL'},
+    'pbr_conv_metal': {'type': 'SPECIAL'},
+    'node_group': {'type': 'SPECIAL'},
+}
+
+# --- Preset Serialization Configuration ---
+
+PRESET_DEFAULT_EXCLUDE = {
+    'rna_type', 'is_valid', 
+    'path_from_id', 'bl_rna'
+}
+
+PRESET_MIGRATION_MAP = {
+    'normal_type': 'normal_settings.type',
+    'normal_X': 'normal_settings.X',
+    'normal_Y': 'normal_settings.Y',
+    'normal_Z': 'normal_settings.Z',
+    'normal_obj': 'normal_settings.object_space',
+    'ao_sample': 'mesh_settings.samples',
+    'ao_dis': 'mesh_settings.distance',
+    'ao_inside': 'mesh_settings.inside',
+    'ao_local': 'mesh_settings.local_only',
+    'bevel_sample': 'mesh_settings.samples',
+    'bevel_rad': 'mesh_settings.radius',
+    'bevnor_sample': 'mesh_settings.samples',
+    'bevnor_rad': 'mesh_settings.radius',
+    'curvature_sample': 'mesh_settings.samples',
+    'curvature_rad': 'mesh_settings.radius',
+    'curvature_contrast': 'mesh_settings.contrast',
+    'wireframe_dis': 'mesh_settings.distance',
+    'wireframe_use_pix': 'mesh_settings.use_pixel_size',
+    'position_invg': 'mesh_settings.invert_g',
+    'slope_directions': 'mesh_settings.direction',
+    'slope_invert': 'mesh_settings.invert',
+    'thickness_distance': 'mesh_settings.distance',
+    'thickness_contrast': 'mesh_settings.contrast',
+    'ID_num': 'mesh_settings.id_count',
+    'pbr_conv_threshold': 'extension_settings.threshold',
+    'node_group': 'extension_settings.node_group',
+    'node_group_output': 'extension_settings.output_name',
+    # New standardized mappings
+    'bake_texture_apply': 'apply_to_scene',
+    'clearimage': 'use_clear_image',
+    'colorbase': 'color_base',
+    'save_out': 'use_external_save',
+    'save_path': 'external_save_path',
+    'save_format': 'external_save_format',
+    'float32': 'use_float32',
+    'save_outside': 'use_external_save',
+    # Render Pass mappings
+    'diff_dir': 'pass_settings.use_direct', 'diff_ind': 'pass_settings.use_indirect', 'diff_col': 'pass_settings.use_color',
+    'gloss_dir': 'pass_settings.use_direct', 'gloss_ind': 'pass_settings.use_indirect', 'gloss_col': 'pass_settings.use_color',
+    'tranb_dir': 'pass_settings.use_direct', 'tranb_ind': 'pass_settings.use_indirect', 'tranb_col': 'pass_settings.use_color',
+    # Combine mappings
+    'com_dir': 'combine_settings.use_direct', 'com_ind': 'combine_settings.use_indirect',
+    'com_diff': 'combine_settings.use_diffuse', 'com_gloss': 'combine_settings.use_glossy',
+    'com_tran': 'combine_settings.use_transmission', 'com_emi': 'combine_settings.use_emission',
+}

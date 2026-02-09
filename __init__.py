@@ -12,8 +12,7 @@ try:
     from . import tests
     HAS_TESTS = True
 except ImportError:
-    import traceback
-    traceback.print_exc()
+    logger.error("Failed to load test module", exc_info=True)
     HAS_TESTS = False
 
 from .constants import *
@@ -52,7 +51,7 @@ from . import preset_handler
 bl_info = {
     "name": "Simple Bake Tool",
     "author": "lastraindrop",
-    "version": (0, 9, 5),
+    "version": (0, 9, 8),
     "blender": (3, 6, 0),
     "location": "3D VIEW > N panel > Baking",
     "description": "A simplified, high-efficiency baking solution for Blender. Robust architecture with cross-version compatibility.",
@@ -63,6 +62,11 @@ bl_info = {
 
 # Define lists of classes for registration
 property_classes = [
+    property.BakeNormalSettings,
+    property.BakePassSettings,
+    property.BakeCombineSettings,
+    property.BakeMeshSettings,
+    property.BakeExtensionSettings,
     property.BakeObject,
     property.BakeChannelSource,
     property.BakeChannel,

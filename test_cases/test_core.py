@@ -142,7 +142,7 @@ class TestNodeGroupChannel(unittest.TestCase):
         s = get_job_setting()
         c = s.channels.add()
         c.id = 'node_group'; c.enabled = True
-        c.node_group = self.ng.name; c.node_group_output = "MyOutput"
+        c.extension_settings.node_group = self.ng.name; c.extension_settings.output_name = "MyOutput"
         img = image_manager.set_image("NG_Bake", 64, 64)
         
         with ops.NodeGraphHandler([self.mat]) as h:

@@ -39,8 +39,8 @@ class TestAdvancedWorkflows(unittest.TestCase):
                 if c.id == 'color': c.enabled = True
             
             s.bake_motion = True
-            s.save_out = True
-            s.save_path = self.temp_dir
+            s.use_external_save = True
+            s.external_save_path = self.temp_dir
             s.bake_motion_start = 1
             s.bake_motion_last = 3 
             s.bake_motion_use_custom = True
@@ -114,8 +114,8 @@ class TestAdvancedWorkflows(unittest.TestCase):
             s.name_setting = 'OBJECT'
             common.reset_channels_logic(s)
             
-            s.save_out = True
-            s.save_path = self.temp_dir
+            s.use_external_save = True
+            s.external_save_path = self.temp_dir
             s.use_packing = True
             s.pack_suffix = "_ORM"
             
@@ -157,7 +157,7 @@ class TestAdvancedWorkflows(unittest.TestCase):
         obj = create_test_object("RevFrameObj")
         s = get_job_setting()
         s.bake_motion = True
-        s.save_out = True
+        s.use_external_save = True
         s.bake_motion_use_custom = False
         
         # Set scene frames to invalid range
@@ -177,7 +177,7 @@ class TestAdvancedWorkflows(unittest.TestCase):
         job = scene.BakeJobs.jobs.add()
         job.setting.bake_mode = 'SINGLE_OBJECT'
         job.setting.bake_motion = True
-        job.setting.save_out = True
+        job.setting.use_external_save = True
         job.setting.bake_motion_use_custom = False
         
         bo = job.setting.bake_objects.add()

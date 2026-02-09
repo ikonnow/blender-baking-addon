@@ -54,8 +54,8 @@ class TestShadingComplexity(unittest.TestCase):
         s = get_job_setting()
         c = s.channels.add()
         c.id = 'node_group'; c.enabled = True
-        c.node_group = outer_ng.name
-        c.node_group_output = "Final"
+        c.extension_settings.node_group = outer_ng.name
+        c.extension_settings.output_name = "Final"
         
         handler = node_manager.NodeGraphHandler([mat])
         img = image_manager.set_image("TestNestedNG", 32, 32)

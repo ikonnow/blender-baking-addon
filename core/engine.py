@@ -125,11 +125,11 @@ class BakeStepRunner:
 
         # --- Post-Bake Logic: Apply & Export ---
         if not f_info: # Static bake
-            if job.setting.bake_texture_apply:
+            if job.setting.apply_to_scene:
                 scene.bake_status = f"Applying Result... - {task.base_name}"
                 res_obj = apply_baked_result(task.active_obj, baked_images, job.setting, task.base_name)
                 
-                if res_obj and job.setting.export_model and job.setting.save_out:
+                if res_obj and job.setting.export_model and job.setting.use_external_save:
                     scene.bake_status = f"Exporting Model... - {task.base_name}"
                     ModelExporter.export(self.context, res_obj, job.setting, folder_name=task.folder_name)
                                 
@@ -137,11 +137,11 @@ class BakeStepRunner:
 
     def _handle_save(self, s, task, img, f_info):
         path = ""
-        if s.save_out:
+        if s.use_external_save:
             path = save_image(
-                img, s.save_path, 
+                img, s.external_save_path, 
                 folder=s.create_new_folder, folder_name=task.folder_name, 
-                file_format=s.save_format, 
+                file_format=s.external_save_format, 
                 motion=bool(f_info), 
                 frame=f_info['save_idx'] if f_info else 0, 
                 fillnum=f_info['digits'] if f_info else 4, 
@@ -275,7 +275,7 @@ class JobPreparer:
             if not channels: continue
 
             frames = [None]
-            if s.bake_motion and s.save_out:
+            if s.bake_motion and s.use_external_save:
                 start = s.bake_motion_start if s.bake_motion_use_custom else scene.frame_start
                 dur = s.bake_motion_last if s.bake_motion_use_custom else (scene.frame_end - start + 1)
                 frames = [{
@@ -318,7 +318,7 @@ class JobPreparer:
         queue = []
         # Support Animation for Quick Bake if enabled in template
         frames = [None]
-        if runtime_setting.bake_motion and runtime_setting.save_out:
+        if runtime_setting.bake_motion and runtime_setting.use_external_save:
             scene = context.scene
             start = runtime_setting.bake_motion_start if runtime_setting.bake_motion_use_custom else scene.frame_start
             dur = runtime_setting.bake_motion_last if runtime_setting.bake_motion_use_custom else (scene.frame_end - start + 1)
@@ -380,7 +380,7 @@ class BakeContextManager:
                 'device': str(setting.device)
             }),
             ('image', {
-                'file_format': str(setting.save_format or 'PNG'), 
+                'file_format': str(setting.external_save_format or 'PNG'), 
                 'color_depth': str(setting.color_depth), 
                 'color_mode': str(setting.color_mode), 
                 'quality': int(setting.quality),
@@ -419,7 +419,7 @@ class BakePassExecutor:
         img = set_image(
             img_name, setting.res_x, setting.res_y, 
             alpha=setting.use_alpha, full=is_float, space=target_cs, 
-            clear=setting.clearimage, basiccolor=setting.colorbase,
+            clear=setting.use_clear_image, basiccolor=setting.color_base,
             use_udim=(setting.bake_mode == 'UDIM'),
             udim_tiles=udim_tiles, tile_resolutions=tile_resolutions
         )
@@ -448,16 +448,17 @@ class BakePassExecutor:
     @staticmethod
     def _get_color_settings(setting, prop, c):
         chan_id = c['id']
-        if chan_id == 'CUSTOM': return prop.color_space, setting.float32
+        if chan_id == 'CUSTOM': return prop.color_space, setting.use_float32
         target_cs = prop.custom_cs if prop.override_defaults else c['info'].get('def_cs', 'sRGB')
-        is_float = setting.float32 or chan_id in {'position', 'normal', 'displacement'}
+        is_float = setting.use_float32 or chan_id in {'position', 'normal', 'displacement'}
         return target_cs, is_float
 
     @staticmethod
     def _try_numpy_pbr(chan_id, prop, img, current_results, array_cache):
         if not chan_id.startswith('pbr_conv_') or not current_results: return False
         spec, diff = current_results.get('specular'), current_results.get('color')
-        if spec and process_pbr_numpy(img, spec, diff, chan_id, prop.pbr_conv_threshold, array_cache):
+        threshold = prop.extension_settings.threshold if prop else 0.04
+        if spec and process_pbr_numpy(img, spec, diff, chan_id, threshold, array_cache):
             return True
         return False
 
@@ -488,18 +489,18 @@ class BakePassExecutor:
                 scene, 
                 bake_type=bake_type,
                 margin=setting.margin,
-                use_clear=setting.clearimage,
+                use_clear=setting.use_clear_image,
                 target='IMAGE_TEXTURES'
             )
             
             params = {
                 'type': bake_type, 
                 'margin': setting.margin, 
-                'use_clear': setting.clearimage, 
+                'use_clear': setting.use_clear_image, 
                 'target': 'IMAGE_TEXTURES'
             }
             if params['type'] == 'NORMAL': 
-                params['normal_space'] = 'OBJECT' if prop.normal_obj else 'TANGENT'
+                params['normal_space'] = 'OBJECT' if prop.normal_settings.object_space else 'TANGENT'
             
             if setting.bake_mode == 'SELECT_ACTIVE':
                 params.update({
@@ -514,9 +515,8 @@ class BakePassExecutor:
             bpy.ops.object.bake(**params)
             return True
         except Exception as e:
-            logger.warning(f"Bake Operational Error {chan_id}: {e}")
-            import traceback
-            logger.debug(traceback.format_exc())
+            from .common import log_error
+            log_error(bpy.context, f"Bake Operational Error {chan_id}: {e}", include_traceback=True)
             return False
 
     @staticmethod
@@ -534,9 +534,9 @@ class ModelExporter:
     """模型安全导出逻辑"""
     @staticmethod
     def export(context, obj, setting, folder_name=""):
-        if not obj or not setting.save_path: return
+        if not obj or not setting.external_save_path: return
         
-        base_path = Path(bpy.path.abspath(setting.save_path))
+        base_path = Path(bpy.path.abspath(setting.external_save_path))
         target_dir = base_path
         if folder_name:
             target_dir = base_path / bpy.path.clean_name(folder_name)

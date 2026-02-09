@@ -89,10 +89,9 @@ class BAKETOOL_OT_EmergencyCleanup(bpy.types.Operator):
                         obj.data.attributes.remove(attr)
                         details.append(f"Removed Attribute '{attr_name}' from Object '{obj.name}'")
                 
-        # 5. Reset UI States
-        context.scene.is_baking = False
-        context.scene.bake_status = "Idle"
-        context.scene.bake_progress = 0.0
+        # 5. Reset UI States using central manager
+        from ..state_manager import BakeStateManager
+        BakeStateManager().reset_ui_state(context)
         
         summary = f"Summary: {count_layers} Layers, {count_nodes} Nodes, {count_images} Images cleaned."
         details.append(summary)

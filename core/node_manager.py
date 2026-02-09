@@ -52,8 +52,8 @@ def bake_node_to_image(context, material, node, settings):
                     
                     bpy.ops.object.bake(type='EMIT')
                     
-                    if settings.save_outside:
-                        save_image(img, settings.save_path, file_format=settings.image_settings.save_format)
+                    if settings.use_external_save:
+                        save_image(img, settings.external_save_path, file_format=settings.image_settings.external_save_format)
                     else:
                         img.pack()
                         
@@ -200,12 +200,13 @@ class NodeGraphHandler:
                 if src: tree.links.new(src, emi_n.inputs[0])
 
     def _create_node_group_logic(self, mat, s):
-        if not s or not s.node_group: return None
-        ng_data = bpy.data.node_groups.get(s.node_group)
+        es = getattr(s, "extension_settings", None)
+        if not es or not es.node_group: return None
+        ng_data = bpy.data.node_groups.get(es.node_group)
         if not ng_data: return None
         grp = self._add_node(mat, 'ShaderNodeGroup')
         grp.node_tree = ng_data
-        return grp.outputs.get(s.node_group_output) if s.node_group_output else (grp.outputs[0] if grp.outputs else None)
+        return grp.outputs.get(es.output_name) if es.output_name else (grp.outputs[0] if grp.outputs else None)
 
     def _add_node(self, mat, type, **kwargs):
         n = mat.node_tree.nodes.new(type)
@@ -242,29 +243,33 @@ class NodeGraphHandler:
             v = (val[0],val[1],val[2],1) if hasattr(val,"__len__") and len(val)>=3 else (val,val,val,1)
             rgb.outputs[0].default_value = v
             src = rgb.outputs[0]
-        if settings and socket_name == 'rough' and getattr(settings, 'rough_inv', False):
+        
+        # Roughness inversion logic
+        if settings and socket_name == 'rough' and settings.rough_inv:
             inv = self._add_node(mat, 'ShaderNodeInvert'); inv.inputs[0].default_value=1.0
             tree.links.new(src, inv.inputs[1]); src = inv.outputs[0]
         return src
 
     def _create_mesh_map_logic(self, mat, mtype, attr, s):
+        ms = getattr(s, "mesh_settings", None)
         if mtype == 'ID': return self._add_node(mat, 'ShaderNodeAttribute', attribute_name=attr).outputs['Color']
         elif mtype == 'AO':
             n = self._add_node(mat, 'ShaderNodeAmbientOcclusion')
-            n.samples = getattr(s, 'ao_sample', 16); n.inputs['Distance'].default_value = getattr(s, 'ao_dis', 1.0)
-            n.inside = getattr(s, 'ao_inside', False); return n.outputs['Color']
+            n.samples = ms.samples if ms else 16; n.inputs['Distance'].default_value = ms.distance if ms else 1.0
+            n.inside = ms.inside if ms else False; return n.outputs['Color']
         elif mtype == 'POS': return self._add_node(mat, 'ShaderNodeNewGeometry').outputs['Position']
         elif mtype == 'UV': return self._add_node(mat, 'ShaderNodeUVMap').outputs['UV']
         elif mtype == 'WF':
-            n = self._add_node(mat, 'ShaderNodeWireframe'); n.use_pixel_size = getattr(s, 'wireframe_use_pix', False)
-            n.inputs[0].default_value = getattr(s, 'wireframe_dis', 0.01); return n.outputs[0]
+            n = self._add_node(mat, 'ShaderNodeWireframe'); n.use_pixel_size = ms.use_pixel_size if ms else False
+            n.inputs[0].default_value = ms.distance if ms else 0.01; return n.outputs[0]
         elif mtype == 'BEVEL':
-            n = self._add_node(mat, 'ShaderNodeBevel'); n.samples = getattr(s, 'bevel_sample', 8)
-            n.inputs['Radius'].default_value = getattr(s, 'bevel_rad', 0.05); return n.outputs[0]
+            n = self._add_node(mat, 'ShaderNodeBevel'); n.samples = ms.samples if ms else 8
+            n.inputs['Radius'].default_value = ms.radius if ms else 0.05; return n.outputs[0]
         return None
 
     def _create_extension_logic(self, mat, socket_name, settings):
-        threshold = getattr(settings, 'pbr_conv_threshold', 0.04) if settings else 0.04
+        es = getattr(settings, "extension_settings", None)
+        threshold = es.threshold if es else 0.04
         tree = mat.node_tree
         spec_src = self._find_socket_source(mat, 'specular', None)
         sep = self._add_node(mat, 'ShaderNodeSeparateColor'); tree.links.new(spec_src, sep.inputs[0])

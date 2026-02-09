@@ -83,7 +83,7 @@ class TestVersioningAndCompatibility(unittest.TestCase):
         
         job_setting = get_job_setting()
         job_setting.margin = 16
-        job_setting.clearimage = True
+        job_setting.use_clear_image = True
         
         # 模拟调用逻辑的一部分 (不真正执行 bpy.ops.object.bake，因为那需要有效的烘焙环境)
         # 我们主要测试属性赋值是否报错

@@ -1,5 +1,5 @@
 import bpy
-from .constants import FORMAT_SETTINGS, CAT_MESH, CAT_LIGHT, CAT_DATA, CAT_EXTENSION, CHANNEL_BAKE_INFO
+from .constants import FORMAT_SETTINGS, CAT_MESH, CAT_LIGHT, CAT_DATA, CAT_EXTENSION, CHANNEL_BAKE_INFO, CHANNEL_UI_LAYOUT
 from .state_manager import BakeStateManager
 
 def draw_header(layout, text, icon='NONE'):
@@ -22,7 +22,7 @@ def draw_template_list_ops(layout, basic_name):
         ops.target = basic_name
 
 def draw_image_format_options(layout, setting, prefix=""):
-    f_p = f"{prefix}save_format"
+    f_p = f"{prefix}external_save_format"
     q_p = f"{prefix}quality"
     e_p = f"{prefix}exr_code"
     t_p = f"{prefix}tiff_codec"
@@ -50,92 +50,51 @@ def draw_image_format_options(layout, setting, prefix=""):
 def _draw_normal(layout, channel):
     col = layout.column(align=True)
     draw_header(col, "Normal Map", 'NORMALS_FACE')
-    col.prop(channel, "normal_type", text="Std")
-    if channel.normal_type == 'CUSTOM':
+    s = channel.normal_settings
+    col.prop(s, "type", text="Std")
+    if s.type == 'CUSTOM':
         r = col.row(align=True)
-        r.prop(channel, "normal_X")
-        r.prop(channel, "normal_Y")
-        r.prop(channel, "normal_Z")
-    col.prop(channel, "normal_obj", text="Object Space")
-
-def _draw_light_path(layout, channel):
-    col = layout.column(align=True)
-    draw_header(col, "Light Paths", 'LIGHT_SUN')
-    r = col.row(align=True)
-    r.prop(channel, f"{channel.id}_dir", text="Dir", toggle=True)
-    r.prop(channel, f"{channel.id}_ind", text="Ind", toggle=True)
-    r.prop(channel, f"{channel.id}_col", text="Col", toggle=True)
+        r.prop(s, "X")
+        r.prop(s, "Y")
+        r.prop(s, "Z")
+    col.prop(s, "object_space", text="Object Space")
 
 def _draw_combine(layout, channel):
     col = layout.column(align=True)
     draw_header(col, "Passes", 'RENDERLAYERS')
+    s = channel.combine_settings
     r = col.row(align=True)
-    r.prop(channel, "com_dir", text="Dir", toggle=True)
-    r.prop(channel, "com_ind", text="Ind", toggle=True)
+    r.prop(s, "use_direct", text="Dir", toggle=True)
+    r.prop(s, "use_indirect", text="Ind", toggle=True)
     col.separator()
     grid = col.grid_flow(columns=2, align=True)
-    grid.prop(channel, "com_diff")
-    grid.prop(channel, "com_gloss")
-    grid.prop(channel, "com_tran")
-    grid.prop(channel, "com_emi")
-
-def _draw_property_group(layout, channel, props_config):
-    """通用属性绘制辅助函数 / Generic property drawer helper.
-    
-    Args:
-        layout: UI layout
-        channel: Channel property group
-        props_config: List of tuples (prop_name, display_name)
-    """
-    col = layout.column(align=True)
-    for prop_name, display_name in props_config:
-        col.prop(channel, prop_name, text=display_name)
-
-def _draw_ao_bevel(layout, channel):
-    props = [
-        (f"{channel.id}_sample", "Samples"),
-        (f"{channel.id}_rad" if channel.id != 'ao' else "ao_dis", "Rad/Dist")
-    ]
-    _draw_property_group(layout, channel, props)
-
-def _draw_curvature(layout, channel):
-    props = [
-        ("curvature_sample", "Samples"),
-        ("curvature_rad", "Radius"),
-        ("curvature_contrast", "Contrast")
-    ]
-    _draw_property_group(layout, channel, props)
-
-def _draw_wireframe(layout, channel):
-    layout.prop(channel, "wireframe_dis", text="Size")
-    layout.prop(channel, "wireframe_use_pix")
+    grid.prop(s, "use_diffuse")
+    grid.prop(s, "use_glossy")
+    grid.prop(s, "use_transmission")
+    grid.prop(s, "use_emission")
 
 def _draw_pbr_conv(layout, channel):
     col = layout.column(align=True)
     draw_header(col, "Conversion Logic", 'NODETREE')
-    col.prop(channel, "pbr_conv_threshold", text="F0 Threshold")
+    s = channel.extension_settings
+    col.prop(s, "threshold", text="F0 Threshold")
     col.label(text="Spec < F0 is Dielectric", icon='INFO')
     col.label(text="Spec > F0 becomes Metallic", icon='INFO')
 
 def _draw_node_group(layout, channel):
     col = layout.column(align=True)
     draw_header(col, "Target Node Group", 'NODETREE')
-    col.prop_search(channel, "node_group", bpy.data, "node_groups", text="", icon='GROUP')
-    if channel.node_group:
-        col.prop(channel, "node_group_output", text="Output Name", icon='OUTPUT')
+    s = channel.extension_settings
+    col.prop_search(s, "node_group", bpy.data, "node_groups", text="", icon='GROUP')
+    if s.node_group:
+        col.prop(s, "output_name", text="Output Name", icon='OUTPUT')
         col.label(text="Leave Output empty for default", icon='INFO')
 
-CHANNEL_UI_MAP = {
+# Dispatch table for special channel drawers
+# This allows adding new special channels without modifying the main drawing function
+SPECIAL_CHANNEL_DRAWERS = {
     'normal': _draw_normal,
-    'diff': _draw_light_path,
-    'gloss': _draw_light_path,
-    'tranb': _draw_light_path,
     'combine': _draw_combine,
-    'ao': _draw_ao_bevel,
-    'bevel': _draw_ao_bevel,
-    'bevnor': _draw_ao_bevel,
-    'curvature': _draw_curvature,
-    'wireframe': _draw_wireframe,
     'node_group': _draw_node_group,
 }
 
@@ -167,20 +126,42 @@ def draw_active_channel_properties(layout, channel, setting):
     row.label(text=f"{channel.name} Settings", icon='PREFERENCES')
     
     _draw_naming_section(box, channel)
-    
     box.separator()
     _draw_color_override_section(box, channel)
-        
     box.separator()
     
+    # 额外逻辑：Roughness 通道特有的反转开关
     if channel.id == 'rough':
         box.prop(channel, "rough_inv", icon='ARROW_LEFTRIGHT')
-    elif channel.id.startswith('pbr_conv_'):
-        _draw_pbr_conv(box, channel)
-    else:
-        draw_func = CHANNEL_UI_MAP.get(channel.id)
-        if draw_func:
-            draw_func(box, channel)
+        box.separator()
+
+    # 数据驱动绘制逻辑 / Data-driven drawing logic
+    config = CHANNEL_UI_LAYOUT.get(channel.id)
+    if not config:
+        return
+
+    layout_type = config.get('type')
+    
+    if layout_type == 'SPECIAL':
+        # 处理注册在字典中的特殊绘制逻辑
+        drawer = SPECIAL_CHANNEL_DRAWERS.get(channel.id)
+        if drawer:
+            drawer(box, channel)
+        elif channel.id.startswith('pbr_conv_'):
+            # 处理通用的 PBR 转换前缀
+            _draw_pbr_conv(box, channel)
+        
+    elif layout_type == 'TOGGLES':
+        col = box.column(align=True)
+        draw_header(col, config.get('header', 'Settings'), config.get('icon', 'NONE'))
+        r = col.row(align=True)
+        for prop_name, display_name in config.get('props', []):
+            r.prop(channel, prop_name, text=display_name, toggle=True)
+            
+    elif layout_type == 'PROPS':
+        col = box.column(align=True)
+        for prop_name, display_name in config.get('props', []):
+            col.prop(channel, prop_name, text=display_name)
 
 def draw_results(scene, layout, bj):
     layout.label(text="Baked Results", icon='IMAGE_DATA')
@@ -227,7 +208,7 @@ def draw_results(scene, layout, bj):
     draw_header(box, "Export Settings", 'OUTPUT')
     col = box.column(align=True)
     
-    col.prop(bj.bake_result_settings, "save_path", text="")
+    col.prop(bj.bake_result_settings, "external_save_path", text="")
     draw_image_format_options(col, bj.bake_result_settings.image_settings, "")
 
 def draw_crash_report(layout):
@@ -358,9 +339,9 @@ class BAKE_PT_NodePanel(bpy.types.Panel):
         r.prop(nbs, "res_x", text="X")
         r.prop(nbs, "res_y", text="Y")
         
-        b.prop(nbs, "save_outside", text="To Disk", icon='DISK_DRIVE')
-        if nbs.save_outside:
-            draw_file_path(b, nbs, "save_path", 2)
+        b.prop(nbs, "use_external_save", text="To Disk", icon='DISK_DRIVE')
+        if nbs.use_external_save:
+            draw_file_path(b, nbs, "external_save_path", 2)
             draw_image_format_options(b, nbs.image_settings, "")
             
         l.operator("bake.selected_node_bake", text="Bake Node", icon='RENDER_STILL')
@@ -556,11 +537,11 @@ class BAKE_PT_BakePanel(bpy.types.Panel):
         # --- 1. Naming & Global Toggle ---
         draw_header(b, "Workflows", 'PREFERENCES')
         row = b.row(align=True)
-        row.prop(s, "bake_texture_apply", text="Apply to Scene", icon='MATERIAL')
+        row.prop(s, "apply_to_scene", text="Apply to Scene", icon='MATERIAL')
         
         # Constraint: Export Mesh requires Apply to Scene AND External Save
         sub = row.row(align=True)
-        sub.active = s.bake_texture_apply and s.save_out
+        sub.active = s.apply_to_scene and s.use_external_save
         sub.prop(s, "export_model", text="Export Mesh", icon='EXPORT')
         
         if s.export_model:
@@ -573,15 +554,15 @@ class BAKE_PT_BakePanel(bpy.types.Panel):
         
         # --- 2. Files & Formats ---
         draw_header(b, "Output Files", 'DISK_DRIVE')
-        b.prop(s, "save_out", text="External Save", toggle=True)
+        b.prop(s, "use_external_save", text="External Save", toggle=True)
         
-        if s.save_out or s.export_model:
+        if s.use_external_save or s.export_model:
             sb = b.box()
-            if s.export_model and not s.save_out:
+            if s.export_model and not s.use_external_save:
                 sb.alert = True
                 sb.label(text="Warning: External Save recommended for export", icon='ERROR')
             
-            draw_file_path(sb, s, "save_path", 0)
+            draw_file_path(sb, s, "external_save_path", 0)
             
             row = sb.row(align=True)
             row.label(text="Naming:")

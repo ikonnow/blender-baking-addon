@@ -98,13 +98,13 @@ class TestPropertyLogic(unittest.TestCase):
         self.setting = get_job_setting()
 
     def test_valid_depths(self):
-        self.setting.save_format = 'PNG'
+        self.setting.external_save_format = 'PNG'
         items = property.get_valid_depths(self.setting, None)
         keys = [i[0] for i in items]
         self.assertIn('8', keys)
         self.assertIn('16', keys)
         
-        self.setting.save_format = 'OPEN_EXR'
+        self.setting.external_save_format = 'OPEN_EXR'
         items = property.get_valid_depths(self.setting, None)
         keys = [i[0] for i in items]
         self.assertIn('32', keys)

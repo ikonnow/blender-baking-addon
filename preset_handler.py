@@ -4,6 +4,7 @@ import logging
 import os
 from mathutils import Vector, Color, Matrix, Quaternion
 from bpy.app.handlers import persistent
+from .constants import PRESET_DEFAULT_EXCLUDE, PRESET_MIGRATION_MAP
 
 logger = logging.getLogger(__name__)
 
@@ -12,20 +13,15 @@ class PropertyIO:
     通用 Blender 属性序列化与反序列化工具。
     支持递归处理 PropertyGroup, CollectionProperty, PointerProperty。
     自动过滤 Blender ID (Object, Material, Image) 以实现安全的预设保存。
+    内置迁移逻辑以支持旧版本属性映射。
     """
-
-    # 默认忽略的系统属性 (不包括 name，因为配置组通常需要保留名称)
-    DEFAULT_EXCLUDE = {
-        'rna_type', 'is_valid', 
-        'path_from_id', 'bl_rna'
-    }
 
     def __init__(self, exclude_props=None, custom_filter=None):
         """
         :param exclude_props: 用户自定义不希望导出的属性名集合 (set of strings)
         :param custom_filter: 自定义过滤函数 (callable), 签名 func(prop_group, key) -> bool. 返回 False 则跳过该属性.
         """
-        self.exclude_props = self.DEFAULT_EXCLUDE.copy()
+        self.exclude_props = PRESET_DEFAULT_EXCLUDE.copy()
         if exclude_props:
             self.exclude_props.update(exclude_props)
         self.custom_filter = custom_filter
@@ -108,15 +104,23 @@ class PropertyIO:
         """
         将字典数据递归写入 PropertyGroup
         :param clear_collection: 是否在加载列表前先清空现有列表 (通常为 True)
+        :param data: JSON 格式的字典数据
         """
         if not data or not prop_group:
             return
 
+        # 1. 预处理：迁移旧版本属性
+        processed_data = data.copy()
+        for old_key, new_path in PRESET_MIGRATION_MAP.items():
+            if old_key in data:
+                val = processed_data.pop(old_key)
+                self._set_nested_attr(prop_group, new_path, val)
+
         # 获取对象所有有效属性名，用于检测“废弃属性”
         valid_keys = set(p.identifier for p in prop_group.bl_rna.properties)
 
-        for key, val in data.items():
-            # 1. 分析：废弃属性检测
+        for key, val in processed_data.items():
+            # 2. 分析：废弃属性检测
             if key not in valid_keys:
                 self.stats['skipped_match'] += 1
                 # logger.debug(f"Property mismatch: '{key}' not found in {type(prop_group).__name__}, skipping.")
@@ -166,6 +170,22 @@ class PropertyIO:
             except Exception as e:
                 self.stats['error'] += 1
                 logger.warning(f"Failed to load property '{key}' in {type(prop_group).__name__}: {e}")
+
+    def _set_nested_attr(self, obj, path, val):
+        """支持设置嵌套属性，如 'mesh_settings.samples'"""
+        parts = path.split('.')
+        target = obj
+        for part in parts[:-1]:
+            if hasattr(target, part):
+                target = getattr(target, part)
+            else:
+                return # 路径不存在
+        
+        try:
+            setattr(target, parts[-1], val)
+            self.stats['loaded'] += 1
+        except:
+            pass
 
     def report_stats(self):
         """返回加载统计信息字符串"""

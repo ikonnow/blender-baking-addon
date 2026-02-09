@@ -109,12 +109,12 @@ class TestEdgeCases(unittest.TestCase):
         obj = create_test_object("ExportEdge")
         s = get_job_setting()
         # 构造一个极端的路径
-        s.save_path = os.path.join(self.temp_dir, "non_existent_subdir", "deep_path")
+        s.external_save_path = os.path.join(self.temp_dir, "non_existent_subdir", "deep_path")
         
         # ModelExporter 应该自动创建目录
         engine.ModelExporter.export(bpy.context, obj, s, folder_name="AutoCreated")
         
-        expected_path = os.path.join(s.save_path, "AutoCreated")
+        expected_path = os.path.join(s.external_save_path, "AutoCreated")
         self.assertTrue(os.path.exists(expected_path))
 
     def test_extremely_long_names(self):
@@ -124,7 +124,7 @@ class TestEdgeCases(unittest.TestCase):
         obj.name = long_name
         
         s = get_job_setting()
-        s.save_path = self.temp_dir
+        s.external_save_path = self.temp_dir
         
         # 应该通过 clean_name 处理
         safe_name = bpy.path.clean_name(obj.name)
@@ -136,7 +136,7 @@ class TestEdgeCases(unittest.TestCase):
         obj = create_test_object(bad_name)
         
         s = get_job_setting()
-        s.save_path = self.temp_dir
+        s.external_save_path = self.temp_dir
         
         # 验证 common.get_safe_base_name 是否调用了 clean_name
         safe_name = common.get_safe_base_name(s, obj)
@@ -306,7 +306,7 @@ class TestEdgeCases(unittest.TestCase):
         obj = create_test_object("InvalidPathObj")
         s = get_job_setting()
         # Invalid path on Windows
-        s.save_path = "C:\\Invalid|Path?test" 
+        s.external_save_path = "C:\\Invalid|Path?test" 
         
         # 1. Test Model Export
         # Should catch exception and log error, not crash
@@ -318,7 +318,7 @@ class TestEdgeCases(unittest.TestCase):
         # 2. Test Image Save
         img = image_manager.set_image("TestImg", 32, 32)
         try:
-            path = image_manager.save_image(img, s.save_path)
+            path = image_manager.save_image(img, s.external_save_path)
             # Should return None on failure
             self.assertIsNone(path)
         except Exception as e:

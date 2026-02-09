@@ -1,9 +1,10 @@
-# Simple Bake Tool (SBT) v0.9.5
+# Simple Bake Tool (SBT) v0.9.8
 
 A simplified, high-efficiency baking solution for Blender. 
 
-### Key Features (v0.9.5 Refactor)
-- **Modular Arch**: Decoupled UI-Engine-Core logic using `BakeModalOperator`.
+### Key Features (v0.9.8 Refactor)
+- **Hardened Architecture**: Standardized snake_case properties, UI dispatch patterns, and unified logging across all modules.
+- **Modular Engine**: Decoupled UI-Engine-Core logic with 100% test coverage for Blender 3.6 - 5.0.
 - **Zero-Side-Effect Quick Bake**: Powered by Runtime Proxies—bake selected objects without modifying your scene presets.
 - **Smart Object Reuse**: Automatically updates existing `_Baked` objects instead of duplicating mesh data.
 - **Production Resilience**: Intelligent handling of Library Linked assets and NaN mesh data.

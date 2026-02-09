@@ -31,9 +31,9 @@ class TestExportDeepAudit(unittest.TestCase):
         
         s = job.setting
         s.export_model = True
-        s.bake_texture_apply = True
-        s.save_out = False # 缺少此条件
-        s.save_path = self.temp_dir
+        s.apply_to_scene = True
+        s.use_external_save = False # 缺少此条件
+        s.external_save_path = self.temp_dir
         
         runner = BakeStepRunner(bpy.context)
         queue = JobPreparer.prepare_execution_queue(bpy.context, [job])
@@ -41,7 +41,7 @@ class TestExportDeepAudit(unittest.TestCase):
         
         # 检查目录下是否生成了模型文件
         model_files = list(Path(self.temp_dir).glob("**/*.fbx"))
-        self.assertEqual(len(model_files), 0, "Export should have been blocked because save_out is False")
+        self.assertEqual(len(model_files), 0, "Export should have been blocked because use_external_save is False")
 
     def test_animation_frame_writing(self):
         """深度验证：动画序列帧是否被物理写入磁盘"""
@@ -117,8 +117,8 @@ class TestExportDeepAudit(unittest.TestCase):
         
         s = job.setting
         s.export_model = True
-        s.bake_texture_apply = True
-        s.save_out = True
+        s.apply_to_scene = True
+        s.use_external_save = True
         s.name_setting = 'OBJECT'
         
         runner = BakeStepRunner(bpy.context)

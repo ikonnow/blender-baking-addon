@@ -125,9 +125,9 @@ class JobBuilder:
         return self
 
     def save_to(self, path, format='PNG'):
-        self.setting.save_out = True
-        self.setting.save_path = path
-        self.setting.save_format = format
+        self.setting.use_external_save = True
+        self.setting.external_save_path = path
+        self.setting.external_save_format = format
         return self
     
     def enable_channel(self, channel_id):

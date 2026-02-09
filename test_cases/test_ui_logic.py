@@ -32,18 +32,16 @@ class TestUILogic(unittest.TestCase):
         self.assertGreater(len(job.setting.channels), 0, "Channels should be created")
         
     def test_channel_ui_map_coverage(self):
-        """Verify all special channels have UI handlers."""
-        from ..ui import CHANNEL_UI_MAP
+        """Verify all special channels have UI layouts defined."""
+        from ..constants import CHANNEL_UI_LAYOUT
         
-        # These channels should have custom UI
+        # These channels should have specific UI definitions
         expected_channels = ['normal', 'diff', 'gloss', 'tranb', 'combine', 
                             'ao', 'bevel', 'bevnor', 'curvature', 'wireframe', 'node_group']
         
         for ch_id in expected_channels:
-            self.assertIn(ch_id, CHANNEL_UI_MAP, 
-                         f"Channel '{ch_id}' should have a UI drawer")
-            self.assertTrue(callable(CHANNEL_UI_MAP[ch_id]),
-                           f"UI drawer for '{ch_id}' should be callable")
+            self.assertIn(ch_id, CHANNEL_UI_LAYOUT, 
+                         f"Channel '{ch_id}' should have a UI layout defined in CHANNEL_UI_LAYOUT")
     
     def test_format_settings_validation(self):
         """Test image format settings validation logic."""

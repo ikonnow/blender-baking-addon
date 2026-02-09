@@ -21,7 +21,7 @@ class TestExportSystem(unittest.TestCase):
     def test_basic_formats_export(self):
         """测试基础格式（FBX, GLB）的导出路径生成与执行 // Test FBX/GLB export"""
         obj = create_test_object("ExportCube")
-        self.setting.save_path = self.temp_dir
+        self.setting.external_save_path = self.temp_dir
         
         for fmt in ['FBX', 'GLB']:
             self.setting.export_format = fmt
@@ -43,7 +43,7 @@ class TestExportSystem(unittest.TestCase):
         obj = create_test_object(special_name)
         
         subdir = "My Export Folder"
-        self.setting.save_path = self.temp_dir
+        self.setting.external_save_path = self.temp_dir
         self.setting.export_format = 'FBX'
         
         ModelExporter.export(bpy.context, obj, self.setting, folder_name=subdir)
@@ -58,7 +58,7 @@ class TestExportSystem(unittest.TestCase):
         obj1 = create_test_object("Cube_Job1")
         obj2 = create_test_object("Cube_Job2")
         
-        self.setting.save_path = self.temp_dir
+        self.setting.external_save_path = self.temp_dir
         self.setting.export_format = 'FBX'
         
         ModelExporter.export(bpy.context, obj1, self.setting, folder_name="Job_Alpha")
@@ -76,9 +76,9 @@ class TestExportSystem(unittest.TestCase):
         img = image_manager.set_image("FakeBakedTex", 32, 32)
         baked_images = {'color': img}
         
-        self.setting.save_path = self.temp_dir
+        self.setting.external_save_path = self.temp_dir
         self.setting.export_model = True
-        self.setting.bake_texture_apply = False 
+        self.setting.apply_to_scene = False 
         
         res_obj = common.apply_baked_result(obj, baked_images, self.setting, "FinalTask")
         self.assertIn(res_obj.name, bpy.data.objects)
@@ -100,7 +100,7 @@ class TestExportSystem(unittest.TestCase):
         for loop in obj.data.uv_layers.active.data:
             loop.uv[0] += 1.0 
             
-        self.setting.save_path = self.temp_dir
+        self.setting.external_save_path = self.temp_dir
         self.setting.export_format = 'GLB'
         
         ModelExporter.export(bpy.context, obj, self.setting, folder_name="UDIM_Export")
@@ -116,7 +116,7 @@ class TestExportSystem(unittest.TestCase):
         obj.location = (1, 1, 1)
         obj.keyframe_insert(data_path="location", frame=10)
         
-        self.setting.save_path = self.temp_dir
+        self.setting.external_save_path = self.temp_dir
         self.setting.export_format = 'FBX'
         
         ModelExporter.export(bpy.context, obj, self.setting, folder_name="Anim_Export")

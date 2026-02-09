@@ -8,6 +8,7 @@ import logging
 import traceback
 from ..state_manager import BakeStateManager
 from .engine import BakeStepRunner
+from .common import log_error
 
 logger = logging.getLogger(__name__)
 
@@ -126,16 +127,11 @@ class BakeModalOperator:
 
     def _handle_step_error(self, context, e):
         err_msg = f"[Error] Step {self.current_step_idx+1}: {str(e)}"
-        context.scene.bake_error_log += err_msg + "\n"
-        logger.error(f"{err_msg}\n{traceback.format_exc()}")
-        if self.state_mgr: 
-            self.state_mgr.log_error(err_msg)
+        log_error(context, err_msg, self.state_mgr, include_traceback=True)
 
     def _cleanup_state(self, context, status="Finished"):
-        context.scene.is_baking = False
-        context.scene.bake_status = status
         if self.state_mgr: 
-            self.state_mgr.finish_session()
+            self.state_mgr.finish_session(context, status)
         self._remove_timer(context)
 
     def finish(self, context):

@@ -10,7 +10,8 @@ from .core.common import (
     apply_baked_result,
     safe_context_override,
     reset_channels_logic,
-    check_objects_uv
+    check_objects_uv,
+    log_error
 )
 from .core.image_manager import set_image, save_image
 from .core.uv_manager import UVLayoutManager, detect_object_udim_tile
@@ -56,8 +57,7 @@ class BAKETOOL_OT_BakeOperator(bpy.types.Operator, BakeModalOperator):
         except Exception as e: 
             err_msg = f"Bake preparation failed: {str(e)}"
             self.report({'ERROR'}, err_msg)
-            context.scene.bake_error_log += err_msg + "\n"
-            logger.error(f"{err_msg}\n{traceback.format_exc()}")
+            log_error(context, err_msg, include_traceback=True)
             return {'CANCELLED'}
 
         return self.init_modal(context)
@@ -95,8 +95,7 @@ class BAKETOOL_OT_QuickBake(bpy.types.Operator, BakeModalOperator):
         except Exception as e:
             err_msg = f"Quick Bake preparation failed: {str(e)}"
             self.report({'ERROR'}, err_msg)
-            context.scene.bake_error_log += err_msg + "\n"
-            logger.error(f"{err_msg}\n{traceback.format_exc()}")
+            log_error(context, err_msg, include_traceback=True)
             return {'CANCELLED'}
             
         return self.init_modal(context)
@@ -122,46 +121,36 @@ class BAKETOOL_OT_GenericChannelOperator(bpy.types.Operator):
         }
 
         entry = dispatch.get(self.target)
-        if not entry: return {'CANCELLED'}
+        if not entry: 
+            self.report({'ERROR'}, f"Invalid target: {self.target}")
+            return {'CANCELLED'}
             
         coll, attr, parent = entry
+        if parent is None:
+            self.report({'WARNING'}, "Action unavailable: Parent data missing")
+            return {'CANCELLED'}
+            
         idx = getattr(parent, attr)
+        from .core.common import manage_collection_item
         
         if self.action_type == 'ADD':
-            self._handle_add(coll, bj)
-        elif self.action_type == 'DELETE':
-            if len(coll) > 0:
-                coll.remove(idx)
-                setattr(parent, attr, max(0, idx - 1))
-        elif self.action_type == 'CLEAR':
-            coll.clear()
-            setattr(parent, attr, 0)
-        elif self.action_type in {'UP', 'DOWN'}:
-            self._handle_move(coll, parent, attr, idx)
+            item = manage_collection_item(coll, 'ADD', idx)
+            if self.target == "jobs_channel":
+                self._init_new_job(item, coll)
+        else:
+            manage_collection_item(coll, self.action_type, idx, parent, attr)
             
         return {'FINISHED'}
 
-    def _handle_add(self, coll, bj):
-        new_item = coll.add()
-        if self.target == "jobs_channel": 
-            new_item.name = f"Job {len(coll)}"
-            s = new_item.setting
-            s.bake_type = 'BSDF'
-            s.bake_mode = 'SINGLE_OBJECT'
-            reset_channels_logic(s)
-            for c in s.channels:
-                if c.id in {'color', 'combine', 'normal'}:
-                    c.enabled = True
-
-    def _handle_move(self, coll, parent, attr, idx):
-        if self.action_type == 'UP' and idx > 0:
-            target_idx = idx - 1
-        elif self.action_type == 'DOWN' and idx < len(coll) - 1:
-            target_idx = idx + 1
-        else:
-            return
-        coll.move(idx, target_idx)
-        setattr(parent, attr, target_idx)
+    def _init_new_job(self, item, coll):
+        item.name = f"Job {len(coll)}"
+        s = item.setting
+        s.bake_type = 'BSDF'
+        s.bake_mode = 'SINGLE_OBJECT'
+        reset_channels_logic(s)
+        for c in s.channels:
+            if c.id in {'color', 'combine', 'normal'}:
+                c.enabled = True
 
 class BAKETOOL_OT_SetSaveLocal(bpy.types.Operator):
     bl_idname="bake.set_save_local"; bl_label="Local"; save_location: props.IntProperty(default=0)
@@ -169,8 +158,8 @@ class BAKETOOL_OT_SetSaveLocal(bpy.types.Operator):
         if not bpy.data.filepath: return {'CANCELLED'}
         path = str(Path(bpy.data.filepath).parent) + os.sep
         bj = context.scene.BakeJobs
-        if self.save_location==0: bj.jobs[bj.job_index].setting.save_path=path
-        elif self.save_location==2: bj.node_bake_settings.save_path=path
+        if self.save_location==0: bj.jobs[bj.job_index].setting.external_save_path=path
+        elif self.save_location==2: bj.node_bake_settings.external_save_path=path
         return{'FINISHED'}
 
 class BAKETOOL_OT_RefreshUDIM(bpy.types.Operator):
@@ -290,6 +279,8 @@ class BAKETOOL_OT_ClearCrashLog(bpy.types.Operator):
     bl_idname = "bake.clear_crash_log"
     bl_label = "Dismiss Warning"
     def execute(self, context):
-        try: BakeStateManager().finish_session()
-        except: pass
+        try: 
+            BakeStateManager().finish_session(context)
+        except Exception as e:
+            logger.error(f"Failed to clear crash log: {e}")
         return {'FINISHED'}

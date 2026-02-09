@@ -1,9 +1,9 @@
 # Simple Bake Tool (SBT) - 用户参考手册
 
-**版本**: 0.9.5 (Robustness & Integration Update)
+**版本**: 0.9.8 (Architecture Hardening Update)
 **分类**: 3D VIEW > N Panel > Baking
 
-> **📢 项目状态声明**: 本插件已通过涵盖 100+ 项测试的跨版本（Blender 3.6 - 5.0）自动化测试套件验证。
+> **📢 项目状态声明**: 本插件已通过涵盖 120+ 项测试的跨版本（Blender 3.6 - 5.0）自动化测试套件验证。
 
 Simple Bake Tool (SBT) 是一套专为 Blender 设计的非破坏性、全自动纹理烘焙解决方案。它接管了繁琐的节点连接、图像创建和保存工作，让您专注于参数设置。
 
