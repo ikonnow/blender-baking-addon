@@ -185,7 +185,17 @@ SOCKET_DEFAULT_TYPE = {
 
 # --- Channel Preset Definitions ---
 
-CHANNEL_DEFINITIONS = {
+SYSTEM_NAMES = {
+    'TEMP_UV': "BT_Bake_Temp_UV",
+    'DUMMY_IMG': "BT_Protection_Dummy",
+    'PROTECTION_NODE': "BT_Protection_Node",
+    'PROTECTION_LABEL': "BT Protection",
+    'RESULT_COLLECTION': "Baked_Results",
+    'ATTR_PREFIX': "BT_ATTR_",
+    'TEMP_IMG_PREFIX': "BT_TEMP_"
+}
+
+BAKE_CHANNEL_INFO = {
     'BSDF_3': [
         {'id': 'color', 'name': 'Base Color', 'defaults': {'enabled': True, 'suffix': '_color'}},
         {'id': 'subface', 'name': 'SSS', 'defaults': {'suffix': '_subface'}},
@@ -270,6 +280,7 @@ CHANNEL_DEFINITIONS = {
 # --- UI Layout Configuration (Data-Driven UI) ---
 
 CHANNEL_UI_LAYOUT = {
+    'rough': {'type': 'PROPS', 'props': [('rough_inv', 'Invert Roughness', 'ARROW_LEFTRIGHT')]},
     'normal': {'type': 'SPECIAL'},
     'diff': {'type': 'TOGGLES', 'header': 'Light Paths', 'icon': 'LIGHT_SUN', 'props': [('pass_settings.use_direct', 'Dir'), ('pass_settings.use_indirect', 'Ind'), ('pass_settings.use_color', 'Col')]},
     'gloss': {'type': 'TOGGLES', 'header': 'Light Paths', 'icon': 'LIGHT_SUN', 'props': [('pass_settings.use_direct', 'Dir'), ('pass_settings.use_indirect', 'Ind'), ('pass_settings.use_color', 'Col')]},
@@ -344,4 +355,28 @@ PRESET_MIGRATION_MAP = {
     'com_dir': 'combine_settings.use_direct', 'com_ind': 'combine_settings.use_indirect',
     'com_diff': 'combine_settings.use_diffuse', 'com_gloss': 'combine_settings.use_glossy',
     'com_tran': 'combine_settings.use_transmission', 'com_emi': 'combine_settings.use_emission',
+}
+# --- Post-Bake Apply Result Mapping ---
+APPLY_RESULT_CHANNEL_MAP = {
+    'color': 'color', 'diff': 'color',
+    'metal': 'metal',
+    'rough': 'rough', 'gloss': 'rough',
+    'specular': 'specular',
+    'emi': 'emi',
+    'alpha': 'alpha',
+    'normal': 'normal', 'bevnor': 'normal',
+    'ao': 'color', 'combine': 'color',
+}
+
+# --- Data-only channels: force single sample during bake ---
+DATA_BAKE_FORCE_SINGLE_SAMPLE = frozenset({
+    'normal', 'position', 'UV', 'height', 'wireframe',
+    'ID_mat', 'ID_ele', 'ID_UVI', 'ID_seam',
+    'select', 'curvature',
+})
+
+# --- Mesh Analysis Type Map ---
+CHANNEL_MESH_TYPE_MAP = {
+    'position': 'POS', 'UV': 'UV', 'wireframe': 'WF',
+    'ao': 'AO', 'bevel': 'BEVEL', 'bevnor': 'BEVEL', 'slope': 'SLOPE',
 }

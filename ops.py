@@ -35,6 +35,8 @@ class BAKETOOL_OT_BakeOperator(bpy.types.Operator, BakeModalOperator):
     bl_label = "Bake"
     bl_idname = "bake.bake_operator"
     
+    is_resume: props.BoolProperty(default=False)
+    
     @classmethod
     def poll(cls, context):
         return not context.scene.is_baking
@@ -54,13 +56,21 @@ class BAKETOOL_OT_BakeOperator(bpy.types.Operator, BakeModalOperator):
                 self.report({'WARNING'}, "Nothing to bake (Check logs/setup).")
                 return {'CANCELLED'}
                 
+            start_idx = 0
+            if self.is_resume:
+                mgr = BakeStateManager()
+                if mgr.has_crash_record():
+                    data = mgr.read_log()
+                    if data:
+                        start_idx = data.get('current_queue_idx', 0)
+                        
         except Exception as e: 
             err_msg = f"Bake preparation failed: {str(e)}"
             self.report({'ERROR'}, err_msg)
             log_error(context, err_msg, include_traceback=True)
             return {'CANCELLED'}
 
-        return self.init_modal(context)
+        return self.init_modal(context, start_idx=start_idx)
 
 class BAKETOOL_OT_QuickBake(bpy.types.Operator, BakeModalOperator):
     """Bake current selection using active job settings immediately"""
@@ -111,46 +121,12 @@ class BAKETOOL_OT_GenericChannelOperator(bpy.types.Operator):
     action_type: props.EnumProperty(items=[('ADD','',''),('DELETE','',''),('UP','',''),('DOWN','',''),('CLEAR','','')])
     target: props.StringProperty()
     def execute(self, context):
-        bj = context.scene.BakeJobs
-        job = bj.jobs[bj.job_index] if bj.jobs else None
-        
-        dispatch = {
-            "jobs_channel": (bj.jobs, 'job_index', bj),
-            "job_custom_channel": (job.custom_bake_channels, 'custom_bake_channels_index', job) if job else None,
-            "bake_objects": (job.setting.bake_objects, 'active_object_index', job.setting) if job else None
-        }
-
-        entry = dispatch.get(self.target)
-        if not entry: 
-            self.report({'ERROR'}, f"Invalid target: {self.target}")
+        from .core.common import manage_channels_logic
+        success, err = manage_channels_logic(self.target, self.action_type, context.scene.BakeJobs)
+        if not success:
+            self.report({'ERROR'}, err)
             return {'CANCELLED'}
-            
-        coll, attr, parent = entry
-        if parent is None:
-            self.report({'WARNING'}, "Action unavailable: Parent data missing")
-            return {'CANCELLED'}
-            
-        idx = getattr(parent, attr)
-        from .core.common import manage_collection_item
-        
-        if self.action_type == 'ADD':
-            item = manage_collection_item(coll, 'ADD', idx)
-            if self.target == "jobs_channel":
-                self._init_new_job(item, coll)
-        else:
-            manage_collection_item(coll, self.action_type, idx, parent, attr)
-            
         return {'FINISHED'}
-
-    def _init_new_job(self, item, coll):
-        item.name = f"Job {len(coll)}"
-        s = item.setting
-        s.bake_type = 'BSDF'
-        s.bake_mode = 'SINGLE_OBJECT'
-        reset_channels_logic(s)
-        for c in s.channels:
-            if c.id in {'color', 'combine', 'normal'}:
-                c.enabled = True
 
 class BAKETOOL_OT_SetSaveLocal(bpy.types.Operator):
     bl_idname="bake.set_save_local"; bl_label="Local"; save_location: props.IntProperty(default=0)
@@ -184,30 +160,9 @@ class BAKETOOL_OT_ManageObjects(bpy.types.Operator):
         s = context.scene.BakeJobs.jobs[context.scene.BakeJobs.job_index].setting
         sel = [o for o in context.selected_objects if o.type == 'MESH']
         act = context.active_object if (context.active_object and context.active_object.type == 'MESH') else None
-        def add(o):
-            if not any(i.bakeobject == o for i in s.bake_objects):
-                new = s.bake_objects.add(); new.bakeobject, new.udim_tile = o, detect_object_udim_tile(o)
-        if self.action == 'SET':
-            s.bake_objects.clear(); targets = sel
-            if s.bake_mode == 'SELECT_ACTIVE' and act and act in targets:
-                s.active_object = act; targets = [o for o in targets if o != act]
-            for o in targets: add(o)
-        elif self.action == 'ADD':
-            for o in sel:
-                if s.bake_mode == 'SELECT_ACTIVE' and o == s.active_object: continue
-                add(o)
-        elif self.action == 'REMOVE':
-            rem = set(sel)
-            for i in range(len(s.bake_objects)-1, -1, -1):
-                if s.bake_objects[i].bakeobject in rem: s.bake_objects.remove(i)
-        elif self.action == 'CLEAR': s.bake_objects.clear()
-        elif self.action == 'SET_ACTIVE': 
-            if act: s.active_object = act
-        elif self.action == 'SMART_SET':
-            if act: s.active_object = act
-            s.bake_objects.clear()
-            for o in sel:
-                if o != act: add(o)    
+        
+        from .core.common import manage_objects_logic
+        manage_objects_logic(s, self.action, sel, act)
         return {'FINISHED'}
 
 class BAKETOOL_OT_SaveSetting(bpy.types.Operator):
@@ -283,4 +238,40 @@ class BAKETOOL_OT_ClearCrashLog(bpy.types.Operator):
             BakeStateManager().finish_session(context)
         except Exception as e:
             logger.error(f"Failed to clear crash log: {e}")
+        return {'FINISHED'}
+
+class BAKETOOL_OT_TogglePreview(bpy.types.Operator):
+    """Toggle interactive packing preview in the viewport"""
+    bl_idname = "bake.toggle_preview"
+    bl_label = "Toggle Preview"
+    
+    def execute(self, context):
+        bj = context.scene.BakeJobs
+        if not bj.jobs: return {'CANCELLED'}
+        job = bj.jobs[bj.job_index]
+        s = job.setting
+        
+        from .core import shading
+        # Toggle state
+        s.use_preview = not s.use_preview
+        
+        # Apply to all objects in the job
+        objs = [o.bakeobject for o in s.bake_objects if o.bakeobject]
+        
+        if not objs:
+            self.report({'WARNING'}, "No objects assigned to job.")
+            s.use_preview = False
+            return {'CANCELLED'}
+            
+        for obj in objs:
+            if s.use_preview:
+                shading.apply_preview(obj, s)
+            else:
+                shading.remove_preview(obj)
+                
+        # Force redraw to see changes
+        for area in context.screen.areas:
+            if area.type == 'VIEW_3D':
+                area.tag_redraw()
+                
         return {'FINISHED'}

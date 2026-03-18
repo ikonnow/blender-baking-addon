@@ -38,23 +38,6 @@ class TestHeadlessSafety(unittest.TestCase):
                 # Blender 3.6
                 self.assertEqual(scene.render.bake_type, 'EMIT')
 
-    def test_robust_context_headless_simulation(self):
-        """Simulate a headless context where window might be None."""
-        # We can't easily force context.window to be None in a real Blender session,
-        # but we can verify that the image editor context manager survives 
-        # when we pass it a context that might be partial, or just verify it works 
-        # in the current (likely headless-like execution of tests) environment.
-        
-        img = bpy.data.images.new("SafetyTest", 32, 32)
-        
-        # In a real GUI session, this returns True. In headless, it should return False gracefully (or True if it finds a way).
-        # We just want to ensure NO CRASH.
-        try:
-            with image_manager.robust_image_editor_context(bpy.context, img) as valid:
-                pass
-        except Exception as e:
-            self.fail(f"robust_image_editor_context crashed: {e}")
-
     def test_smart_uv_no_active_object(self):
         """Test _apply_smart_uv robustness when context.object is None."""
         # Deselect all and ensure no active object

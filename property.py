@@ -153,6 +153,21 @@ class CustomBakeChannel(bpy.types.PropertyGroup):
     prefix: props.StringProperty(name='Prefix')
     suffix: props.StringProperty(name='Suffix')
     
+class BakedImageResult(bpy.types.PropertyGroup):
+    image: props.PointerProperty(type=bpy.types.Image)
+    filepath: props.StringProperty()
+    object_name: props.StringProperty()
+    channel_type: props.StringProperty()
+    
+    # --- Metadata Fields ---
+    res_x: props.IntProperty(name="Width")
+    res_y: props.IntProperty(name="Height")
+    samples: props.IntProperty(name="Samples")
+    duration: props.FloatProperty(name="Duration", precision=2)
+    bake_type: props.StringProperty(name="Method")
+    device: props.StringProperty(name="Device")
+    file_size: props.StringProperty(name="File Size") # Formatted e.g. "1.2 MB"
+
 class BakeJobSetting(bpy.types.PropertyGroup):
     save_and_quit: props.BoolProperty(default=False, name='Save And Quit')
     apply_to_scene: props.BoolProperty(default=False, name='Apply Bake')
@@ -208,6 +223,9 @@ class BakeJobSetting(bpy.types.PropertyGroup):
     pack_b: props.EnumProperty(items=get_channel_source_items, name="Blue (B)")
     pack_a: props.EnumProperty(items=get_channel_source_items, name="Alpha (A)")
     pack_suffix: props.StringProperty(name="Suffix", default="_ORM")
+    
+    # Roadmap 1.1: Interactive Preview
+    use_preview: props.BoolProperty(name="Interactive Preview", default=False, description="Show real-time channel packing preview in viewport")
     
     channels: props.CollectionProperty(type=BakeChannel)
     active_channel_index: props.IntProperty(name="Active Channel Index")
@@ -269,18 +287,3 @@ class BakeJobs(bpy.types.PropertyGroup):
     open_channels: props.BoolProperty(default=False)
     open_saves: props.BoolProperty(default=False)
     open_other: props.BoolProperty(default=False)
-
-class BakedImageResult(bpy.types.PropertyGroup):
-    image: props.PointerProperty(type=bpy.types.Image)
-    filepath: props.StringProperty()
-    object_name: props.StringProperty()
-    channel_type: props.StringProperty()
-    
-    # --- Metadata Fields ---
-    res_x: props.IntProperty(name="Width")
-    res_y: props.IntProperty(name="Height")
-    samples: props.IntProperty(name="Samples")
-    duration: props.FloatProperty(name="Duration", precision=2)
-    bake_type: props.StringProperty(name="Method")
-    device: props.StringProperty(name="Device")
-    file_size: props.StringProperty(name="File Size") # Formatted e.g. "1.2 MB"

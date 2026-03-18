@@ -22,13 +22,14 @@ class BakeStateManager:
             "job_name": job_name,
             "total_steps": total_steps,
             "current_step": 0,
+            "current_queue_idx": 0,
             "current_object": "",
             "current_channel": "",
             "last_error": ""
         }
         self._write(data)
 
-    def update_step(self, step_idx, obj_name, channel_name):
+    def update_step(self, step_idx, obj_name, channel_name, queue_idx=0):
         """更新当前正在进行的步骤"""
         # 读取现有日志以保留 start_time 等信息，如果读取失败则创建新的
         data = self.read_log()
@@ -38,6 +39,7 @@ class BakeStateManager:
         data.update({
             "status": "RUNNING",
             "current_step": step_idx,
+            "current_queue_idx": queue_idx,
             "current_object": obj_name,
             "current_channel": channel_name,
             "update_time": time.strftime("%Y-%m-%d %H:%M:%S")

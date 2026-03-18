@@ -1,16 +1,19 @@
-# Simple Bake Tool (SBT) v0.9.8
+# Simple Bake Tool (SBT) v1.0.0-RC
 
-A simplified, high-efficiency baking solution for Blender. 
+A simplified, high-efficiency baking solution for Blender.
 
-### Key Features (v0.9.8 Refactor)
-- **Hardened Architecture**: Standardized snake_case properties, UI dispatch patterns, and unified logging across all modules.
+### Key Features (v1.0.0-RC Refactor)
+- **Resume Interrupted Bake**: Advanced state recovery allowing you to resume complex bake jobs precisely where they failed.
+- **Data-Driven UI**: 100% decoupled UI architecture. Channels and panels are rendered purely from metadata, eliminating logic from the view layer.
+- **Robust Context Management**: Utilizes `contextlib.ExitStack` and native low-level APIs to ensure system stability and zero context-hijacking, even in Headless mode.
+- **Atomic Cleanup**: Employs UUID/Tagging (`is_bt_temp`) for temporary nodes to guarantee safe cleanup without affecting user assets.
+- **Hardened Architecture**: Standardized snake_case properties, and unified logging across all modules.
 - **Modular Engine**: Decoupled UI-Engine-Core logic with 100% test coverage for Blender 3.6 - 5.0.
-- **Dynamic Parameter Alignment**: Fully dynamic property evaluation ensures exact sync between UI configuration and engine execution, without hardcoded fragility.
 - **Cross-Platform Rock-Solid Paths**: Core migrated to `pathlib.Path` with normalized exceptions to fully eradicate silent runtime crashes.
 - **Zero-Side-Effect Quick Bake**: Powered by Runtime Proxies—bake selected objects without modifying your scene presets.
 - **Smart Object Reuse**: Automatically updates existing `_Baked` objects instead of duplicating mesh data.
 - **Production Resilience**: Intelligent handling of Library Linked assets and NaN mesh data.
-- **Cross-Version**: 100% Test Pass Rate for Blender 3.6, 4.2, 4.5, and 5.0.
+- **Cross-Version**: 120+ tests with 100% Pass Rate for Blender 3.6, 4.2 LTS, 4.5 LTS, and 5.0.1.
 
 ## Documentation
 - [User Manual](USER_MANUAL.md) - How to use.

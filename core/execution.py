@@ -22,21 +22,22 @@ class BakeModalOperator:
     state_mgr = None
     bake_queue = []
     
-    def init_modal(self, context):
+    def init_modal(self, context, start_idx=0):
         """Initialize state and start modal timer."""
         self.state_mgr = BakeStateManager()
         self.total_steps = len(self.bake_queue)
-        self.current_step_idx = 0
+        self.current_step_idx = start_idx
         self.sequence_tracking = {}
         
         context.scene.is_baking = True
-        context.scene.bake_progress = 0.0
+        context.scene.bake_progress = (self.current_step_idx / max(1, self.total_steps)) * 100.0
         context.scene.bake_status = "Initializing..."
         context.scene.bake_error_log = ""
         
         # Extract job names for logging
         job_names = list(set(step.job.name for step in self.bake_queue))
-        self.state_mgr.start_session(self.total_steps, ",".join(job_names))
+        if start_idx == 0:
+            self.state_mgr.start_session(self.total_steps, ",".join(job_names))
         
         self._timer = context.window_manager.event_timer_add(0.1, window=context.window)
         context.window_manager.modal_handler_add(self)
@@ -61,7 +62,7 @@ class BakeModalOperator:
                 self._handle_step_error(context, e)
             
             self.current_step_idx += 1
-            context.scene.bake_progress = (self.current_step_idx / self.total_steps) * 100.0
+            context.scene.bake_progress = (self.current_step_idx / max(1, self.total_steps)) * 100.0
             
         elif event.type == 'ESC': 
             self.cancel(context)
@@ -77,7 +78,7 @@ class BakeModalOperator:
             context.scene.frame_set(f_info['frame'])
         
         runner = BakeStepRunner(context)
-        results = runner.run(step, self.state_mgr)
+        results = runner.run(step, self.state_mgr, self.current_step_idx)
         
         for res in results:
             self._add_ui_result(context, res['image'], res['type'], res['obj'], res['path'], res.get('meta'))
@@ -143,9 +144,9 @@ class BakeModalOperator:
             except Exception: pass
         self.sequence_tracking.clear()
         
-        # Auto-Save logic (Only for standard jobs, checked via first step)
         if self.bake_queue and hasattr(self.bake_queue[0].job, 'setting'):
              if getattr(self.bake_queue[0].job.setting, 'save_and_quit', False): 
+                logger.warning("BakeTool: save_and_quit enabled — saving and exiting Blender now.")
                 bpy.ops.wm.save_mainfile(exit=True)
 
     def cancel(self, context):

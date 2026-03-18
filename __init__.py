@@ -6,6 +6,7 @@ from . import translations
 from . import ui
 from . import ops
 from . import property
+from . import preset_handler
 from .core import cleanup
 # 稳健加载测试模块 // Robust test module loading
 try:
@@ -46,7 +47,6 @@ class BakeToolPreferences(AddonPreferences):
         row.prop(self, "auto_load")
         row.prop(self, "default_preset_path")
 
-from . import preset_handler
 
 bl_info = {
     "name": "Simple Bake Tool",
@@ -61,62 +61,66 @@ bl_info = {
 }
 
 
-# Define lists of classes for registration
-property_classes = [
-    property.BakeNormalSettings,
-    property.BakePassSettings,
-    property.BakeCombineSettings,
-    property.BakeMeshSettings,
-    property.BakeExtensionSettings,
-    property.BakeObject,
-    property.BakeChannelSource,
-    property.BakeChannel,
-    property.CustomBakeChannel,
-    property.BakeImageSettings,
-    property.BakeNodeSettings,
-    property.BakeResultSettings,
-    property.BakeJobSetting,
-    property.BakeJob,
-    property.BakeJobs,
-    property.BakedImageResult,
-    BakeToolPreferences, # Add Preferences to list
-]
+def get_classes():
+    """Dynamically collect all classes from submodules that need registration."""
+    import inspect
+    classes = []
+    
+    # 1. Add local preferences
+    classes.append(BakeToolPreferences)
+    
+    # 2. Add classes from relevant modules
+    # Priority classes require specific registration order due to dependencies
+    priority_classes = [
+        property.BakeNormalSettings,
+        property.BakePassSettings,
+        property.BakeCombineSettings,
+        property.BakeMeshSettings,
+        property.BakeExtensionSettings,
+        property.BakeObject,
+        property.BakeChannelSource,
+        property.BakeChannel,
+        property.CustomBakeChannel,
+        property.BakeImageSettings,
+        property.BakeNodeSettings,
+        property.BakeResultSettings,
+        property.BakeJobSetting,
+        property.BakeJob,
+        property.BakeJobs,
+        property.BakedImageResult,
+        
+        # Primary Panels (must be registered before subpanels)
+        ui.BAKE_PT_BakePanel,
+        ui.BAKE_PT_NodePanel,
+        ui.BAKETOOL_PT_ImageEditorResults,
+    ]
+    classes.extend(priority_classes)
+    
+    # Auto-discover other modules (Operators, UI lists, etc.)
+    other_modules = [ops, ui]
+    if HAS_TESTS:
+        other_modules.append(tests)
+    other_modules.append(cleanup)
 
-operator_classes = [
-    ops.BAKETOOL_OT_ResetChannels,
-    ops.BAKETOOL_OT_BakeOperator,
-    ops.BAKETOOL_OT_BakeSelectedNode,
-    ops.BAKETOOL_OT_SetSaveLocal,
-    ops.BAKETOOL_OT_ManageObjects,
-    ops.BAKETOOL_OT_RefreshUDIM,
-    ops.BAKETOOL_OT_GenericChannelOperator,
-    ops.BAKETOOL_OT_DeleteResult,
-    ops.BAKETOOL_OT_DeleteAllResults,
-    ops.BAKETOOL_OT_ExportResult,
-    ops.BAKETOOL_OT_ExportAllResults,
-    ops.BAKETOOL_OT_SaveSetting,
-    ops.BAKETOOL_OT_LoadSetting,
-    ops.BAKETOOL_OT_ClearCrashLog,
-    ops.BAKETOOL_OT_QuickBake,
-    cleanup.BAKETOOL_OT_EmergencyCleanup,
-]
+    # Filter to avoid duplicates and ensure they are modules
+    other_modules = [m for m in other_modules if inspect.ismodule(m)]
+    
+    blender_bases = (bpy.types.Operator, bpy.types.Panel, bpy.types.PropertyGroup, 
+                     bpy.types.UIList, bpy.types.Menu, bpy.types.Header)
 
-if HAS_TESTS:
-    operator_classes.append(tests.BAKETOOL_OT_RunTests)
+    for mod in other_modules:
+        for name, obj in inspect.getmembers(mod, inspect.isclass):
+            if obj.__module__ == mod.__name__:
+                try:
+                    if obj in classes: continue
+                    if issubclass(obj, blender_bases) and obj not in blender_bases:
+                        classes.append(obj)
+                except TypeError:
+                    continue
+    
+    return classes
 
-ui_classes = [
-    ui.UI_UL_ObjectList,
-    ui.LIST_UL_CustomBakeChannelList,
-    ui.LIST_UL_JobsList,
-    ui.BAKETOOL_UL_ChannelList,
-    ui.BAKE_PT_BakePanel,
-    ui.BAKE_PT_NodePanel,
-    ui.BAKETOOL_UL_BakedImageResults,
-    ui.BAKETOOL_PT_BakedResults,
-    ui.BAKETOOL_PT_ImageEditorResults,
-]
-
-classes_to_register = property_classes + operator_classes + ui_classes
+classes_to_register = [] # Will be populated during register()
         
 addon_keymaps=[]
 
@@ -125,6 +129,9 @@ def menu_func_quick_bake(self, context):
     self.layout.operator("bake.quick_bake", icon='RENDER_STILL')
 
 def register():
+    global classes_to_register
+    classes_to_register = get_classes()
+    
     for cls in classes_to_register:
         bpy.utils.register_class(cls)
     

@@ -2,11 +2,16 @@ import bpy
 import logging
 import traceback
 from contextlib import contextmanager
-from ..constants import CHANNEL_DEFINITIONS, BSDF_COMPATIBILITY_MAP
+from ..constants import (
+    BAKE_CHANNEL_INFO, BSDF_COMPATIBILITY_MAP, 
+    SOCKET_DEFAULT_TYPE, APPLY_RESULT_CHANNEL_MAP,
+    SYSTEM_NAMES
+)
 
 logger = logging.getLogger(__name__)
 
 def log_error(context, message, state_mgr=None, include_traceback=False):
+
     """
     统一错误日志记录：同时记录到 Python 控制台、场景 UI 和状态管理器。
     """
@@ -60,11 +65,11 @@ def reset_channels_logic(setting):
     b_type = setting.bake_type
     
     key = ('BSDF_4' if bpy.app.version >= (4, 0, 0) else 'BSDF_3') if b_type == 'BSDF' else b_type
-    defs.extend(CHANNEL_DEFINITIONS.get(key, []))
+    defs.extend(BAKE_CHANNEL_INFO.get(key, []))
     
-    if setting.use_light_map: defs.extend(CHANNEL_DEFINITIONS.get('LIGHT', []))
-    if setting.use_mesh_map: defs.extend(CHANNEL_DEFINITIONS.get('MESH', []))
-    if setting.use_extension_map: defs.extend(CHANNEL_DEFINITIONS.get('EXTENSION', []))
+    if setting.use_light_map: defs.extend(BAKE_CHANNEL_INFO.get('LIGHT', []))
+    if setting.use_mesh_map: defs.extend(BAKE_CHANNEL_INFO.get('MESH', []))
+    if setting.use_extension_map: defs.extend(BAKE_CHANNEL_INFO.get('EXTENSION', []))
     
     target_ids = {d['id']: d for d in defs}
     
@@ -78,6 +83,8 @@ def reset_channels_logic(setting):
             c.name = target_ids[c.id]['name']
         else:
             c.valid_for_mode = False
+            c.enabled = False
+            # print(f"BT_DEBUG: Invalidating channel {c.id}")
             
     # 2. Add missing
     for d in defs:
@@ -90,6 +97,73 @@ def reset_channels_logic(setting):
             defaults = d.get('defaults', {})
             for k, v in defaults.items():
                 if hasattr(new_chan, k): setattr(new_chan, k, v)
+
+def manage_objects_logic(s, action, sel, act):
+    """Business logic for object list management."""
+    def add(o):
+        if not any(i.bakeobject == o for i in s.bake_objects):
+            from .uv_manager import detect_object_udim_tile
+            new = s.bake_objects.add()
+            new.bakeobject = o
+            new.udim_tile = detect_object_udim_tile(o)
+
+    if action == 'SET':
+        s.bake_objects.clear()
+        targets = sel
+        if s.bake_mode == 'SELECT_ACTIVE' and act and act in targets:
+            s.active_object = act
+            targets = [o for o in targets if o != act]
+        for o in targets: add(o)
+    elif action == 'ADD':
+        for o in sel:
+            if s.bake_mode == 'SELECT_ACTIVE' and o == s.active_object: continue
+            add(o)
+    elif action == 'REMOVE':
+        rem = set(sel)
+        for i in range(len(s.bake_objects)-1, -1, -1):
+            if s.bake_objects[i].bakeobject in rem: s.bake_objects.remove(i)
+    elif action == 'CLEAR': s.bake_objects.clear()
+    elif action == 'SET_ACTIVE': 
+        if act: s.active_object = act
+    elif action == 'SMART_SET':
+        if act: s.active_object = act
+        s.bake_objects.clear()
+        for o in sel:
+            if o != act: add(o)
+
+def manage_channels_logic(target, action_type, bj):
+    """Business logic for generic collection item manipulation."""
+    job = bj.jobs[bj.job_index] if bj.jobs else None
+    
+    dispatch = {
+        "jobs_channel": (bj.jobs, 'job_index', bj),
+        "job_custom_channel": (job.custom_bake_channels, 'custom_bake_channels_index', job) if job else None,
+        "bake_objects": (job.setting.bake_objects, 'active_object_index', job.setting) if job else None
+    }
+
+    entry = dispatch.get(target)
+    if not entry: return False, f"Invalid target: {target}"
+        
+    coll, attr, parent = entry
+    if parent is None: return False, "Action unavailable: Parent data missing"
+        
+    idx = getattr(parent, attr)
+    
+    if action_type == 'ADD':
+        item = manage_collection_item(coll, 'ADD', idx)
+        if target == "jobs_channel":
+            item.name = f"Job {len(coll)}"
+            s = item.setting
+            s.bake_type = 'BSDF'
+            s.bake_mode = 'SINGLE_OBJECT'
+            reset_channels_logic(s)
+            for c in s.channels:
+                if c.id in {'color', 'combine', 'normal'}:
+                    c.enabled = True
+    else:
+        manage_collection_item(coll, action_type, idx, parent, attr)
+    
+    return True, ""
 
 def manage_collection_item(collection, action, index, parent_obj=None, index_prop=""):
     """
@@ -181,7 +255,7 @@ class SceneSettingsContext:
 def apply_baked_result(original_obj, task_images, setting, task_base_name):
     """Create a new object or update existing one with baked textures applied."""
     if not task_images: return None
-    col = bpy.data.collections.get("Baked_Results") or bpy.data.collections.new("Baked_Results")
+    col = bpy.data.collections.get(SYSTEM_NAMES['RESULT_COLLECTION']) or bpy.data.collections.new(SYSTEM_NAMES['RESULT_COLLECTION'])
     if col.name not in bpy.context.scene.collection.children:
         try: bpy.context.scene.collection.children.link(col)
         except Exception: pass
@@ -214,24 +288,11 @@ def apply_baked_result(original_obj, task_images, setting, task_base_name):
         y_pos = 0
         
         # 扩展映射表：支持标准模式与 BSDF 模式的互补 // Extended mapping
-        channel_to_socket_keys = {
-            'color': 'color', 'diff': 'color',      # Base Color
-            'metal': 'metal',                       # Metallic
-            'rough': 'rough', 'gloss': 'rough',     # Roughness
-            'specular': 'specular', 
-            'emi': 'emi', 
-            'alpha': 'alpha', 
-            'normal': 'normal', 'bevnor': 'normal',
-            'ao': 'color', 'combine': 'color'
-        }
-
         for chan_id, image in texture_map.items():
             target_socket = None
-            compat_key = channel_to_socket_keys.get(chan_id)
-            
-            if compat_key and compat_key in BSDF_COMPATIBILITY_MAP:
-                possible_names = BSDF_COMPATIBILITY_MAP[compat_key]
-                for p_name in possible_names:
+            compat_key = APPLY_RESULT_CHANNEL_MAP.get(chan_id)
+            if compat_key:
+                for p_name in BSDF_COMPATIBILITY_MAP.get(compat_key, []):
                     if p_name in bsdf.inputs:
                         target_socket = bsdf.inputs[p_name]
                         break

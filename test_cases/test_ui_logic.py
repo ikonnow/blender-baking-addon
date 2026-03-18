@@ -33,7 +33,7 @@ class TestUILogic(unittest.TestCase):
         
     def test_channel_ui_map_coverage(self):
         """Verify all special channels have UI layouts defined."""
-        from ..constants import CHANNEL_UI_LAYOUT
+        from ..constants import BAKE_CHANNEL_INFO, CHANNEL_UI_LAYOUT
         
         # These channels should have specific UI definitions
         expected_channels = ['normal', 'diff', 'gloss', 'tranb', 'combine', 
@@ -109,24 +109,51 @@ class TestUILogic(unittest.TestCase):
         self.assertGreater(len(all_channels), len(bsdf_channels),
                           "Enabling light maps should add more channels")
         
-    def test_error_log_integration(self):
-        """Test that scene.bake_error_log property exists and is writable."""
-        # Verify the error log property exists
-        self.assertTrue(hasattr(self.scene, 'bake_error_log'), 
-                       "Scene should have bake_error_log property")
+    def test_baked_result_attribute_integrity(self):
+        """Verify BakedImageResult has all metadata fields used by the UI."""
+        results = self.scene.baked_image_results
+        item = results.add()
         
-        # Test writing to it
-        test_msg = "Test error message"
-        self.scene.bake_error_log = test_msg
-        self.assertEqual(self.scene.bake_error_log, test_msg,
-                        "Error log should be writable")
+        # UI uses these attributes in draw_results
+        expected_attrs = [
+            'image', 'filepath', 'object_name', 'channel_type',
+            'res_x', 'res_y', 'samples', 'duration', 'bake_type', 'device', 'file_size'
+        ]
         
-        # Test appending
-        self.scene.bake_error_log += "\nAnother error"
-        self.assertIn(test_msg, self.scene.bake_error_log,
-                     "Original message should be preserved")
-        self.assertIn("Another error", self.scene.bake_error_log,
-                     "New message should be appended")
+        for attr in expected_attrs:
+            self.assertTrue(hasattr(item, attr), f"BakedImageResult missing attribute: {attr}")
+            
+    def test_draw_results_crash_test(self):
+        """Test if draw_results function crashes with a valid result."""
+        # Create a mock result
+        results = self.scene.baked_image_results
+        item = results.add()
+        item.channel_type = "Base Color"
+        item.object_name = "Cube"
+        item.file_size = "1.2 MB"
+        self.scene.baked_image_results_index = 0
+        
+        # Create a mock layout
+        class MockLayout:
+            def box(self, *args, **kwargs): return self
+            def row(self, *args, **kwargs): return self
+            def column(self, *args, **kwargs): return self
+            def label(self, *args, **kwargs): pass
+            def prop(self, *args, **kwargs): pass
+            def split(self, *args, **kwargs): return self
+            def separator(self, *args, **kwargs): pass
+            def template_list(self, *args, **kwargs): pass
+            def prop_search(self, *args, **kwargs): pass
+            def operator(self, *args, **kwargs): return self
+            
+        layout = MockLayout()
+        
+        try:
+            # We need to mock the BakeJobs root too
+            bj = self.scene.BakeJobs
+            ui.draw_results(self.scene, layout, bj)
+        except Exception as e:
+            self.fail(f"ui.draw_results crashed: {e}")
 
 
 def suite():

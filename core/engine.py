@@ -14,7 +14,10 @@ from .image_manager import set_image, save_image
 from .math_utils import process_pbr_numpy, setup_mesh_attribute, pack_channels_numpy
 from .uv_manager import get_active_uv_udim_tiles, UDIMPacker, UVLayoutManager, detect_object_udim_tile
 from .node_manager import NodeGraphHandler
-from ..constants import CHANNEL_BAKE_INFO
+from ..constants import (
+    BAKE_CHANNEL_INFO, CHANNEL_BAKE_INFO, 
+    DATA_BAKE_FORCE_SINGLE_SAMPLE, CHANNEL_MESH_TYPE_MAP
+)
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +63,7 @@ class BakeStepRunner:
     def __init__(self, context):
         self.context = context
 
-    def run(self, step: BakeStep, state_mgr=None) -> List[Dict]:
+    def run(self, step: BakeStep, state_mgr=None, queue_idx=0) -> List[Dict]:
         """
         Execute a single Step and return the generated results.
         Returns: List of dicts {'image': bpy.types.Image, 'type': str, 'path': str, 'obj': str}
@@ -89,7 +92,7 @@ class BakeStepRunner:
                             
                             if state_mgr: 
                                 try:
-                                    state_mgr.update_step(i, task.active_obj.name, c['name'])
+                                    state_mgr.update_step(i, task.active_obj.name, c['name'], queue_idx)
                                 except Exception: pass
 
                             
@@ -335,7 +338,7 @@ class JobPreparer:
         s = job.setting
         chans = []
         for c in s.channels:
-            if c.enabled:
+            if c.enabled and c.valid_for_mode:
                 info = CHANNEL_BAKE_INFO.get(c.id, {})
                 chans.append({
                     'id': c.id, 'name': c.name, 'prop': c, 
@@ -363,7 +366,9 @@ class JobPreparer:
 class BakeContextManager:
     """管理烘焙时的场景与渲染临时设置"""
     def __init__(self, context, setting):
-        self.stack = []
+        from contextlib import ExitStack
+        self.stack = ExitStack()
+        self.context = context
         self.configs = [
             ('scene', {
                 'res_x': int(setting.res_x), 
@@ -388,13 +393,12 @@ class BakeContextManager:
     def __enter__(self):
         for ctx_type, params in self.configs:
             ctx = SceneSettingsContext(ctx_type, params)
-            ctx.__enter__()
-            self.stack.append(ctx)
+            self.stack.enter_context(ctx)
         return self
         
     def __exit__(self, exc_type, exc_val, exc_tb):
-        for ctx in reversed(self.stack):
-            ctx.__exit__(exc_type, exc_val, exc_tb)
+        self.stack.__exit__(exc_type, exc_val, exc_tb)
+        return False
 
 class BakePassExecutor:
     """封装单一烘焙通道的执行逻辑"""
@@ -426,7 +430,7 @@ class BakePassExecutor:
         mesh_type = cls._get_mesh_type(chan_id)
         attr_name = cls._ensure_attributes(task, setting, handler, chan_id)
         
-        is_data_pass = chan_id in {'normal', 'position', 'UV', 'height', 'wireframe', 'ID_mat', 'ID_ele'}
+        is_data_pass = chan_id in DATA_BAKE_FORCE_SINGLE_SAMPLE
         orig_samples = bpy.context.scene.cycles.samples
         
         try:
@@ -460,8 +464,7 @@ class BakePassExecutor:
 
     @staticmethod
     def _get_mesh_type(chan_id):
-        m_map = {'position': 'POS', 'UV': 'UV', 'wireframe': 'WF', 'ao': 'AO', 'bevel': 'BEVEL', 'bevnor': 'BEVEL', 'slope': 'SLOPE'}
-        if chan_id in m_map: return m_map[chan_id]
+        if chan_id in CHANNEL_MESH_TYPE_MAP: return CHANNEL_MESH_TYPE_MAP[chan_id]
         return 'ID' if chan_id.startswith('ID_') else None
 
     @staticmethod
@@ -480,15 +483,10 @@ class BakePassExecutor:
             is_special = (mesh_type is not None) or (chan_id == 'CUSTOM')
             bake_type = 'EMIT' if is_special else bake_pass
             
-            # --- Use Compatibility Layer ---
-            compat.configure_bake_settings(
-                scene, 
-                bake_type=bake_type,
-                margin=setting.margin,
-                use_clear=setting.use_clear_image,
-                target='IMAGE_TEXTURES'
-            )
-            
+            # 1. Configuration (Physical settings applied to scene/engine)
+            # Use compat layer ONLY for bake_type (handles Blender 3.x/4.x/5.0 property mapping differences)
+            compat.set_bake_type(scene, bake_type)
+
             params = {
                 'type': bake_type, 
                 'margin': setting.margin, 

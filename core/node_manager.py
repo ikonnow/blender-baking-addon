@@ -1,6 +1,6 @@
 import bpy
 import logging
-from ..constants import BSDF_COMPATIBILITY_MAP, SOCKET_DEFAULT_TYPE
+from ..constants import BSDF_COMPATIBILITY_MAP, SOCKET_DEFAULT_TYPE, SYSTEM_NAMES
 from . import compat
 
 logger = logging.getLogger(__name__)
@@ -83,9 +83,14 @@ class NodeGraphHandler:
     def _prepare_session_nodes(self):
         for mat in self.materials:
             tree = mat.node_tree
+            tex_n = tree.nodes.new('ShaderNodeTexImage')
+            emi_n = tree.nodes.new('ShaderNodeEmission')
+            tex_n["is_bt_temp"] = True
+            emi_n["is_bt_temp"] = True
+            
             self.session_nodes[mat] = {
-                'tex': tree.nodes.new('ShaderNodeTexImage'),
-                'emi': tree.nodes.new('ShaderNodeEmission')
+                'tex': tex_n,
+                'emi': emi_n
             }
             self.session_nodes[mat]['tex'].location = (-800, 500)
             self.session_nodes[mat]['emi'].location = (600, 0)
@@ -134,7 +139,7 @@ class NodeGraphHandler:
             except Exception: pass
 
         # 4. Explicitly remove the protection dummy image if it has no users left
-        d = bpy.data.images.get("BT_Protection_Dummy")
+        d = bpy.data.images.get(SYSTEM_NAMES['DUMMY_IMG'])
         if d and d.users == 0:
             try: bpy.data.images.remove(d)
             except Exception: pass
@@ -146,7 +151,7 @@ class NodeGraphHandler:
         Uses a temporary dummy image that shouldn't be saved.
         """
         active_set = set(active_materials)
-        d = bpy.data.images.get("BT_Protection_Dummy") or bpy.data.images.new("BT_Protection_Dummy", 32, 32, alpha=True)
+        d = bpy.data.images.get(SYSTEM_NAMES['DUMMY_IMG']) or bpy.data.images.new(SYSTEM_NAMES['DUMMY_IMG'], 32, 32, alpha=True)
         # Ensure it doesn't persist after nodes are gone
         d.use_fake_user = False 
         
@@ -161,7 +166,7 @@ class NodeGraphHandler:
                         continue
                     # We add a node to the material's tree. 
                     # The NodeGraphHandler will track this in temp_logic_nodes[m]
-                    self._add_node(m, 'ShaderNodeTexImage', image=d, name="BT_Protection_Node", label="BT Protection")
+                    self._add_node(m, 'ShaderNodeTexImage', image=d, name=SYSTEM_NAMES['PROTECTION_NODE'], label=SYSTEM_NAMES['PROTECTION_LABEL'])
 
     def setup_for_pass(self, bake_pass, socket_name, image, mesh_type=None, attr_name=None, channel_settings=None):
         for mat in self.materials:
@@ -208,6 +213,7 @@ class NodeGraphHandler:
 
     def _add_node(self, mat, type, **kwargs):
         n = mat.node_tree.nodes.new(type)
+        n["is_bt_temp"] = True
         for k, v in kwargs.items():
             if hasattr(n, k): setattr(n, k, v)
         if mat not in self.temp_logic_nodes: self.temp_logic_nodes[mat] = []
@@ -288,8 +294,12 @@ class NodeGraphHandler:
             tree.links.new(metallic_out, mix.inputs[0]) # Factor
             
             # Use socket names 'A' and 'B' for robustness (Blender 3.4+ ShaderNodeMix)
-            sock_a = mix.inputs.get('A') or mix.inputs[6]
-            sock_b = mix.inputs.get('B') or mix.inputs[7]
+            sock_a = mix.inputs.get('A') or (mix.inputs[6] if len(mix.inputs) > 6 else None)
+            sock_b = mix.inputs.get('B') or (mix.inputs[7] if len(mix.inputs) > 7 else None)
+            
+            if sock_a is None or sock_b is None:
+                logger.warning("PBR Conv: Mix node 'A'/'B' socket not found, skipping.")
+                return None
             
             tree.links.new(diff_src, sock_a)
             tree.links.new(spec_src, sock_b)

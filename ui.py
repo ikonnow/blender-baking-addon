@@ -90,14 +90,6 @@ def _draw_node_group(layout, channel):
         col.prop(s, "output_name", text="Output Name", icon='OUTPUT')
         col.label(text="Leave Output empty for default", icon='INFO')
 
-# Dispatch table for special channel drawers
-# This allows adding new special channels without modifying the main drawing function
-SPECIAL_CHANNEL_DRAWERS = {
-    'normal': _draw_normal,
-    'combine': _draw_combine,
-    'node_group': _draw_node_group,
-}
-
 def _draw_naming_section(layout, channel):
     """绘制命名配置区域 / Draw naming configuration section."""
     col = layout.column(align=True)
@@ -118,6 +110,25 @@ def _draw_color_override_section(layout, channel):
         sub.prop(channel, "custom_cs", text="Space")
         sub.prop(channel, "custom_mode", text="Export Mode")
 
+# Drawer registry for special channel types
+class ChannelDrawerRegistry:
+    _drawers = {}
+
+    @classmethod
+    def register(cls, channel_id, drawer_func):
+        cls._drawers[channel_id] = drawer_func
+
+    @classmethod
+    def get(cls, channel_id):
+        return cls._drawers.get(channel_id)
+
+# Initial registration of core drawers
+ChannelDrawerRegistry.register('normal', _draw_normal)
+ChannelDrawerRegistry.register('combine', _draw_combine)
+ChannelDrawerRegistry.register('node_group', _draw_node_group)
+ChannelDrawerRegistry.register('pbr_conv_base', _draw_pbr_conv)
+ChannelDrawerRegistry.register('pbr_conv_metal', _draw_pbr_conv)
+
 def draw_active_channel_properties(layout, channel, setting):
     if not channel: return
     
@@ -129,11 +140,6 @@ def draw_active_channel_properties(layout, channel, setting):
     box.separator()
     _draw_color_override_section(box, channel)
     box.separator()
-    
-    # 额外逻辑：Roughness 通道特有的反转开关
-    if channel.id == 'rough':
-        box.prop(channel, "rough_inv", icon='ARROW_LEFTRIGHT')
-        box.separator()
 
     # 数据驱动绘制逻辑 / Data-driven drawing logic
     config = CHANNEL_UI_LAYOUT.get(channel.id)
@@ -143,25 +149,41 @@ def draw_active_channel_properties(layout, channel, setting):
     layout_type = config.get('type')
     
     if layout_type == 'SPECIAL':
-        # 处理注册在字典中的特殊绘制逻辑
-        drawer = SPECIAL_CHANNEL_DRAWERS.get(channel.id)
+        # 处理注册在 registry 中的特殊绘制逻辑
+        drawer = ChannelDrawerRegistry.get(channel.id)
         if drawer:
             drawer(box, channel)
-        elif channel.id.startswith('pbr_conv_'):
-            # 处理通用的 PBR 转换前缀
-            _draw_pbr_conv(box, channel)
         
     elif layout_type == 'TOGGLES':
         col = box.column(align=True)
         draw_header(col, config.get('header', 'Settings'), config.get('icon', 'NONE'))
         r = col.row(align=True)
-        for prop_name, display_name in config.get('props', []):
-            r.prop(channel, prop_name, text=display_name, toggle=True)
+        for prop_data in config.get('props', []):
+            prop_name = prop_data[0]
+            display_name = prop_data[1]
+            
+            target = channel
+            if '.' in prop_name:
+                parts = prop_name.split('.')
+                target = getattr(channel, parts[0])
+                prop_name = parts[1]
+                
+            r.prop(target, prop_name, text=display_name, toggle=True)
             
     elif layout_type == 'PROPS':
         col = box.column(align=True)
-        for prop_name, display_name in config.get('props', []):
-            col.prop(channel, prop_name, text=display_name)
+        for prop_data in config.get('props', []):
+            prop_name = prop_data[0]
+            display_name = prop_data[1]
+            icon = prop_data[2] if len(prop_data) > 2 else 'NONE'
+            
+            target = channel
+            if '.' in prop_name:
+                parts = prop_name.split('.')
+                target = getattr(channel, parts[0])
+                prop_name = parts[1]
+                
+            col.prop(target, prop_name, text=display_name, icon=icon)
 
 def draw_results(scene, layout, bj):
     layout.label(text="Baked Results", icon='IMAGE_DATA')
@@ -240,6 +262,10 @@ def draw_crash_report(layout):
             col.label(text=f"Last Error: {err}")
         else:
             col.label(text="Check this object's UV/Mesh complexity")
+            
+        box.separator()
+        op = box.operator("bake.bake_operator", text="Resume Interrupted Bake", icon='RECOVER_LAST')
+        op.is_resume = True
 
 class UI_UL_ObjectList(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
@@ -582,6 +608,13 @@ class BAKE_PT_BakePanel(bpy.types.Panel):
                 grid.prop(s, "pack_b", text="B")
                 grid.prop(s, "pack_a", text="A")
                 sb.prop(s, "pack_suffix")
+                
+                # Roadmap 1.1: Preview Toggle
+                row = sb.row()
+                row.operator("bake.toggle_preview", 
+                             text="Stop Preview" if s.use_preview else "Preview Packing", 
+                             icon='RESTRICT_VIEW_OFF' if s.use_preview else 'RESTRICT_VIEW_ON',
+                             depress=s.use_preview)
 
             # --- 3. Animation Sequence ---
             sb.separator()

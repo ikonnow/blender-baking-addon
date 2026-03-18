@@ -2,6 +2,7 @@ import bpy
 import numpy as np
 import logging
 from .common import safe_context_override
+from ..constants import SYSTEM_NAMES
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +79,7 @@ class UVLayoutManager:
         self.objects = [o for o in objects if o.type == 'MESH']
         self.settings = settings
         self.original_states = {} 
-        self.temp_layer_name = "BT_Bake_Temp_UV"
+        self.temp_layer_name = SYSTEM_NAMES['TEMP_UV']
         self.created_layers = []
 
     def __enter__(self):

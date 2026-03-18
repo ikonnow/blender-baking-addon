@@ -3,6 +3,7 @@ import bmesh
 import numpy as np
 import colorsys
 import logging
+from ..constants import SYSTEM_NAMES
 
 logger = logging.getLogger(__name__)
 
@@ -175,7 +176,7 @@ def setup_mesh_attribute(obj, id_type='ELEMENT', start_color=(1,0,0,1), iteratio
     """
     if obj.type != 'MESH': return None
     if id_type == 'ELE': id_type = 'ELEMENT'
-    attr_name = f"BT_ATTR_{id_type}"
+    attr_name = f"{SYSTEM_NAMES['ATTR_PREFIX']}{id_type}"
     if attr_name in obj.data.attributes: return attr_name
 
     current_mode = obj.mode

@@ -122,7 +122,8 @@ def set_image(name, x, y, alpha=True, full=False, space='sRGB', ncol=False, basi
                         else:
                             # Fallback if no valid context for operators
                             image.tiles.new(tile_number=t_idx)
-                    except Exception: pass
+                    except Exception as e:
+                        logger.error(f"Failed to add UDIM tile {t_idx}: {e}")
 
         extra_tiles = existing_tiles - target_tiles
         for t_idx in extra_tiles:

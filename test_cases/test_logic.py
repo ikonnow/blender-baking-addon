@@ -92,6 +92,51 @@ class TestTaskBuilder_Logic(unittest.TestCase):
         self.assertEqual(task.active_obj, self.low)
         self.assertIn(self.high, task.objects)
 
+class TestChannelCollection(unittest.TestCase):
+    def setUp(self):
+        cleanup_scene()
+        self.setting = get_job_setting()
+
+    def test_collect_channels_ignores_invalid_and_disabled(self):
+        s = self.setting
+        print(f"\nDEBUG: Blender Version: {bpy.app.version}")
+        # Force clean state
+        s.use_light_map = False
+        s.use_mesh_map = False
+        s.use_extension_map = False
+        
+        # Switch to BASIC and enable a basic channel
+        s.bake_type = 'BASIC'
+        common.reset_channels_logic(s)
+        
+        diff_chan = next((c for c in s.channels if c.id == 'diff'), None)
+        self.assertIsNotNone(diff_chan)
+        diff_chan.enabled = True
+        
+        # Switch to BSDF. reset_channels_logic should disable diff_chan
+        s.bake_type = 'BSDF'
+        common.reset_channels_logic(s)
+        
+        # Verify it's now invalid
+        is_valid = diff_chan.valid_for_mode
+        self.assertFalse(is_valid, f"diff_chan should be invalid for BSDF mode (Ver: {bpy.app.version})")
+        self.assertFalse(diff_chan.enabled, "Channel should be disabled when invalid")
+        
+        # Manually enable it to test JobPreparer._collect_channels safety fallback
+        diff_chan.enabled = True
+        
+        # Create a mock job
+        class MockJob:
+            setting = s
+            custom_bake_channels = []
+            
+        from ..core.engine import JobPreparer
+        collected = JobPreparer._collect_channels(MockJob())
+        
+        # The invalid channel should NOT be collected
+        ids = [c['id'] for c in collected]
+        self.assertNotIn('diff', ids)
+
 class TestPropertyLogic(unittest.TestCase):
     """Test dynamic property logic helpers."""
     def setUp(self):

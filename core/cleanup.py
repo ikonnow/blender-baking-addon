@@ -1,7 +1,8 @@
 import bpy
 import logging
-import os
 from datetime import datetime
+from pathlib import Path
+from ..constants import SYSTEM_NAMES
 
 logger = logging.getLogger(__name__)
 
@@ -9,10 +10,9 @@ def log_cleanup_detail(message):
     """Log details to a persistent file in the system temp directory."""
     try:
         # Use system temp directory to avoid permission issues
-        log_dir = os.path.join(bpy.app.tempdir, "baketool_logs")
-        if not os.path.exists(log_dir):
-            os.makedirs(log_dir)
-        log_path = os.path.join(log_dir, "cleanup_history.log")
+        log_dir = Path(bpy.app.tempdir) / "baketool_logs"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        log_path = log_dir / "cleanup_history.log"
         
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         with open(log_path, "a", encoding="utf-8") as f:
@@ -39,24 +39,28 @@ class BAKETOOL_OT_EmergencyCleanup(bpy.types.Operator):
             if obj.type == 'MESH' and hasattr(obj.data, 'uv_layers'):
                 for i in range(len(obj.data.uv_layers)-1, -1, -1):
                     uv = obj.data.uv_layers[i]
-                    if uv.name == "BT_Bake_Temp_UV":
+                    if uv.name == SYSTEM_NAMES['TEMP_UV']:
                         name = obj.name
                         obj.data.uv_layers.remove(uv)
                         count_layers += 1
-                        details.append(f"Removed UV Layer 'BT_Bake_Temp_UV' from Object '{name}'")
+                        details.append(f"Removed UV Layer '{SYSTEM_NAMES['TEMP_UV']}' from Object '{name}'")
         
         # 2. Clean up protection nodes in materials
-        protection_img = bpy.data.images.get("BT_Protection_Dummy")
+        protection_img = bpy.data.images.get(SYSTEM_NAMES['DUMMY_IMG'])
         for mat in bpy.data.materials:
             if not mat.use_nodes or not mat.node_tree: continue
             
             nodes_to_remove = []
             for n in mat.node_tree.nodes:
+                # Primary safety check: GUID/Tag injected by our tool
+                is_tagged = n.get("is_bt_temp", False)
+                
                 # Check by Image reference
-                if n.bl_idname == 'ShaderNodeTexImage' and protection_img and n.image == protection_img:
-                    nodes_to_remove.append(n)
-                # Check by Name/Label (Fallback if image is already gone)
-                elif n.name == "BT_Protection_Node" or n.label == "BT Protection":
+                has_prot_img = n.bl_idname == 'ShaderNodeTexImage' and protection_img and n.image == protection_img
+                # Check by Name/Label (Fallback if image is already gone or legacy)
+                has_prot_name = n.name == SYSTEM_NAMES['PROTECTION_NODE'] or n.label == SYSTEM_NAMES['PROTECTION_LABEL']
+                
+                if is_tagged or has_prot_img or has_prot_name:
                     nodes_to_remove.append(n)
             
             for n in nodes_to_remove:
@@ -70,7 +74,7 @@ class BAKETOOL_OT_EmergencyCleanup(bpy.types.Operator):
 
         # 3. Clean up protection images and other bake-temp images
         for img in list(bpy.data.images):
-            if img.name.startswith("BT_Protection_Dummy") or img.name.startswith("BT_TEMP_"):
+            if img.name.startswith(SYSTEM_NAMES['DUMMY_IMG']) or img.name.startswith(SYSTEM_NAMES['TEMP_IMG_PREFIX']):
                 img_name = img.name
                 try:
                     bpy.data.images.remove(img)
@@ -84,7 +88,7 @@ class BAKETOOL_OT_EmergencyCleanup(bpy.types.Operator):
             if obj.type == 'MESH' and hasattr(obj.data, 'attributes'):
                 for i in range(len(obj.data.attributes)-1, -1, -1):
                     attr = obj.data.attributes[i]
-                    if attr.name.startswith("BT_ATTR_"):
+                    if attr.name.startswith(SYSTEM_NAMES['ATTR_PREFIX']):
                         attr_name = attr.name
                         obj.data.attributes.remove(attr)
                         details.append(f"Removed Attribute '{attr_name}' from Object '{obj.name}'")
