@@ -11,9 +11,10 @@ This document outlines the long-term strategic vision for Simple Bake Tool (SBT)
 - **Tech**: Temporary shader trees mixing inputs based on "Pack" settings.
 - **Benefit**: Visualize RGBA channel distribution instantly.
 
-### 1.2 Visual Cage Analysis
-- **Concept**: A "Heatmap" overlay on the mesh showing areas where the Cage might intersect with the High Poly mesh or miss details.
-- **Tech**: Ray-cast analysis between Low-Poly (with Cage extrusion) and High-Poly objects.
+### 1.2 Visual Cage Analysis [DONE]
+- **Status**: Completed (v0.9.5).
+- **Feature**: A "Heatmap" overlay on the mesh showing areas where the Cage might intersect with the High Poly mesh or miss details.
+- **Tech**: Ray-cast analysis between Low-Poly (with Cage extrusion) and High-Poly objects using BVH-Tree.
 - **Benefit**: Visually identify "missed rays" or artifacts before committing to a bake.
 
 ### 1.3 Asynchronous Progress UI [DONE]
@@ -75,7 +76,9 @@ This document outlines the long-term strategic vision for Simple Bake Tool (SBT)
 
 ### 4.1 Background Process Baking
 - **Concept**: Spawn a *separate* Blender background process to perform the bake while continuing work.
-- **Tech**: Subprocess management with IPC (Inter-Process Communication) for status reporting.
+- **Tech**: Subprocess management with IPC (Inter-Process Communication) for status reporting. 
+- **Implementation**: Uses a headless script and temp file serialization to pass bake job definitions.
+- **Status**: Planning (Target v1.1.0).
 
 ### 4.2 UDIM Massive Batching (Refined) [DONE]
 - **Status**: Completed (v0.9.5).
@@ -100,9 +103,10 @@ This document outlines the long-term strategic vision for Simple Bake Tool (SBT)
 ## 🌐 Phase 5: Ecosystem & Interoperability (Focus: Broader Adoption)
 *Goal: Seamless integration with external tools and pipelines.*
 
-### 5.1 USD/GLTF Export Pipeline
-- **Concept**: Direct export of baked assets with PBR materials to USD or GLTF formats.
-- **Benefit**: Streamlined asset transfer to game engines, other DCCs, or web viewers.
+### 5.1 USD/GLTF Export Pipeline [DONE]
+- **Status**: Completed (v0.9.5).
+- **Feature**: Direct export of baked assets with PBR materials to USD or GLTF formats.
+- **Benefit**: Streamlined asset transfer to game engines, other DCCs, or web viewers. Zero-friction delivery.
 
 ### 5.2 External Bake Engine Integration
 - **Concept**: Allow users to swap Blender's internal baker for external engines (e.g., Marmoset Toolbag, Substance Painter) via a standardized API.

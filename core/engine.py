@@ -86,10 +86,12 @@ class BakePostProcessor:
             tree = tmp_scene.compositing_node_group
             
         if not tree:
-            # In some versions, use_nodes = True doesn't immediately create the tree
-            if hasattr(tmp_scene, "node_tree_add"):
-                tmp_scene.node_tree_add()
+            # Blender 5.0+ and some headless environments may delay node tree creation
+            try:
+                tmp_scene.use_nodes = True
+                if hasattr(tmp_scene, "node_tree_add"): tmp_scene.node_tree_add()
                 tree = getattr(tmp_scene, "node_tree", None) or getattr(tmp_scene, "compositing_node_group", None)
+            except Exception: pass
         
         if not tree:
             logger.error("Could not find/create compositor node tree on temporary scene.")
@@ -231,13 +233,24 @@ class BakeStepRunner:
 
         # --- Post-Bake Logic: Apply & Export ---
         if not f_info: # Static bake
-            if job.setting.apply_to_scene:
-                scene.bake_status = f"Applying Result... - {task.base_name}"
+            res_obj = None
+            if job.setting.apply_to_scene or job.setting.export_model:
+                scene.bake_status = f"Preparing Material... - {task.base_name}"
                 res_obj = apply_baked_result(task.active_obj, baked_images, job.setting, task.base_name)
                 
-                if res_obj and job.setting.export_model and job.setting.use_external_save:
-                    scene.bake_status = f"Exporting Model... - {task.base_name}"
-                    ModelExporter.export(self.context, res_obj, job.setting, folder_name=task.folder_name)
+            if res_obj and job.setting.export_model and job.setting.use_external_save:
+                scene.bake_status = f"Exporting Model... - {task.base_name}"
+                ModelExporter.export(self.context, res_obj, job.setting, folder_name=task.folder_name, file_name=task.base_name)
+                
+            if res_obj and not job.setting.apply_to_scene:
+                # Cleanup the temporary proxy object since we only needed it for export
+                try:
+                    for mat_slot in res_obj.material_slots:
+                        if mat_slot.material:
+                            bpy.data.materials.remove(mat_slot.material)
+                    bpy.data.objects.remove(res_obj, do_unlink=True)
+                except Exception as e:
+                    logger.error(f"Failed to cleanup temp export object: {e}")
                                 
         return results
 
@@ -663,12 +676,12 @@ class BakePassExecutor:
 class ModelExporter:
     """模型安全导出逻辑"""
     @staticmethod
-    def export(context, obj, setting, folder_name=""):
+    def export(context, obj, setting, folder_name="", file_name=""):
         if not obj or not setting.external_save_path: return
         
         base_path = Path(bpy.path.abspath(setting.external_save_path))
         target_dir = base_path
-        if folder_name:
+        if folder_name and setting.create_new_folder:
             target_dir = base_path / bpy.path.clean_name(folder_name)
             
         try:
@@ -677,8 +690,8 @@ class ModelExporter:
             logger.error(f"Failed to create export directory {target_dir}: {e}")
             return
 
-        file_name = bpy.path.clean_name(obj.name)
-        file_path_base = target_dir / file_name
+        final_file_name = bpy.path.clean_name(file_name if file_name else obj.name)
+        file_path_base = target_dir / final_file_name
         
         prev_sel = context.selected_objects[:]
         prev_act = context.active_object
@@ -694,14 +707,23 @@ class ModelExporter:
             fmt = setting.export_format
             abs_filepath = str(file_path_base.resolve())
             
+            # Pack textures condition setup
+            use_tex = getattr(setting, 'export_textures_with_model', True)
+            if not use_tex:
+                obj.data.materials.clear()
+            
             if fmt == 'FBX':
+                # Force packing textures into FBX if requested
+                path_mode = 'COPY' if use_tex else 'AUTO'
                 bpy.ops.export_scene.fbx(
                     filepath=f"{abs_filepath}.fbx", 
                     use_selection=True, 
-                    path_mode='AUTO', 
+                    path_mode=path_mode, 
+                    embed_textures=use_tex,
                     mesh_smooth_type='FACE'
                 )
             elif fmt == 'GLB':
+                # GLB standardly embeds all active Principled BSDF images automatically
                 bpy.ops.export_scene.gltf(
                     filepath=f"{abs_filepath}.glb", 
                     use_selection=True, 
@@ -710,7 +732,9 @@ class ModelExporter:
             elif fmt == 'USD':
                 bpy.ops.wm.usd_export(
                     filepath=f"{abs_filepath}.usd", 
-                    selected_objects_only=True
+                    selected_objects_only=True,
+                    export_materials=use_tex,
+                    export_textures=use_tex
                 )
             logger.info(f"Exported: {fmt} -> {abs_filepath}")
         except Exception as e:

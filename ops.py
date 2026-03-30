@@ -321,3 +321,44 @@ class BAKETOOL_OT_TogglePreview(bpy.types.Operator):
                 area.tag_redraw()
                 
         return {'FINISHED'}
+
+class BAKETOOL_OT_AnalyzeCage(bpy.types.Operator):
+    """Run raycast analysis to find cage intersections"""
+    bl_idname = "bake.analyze_cage"
+    bl_label = "Analyze Cage Overlap"
+    
+    @classmethod
+    def poll(cls, context):
+        if not context.active_object: return False
+        return context.active_object.type == 'MESH'
+
+    def execute(self, context):
+        if not hasattr(context.scene, "BakeJobs"): return {'CANCELLED'}
+        bj = context.scene.BakeJobs
+        if not bj.jobs: return {'CANCELLED'}
+        job = bj.jobs[bj.job_index]
+        s = job.setting
+
+        sel_objs = [o for o in context.selected_objects if o.type == 'MESH']
+        act_obj = context.active_object if (context.active_object and context.active_object.type == 'MESH') else None
+        
+        if s.bake_mode == 'SELECT_ACTIVE':
+            low = act_obj
+            highs = [o for o in sel_objs if o != low]
+        else:
+            self.report({'WARNING'}, "Cage analysis requires 'Selected to Active' mode.")
+            return {'CANCELLED'}
+
+        if not highs:
+            self.report({'WARNING'}, "Select high poly objects first, then shift-select the low poly.")
+            return {'CANCELLED'}
+
+        from .core.cage_analyzer import CageAnalyzer
+        success, msg = CageAnalyzer.run_raycast_analysis(context, low, highs, extrusion=s.extrusion, auto_switch_vp=s.auto_switch_vertex_paint)
+        
+        if success:
+            self.report({'INFO'}, msg)
+        else:
+            self.report({'WARNING'}, msg)
+            
+        return {'FINISHED'}

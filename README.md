@@ -15,9 +15,13 @@ A simplified, high-efficiency baking solution for Blender.
 - [User Manual](USER_MANUAL.md) - How to use.
 - [Developer Guide](DEVELOPER_GUIDE.md) - How to extend.
 - [Roadmap](ROADMAP.md) - Future vision.
-- **Comprehensive Testing**: 110+ test cases covering edge cases and multi-version APIs.
-- **Detailed Audit Logs**: Persistent logging for emergency cleanup actions.
+## 🚀 **v0.9.5 PRODUCTION HARDENED** 🚀
 
+- **Core**: Multi-version Engine (Blender 3.3 - 5.0).
+- **Status**: **100% CI PASS** for 3.6, 4.2, 4.5, 5.0. 
+- **Highlights**: Zero-Friction Delivery (GLB/USD), Heatmap Cage Analysis, Denoise OIDN Pipeline.
+
+---
 ## 🚀 安装方法
 
 1.  从 [Releases](https://github.com/你的用户名/baketool/releases) 下载 `baketool.zip`。

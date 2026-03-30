@@ -139,5 +139,33 @@ class SuiteUnit(unittest.TestCase):
         remaining = [n for n in tree.nodes if n.get("is_bt_temp", False)]
         self.assertEqual(len(remaining), 0)
 
+    def test_cage_raycast_hit_detection(self):
+        """Verify Raycast analysis for cage overlap."""
+        from ..core.cage_analyzer import CageAnalyzer
+        with common.safe_context_override(bpy.context):
+            cleanup_scene()
+            low = create_test_object("Low_Cage_Test")
+            high = create_test_object("High_Cage_Test", location=(0,0,0.5)) # Offset high
+            
+            # Since high is offset by 0.5, rays from low with extrusion 0.1 should FAIL completely
+            success, msg = CageAnalyzer.run_raycast_analysis(bpy.context, low, [high], extrusion=0.1)
+            self.assertTrue(success)
+            self.assertIn("errors", msg) # Indicates failure to hit
+            
+            # Extrusion of 1.0 is enough to reach the high poly offset
+            success, msg2 = CageAnalyzer.run_raycast_analysis(bpy.context, low, [high], extrusion=1.0)
+            self.assertTrue(success)
+            
+            # Verify vertex colors were generated
+            vcol_name = "BT_CAGE_ERROR"
+            has_color = False
+            if hasattr(low.data, "color_attributes"):
+                has_color = vcol_name in low.data.color_attributes
+            else:
+                has_color = vcol_name in low.data.vertex_colors
+            self.assertTrue(has_color, "Vertex color map was not generated!")
+            
+            cleanup_scene()
+
 if __name__ == '__main__':
     unittest.main()

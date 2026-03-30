@@ -137,6 +137,50 @@ class SuiteProductionWorkflow(unittest.TestCase):
                     
                     # Cleanup WITHIN the leak context to avoid false positives
                     cleanup_scene()
+                    
+    def test_full_gltf_export_loop(self):
+        """[E2E] Verify the Zero-Friction Delivery Pipeline (GLB Exporter)."""
+        with self.subTest("GLB_Export_Textures"):
+            with assert_no_leak(self):
+                cleanup_scene()
+                obj = create_test_object("GLB_Export_Test", color=(0, 0, 1, 1), mat_count=1)
+                
+                builder = JobBuilder("Job_GLB")
+                builder.mode('SINGLE_OBJECT').type('BASIC').resolution(16)
+                builder.add_objects([obj])
+                
+                # Setup specific export flags
+                s = builder.setting
+                s.use_external_save = True
+                s.external_save_path = self.temp_dir
+                s.apply_to_scene = False # Crucial: do not apply to scene, test isolation
+                s.export_model = True
+                s.export_format = 'GLB'
+                s.export_textures_with_model = True
+                s.create_new_folder = False
+                s.name_setting = 'OBJECT' # Force consistent filename for test assertion
+                
+                builder.enable_channel('diff')
+                job = builder.build()
+                
+                queue = JobPreparer.prepare_execution_queue(bpy.context, [job])
+                runner = BakeStepRunner(bpy.context)
+                for i, step in enumerate(queue):
+                    runner.run(step, queue_idx=i)
+                
+                # Verify export existence
+                expected_filepath = os.path.join(self.temp_dir, "GLB_Export_Test.glb")
+                self.assertTrue(os.path.exists(expected_filepath), "GLB File was not exported!")
+                
+                # Check size to ensure it's not a tiny mesh without textures (typically > 300 bytes)
+                size = os.path.getsize(expected_filepath)
+                self.assertGreater(size, 200, "GLB File seems too small to contain a mesh + embedded PBR textures")
+                
+                # Also verify the original object did NOT get a baked material since apply_to_scene=False
+                mat_name = obj.material_slots[0].material.name if obj.material_slots else ""
+                self.assertNotIn("Baked", mat_name, "Original object was polluted despite apply_to_scene=False!")
+
+                cleanup_scene()
 
     def test_crash_recovery_resilience(self):
         with assert_no_leak(self):

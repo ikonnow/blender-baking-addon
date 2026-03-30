@@ -123,6 +123,17 @@ class BakeModalOperator:
         
         for res in results:
             add_bake_result_to_ui(context, res['image'], res['type'], res['obj'], res['path'], res.get('meta'))
+            
+            # Deep GC Pipeline: Free GPU/VRAM buffers immediately after step completion and save.
+            img = res['image']
+            if img:
+                try:
+                    img.gl_free()
+                    if hasattr(img, 'buffers_free'):
+                        img.buffers_free()
+                except Exception as e:
+                    logger.debug(f"GC Guard Free Error on {img.name}: {e}")
+
             if f_info and res['path']:
                 self._track_sequence(res['image'], res['path'], f_info['save_idx'])
 

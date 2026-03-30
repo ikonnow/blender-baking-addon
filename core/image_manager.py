@@ -137,7 +137,11 @@ def set_image(name, x, y, alpha=True, full=False, space='sRGB', ncol=False, basi
                     
                     if not op_success:
                         # Fallback for headless/legacy where operator poll fails
-                        try: image.tiles.new(tile_number=t_idx)
+                        try: 
+                            image.tiles.new(tile_number=t_idx)
+                            # Extra "touch" for 3.3/3.6 to ensure memory allocation
+                            image.generated_color = basiccolor
+                            image.update()
                         except Exception as e:
                             logger.error(f"Failed to add UDIM tile {t_idx} even with fallback: {e}")
 
@@ -150,6 +154,29 @@ def set_image(name, x, y, alpha=True, full=False, space='sRGB', ncol=False, basi
 
     try: image.update()
     except Exception: pass
+
+    # SPECIAL: Blender < 3.4 UDIM Baking "Uninitialized image" fix
+    # In 3.3, TILED images often fail to bake unless they have a valid filepath 
+    # and have been "touched" by a save operation once to allocate internal buffers.
+    if use_udim and bpy.app.version < (3, 4, 0):
+        try:
+            import os
+            import tempfile
+            # Force a temporary path to satisfy the bake operator's check
+            if not image.filepath:
+                tmp_dir = tempfile.gettempdir()
+                image.filepath_raw = os.path.join(tmp_dir, f"{image.name}.1001.png")
+            
+            # Use numpy to touch pixels as a second layer of defense
+            import numpy as np
+            num_tiles = len(image.tiles)
+            total_pixels = image.size[0] * image.size[1] * num_tiles
+            arr = np.tile(np.array(basiccolor, dtype=np.float32), total_pixels)
+            image.pixels.foreach_set(arr)
+            image.update()
+        except Exception as e:
+            logger.debug(f"3.3 UDIM buffer touch failed: {e}")
+
     return image
 
 def save_image(image, path='//', folder=False, folder_name='folder', file_format='PNG', motion=False, frame=0, reload=False, fillnum=4, save=True, separator="_"):

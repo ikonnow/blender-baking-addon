@@ -506,9 +506,9 @@ class BAKE_PT_BakePanel(bpy.types.Panel):
         row = b.row(align=True)
         row.prop(s, "apply_to_scene", text="Apply to Scene", icon='MATERIAL')
         
-        # Constraint: Export Mesh requires Apply to Scene AND External Save
+        # Constraint: Export Mesh requires External Save
         sub = row.row(align=True)
-        sub.active = s.apply_to_scene and s.use_external_save
+        sub.active = s.use_external_save
         sub.prop(s, "export_model", text="Export Mesh", icon='EXPORT')
         
         if s.export_model:
@@ -516,6 +516,10 @@ class BAKE_PT_BakePanel(bpy.types.Panel):
             row.separator()
             sub = row.row(align=True)
             sub.prop(s, "export_format", expand=True)
+            
+            row = b.row(align=True)
+            row.separator()
+            row.prop(s, "export_textures_with_model")
             
         b.separator()
         
@@ -551,7 +555,10 @@ class BAKE_PT_BakePanel(bpy.types.Panel):
             
             row = box.row(align=True)
             row.prop(s, "texel_density")
-            # In a real impl, we'd add an operator here to 'Calculate Auto Resolution'
+            
+            row = box.row(align=True)
+            row.prop(s, "auto_switch_vertex_paint")
+            box.operator("bake.analyze_cage", text="Analyze Cage Overlap", icon='RAYCAST')
             
             # --- Channel Packing (ORM) ---
             sb.separator()

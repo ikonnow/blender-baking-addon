@@ -231,6 +231,8 @@ class BakeJobSetting(bpy.types.PropertyGroup):
 
     export_model: props.BoolProperty(name="Export Model", default=False)
     export_format: props.EnumProperty(items=[('FBX','FBX','',1),('GLB','GLB','',2),('USD','USD','',3)], default='FBX')
+    export_textures_with_model: props.BoolProperty(name="Export with Textures", default=True, description="Automatically bind baked textures to exported model")
+    auto_switch_vertex_paint: props.BoolProperty(default=False, name="Auto Switch to Vertex Paint", description="Automatically switch viewport to Vertex Paint mode after cage analysis")
 
     # Channel Packing (ORM etc)
     use_packing: props.BoolProperty(name="Auto Pack Channels", default=False)
