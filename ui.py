@@ -194,7 +194,14 @@ class UI_UL_ObjectList(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         row = layout.row(align=True)
         if item.bakeobject:
-            row.label(text=item.bakeobject.name, icon='OBJECT_DATA')
+            obj = item.bakeobject
+            has_uv = True
+            if obj.type == 'MESH':
+                has_uv = (len(obj.data.uv_layers) > 0)
+            
+            row.label(text=obj.name, icon='OBJECT_DATA' if has_uv else 'ERROR')
+            if not has_uv:
+                row.label(text="(No UV!)", icon='NONE')
         else:
             row.label(text="Missing", icon='ERROR')
             
@@ -264,6 +271,40 @@ class BAKETOOL_UL_BakedImageResults(bpy.types.UIList):
         # Display resolution subtly on the right
         if item.res_x > 0:
             row.label(text=f"{item.res_x}x{item.res_y}", icon='NONE')
+
+def draw_env_status(layout, setting):
+    """Checks for project-wide potential issues (missing addons, invalid paths, etc)"""
+    any_issue = False
+    
+    # 1. Check Export Addons
+    if setting.export_model:
+        op_map = {'FBX': 'fbx', 'GLB': 'gltf', 'USD': 'usd_export'}
+        target_op = op_map.get(setting.export_format)
+        
+        has_addon = False
+        if target_op == 'fbx': has_addon = hasattr(bpy.ops.export_scene, "fbx")
+        elif target_op == 'gltf': has_addon = hasattr(bpy.ops.export_scene, "gltf")
+        elif target_op == 'usd_export': has_addon = hasattr(bpy.ops.wm, "usd_export")
+        
+        if not has_addon:
+            box = layout.box()
+            box.alert = True
+            row = box.row()
+            row.label(text=f"{setting.export_format} Addon is disabled!", icon='ERROR')
+            row.operator("bake.open_addon_prefs", text="Fix", icon='SETTINGS')
+            any_issue = True
+
+    # 2. Check Path Validity
+    if setting.use_external_save or setting.export_model:
+        path = bpy.path.abspath(setting.external_save_path)
+        if not path or not os.path.exists(path):
+            box = layout.box()
+            box.alert = True
+            box.label(text="Invalid Export Path!", icon='ERROR')
+            any_issue = True
+
+    if any_issue:
+        layout.separator()
 
 class BAKE_PT_NodePanel(bpy.types.Panel):
     bl_label = "Node Bake"
@@ -352,6 +393,7 @@ class BAKE_PT_BakePanel(bpy.types.Panel):
         row = b.row(align=True)
         row.template_icon_view(bj, "library_preset", show_labels=True)
         row.operator("bake.refresh_presets", text="", icon='FILE_REFRESH')
+        row.operator("bake.one_click_pbr", text="One-Click PBR", icon='MATERIAL')
 
         b = l.box()
         r = b.row()
@@ -369,6 +411,8 @@ class BAKE_PT_BakePanel(bpy.types.Panel):
             
         j = bj.jobs[bj.job_index]
         s = j.setting
+        
+        draw_env_status(l, s)
         
         b.prop(j, "name", text="")
         

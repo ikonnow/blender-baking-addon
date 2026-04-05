@@ -43,7 +43,7 @@ def set_bake_type(scene, bake_type):
     BAKE_MAPPING = {
         'EMIT': 'EMISSION',
         'DIFFUSE': 'DIFFUSE',
-        'NORMAL': 'NORMALS' if (not is_blender_3() or is_blender_3()) else 'NORMAL'
+        'NORMAL': 'NORMALS' if (is_blender_4() or is_blender_5()) else 'NORMAL'
     }
     target_bake_type = BAKE_MAPPING.get(bake_type, bake_type)
 

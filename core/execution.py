@@ -61,10 +61,13 @@ class BakeModalOperator:
     """
     _timer = None
     state_mgr = None
-    bake_queue = []
+    bake_queue = None
     
     def init_modal(self, context, start_idx=0):
         """Initialize state and start modal timer."""
+        if self.bake_queue is None:
+            self.bake_queue = []
+            
         self.state_mgr = BakeStateManager()
         self.total_steps = len(self.bake_queue)
         self.current_step_idx = start_idx
@@ -128,7 +131,10 @@ class BakeModalOperator:
             img = res['image']
             if img:
                 try:
-                    img.gl_free()
+                    # CB-4: gl_free() is removed in Blender 5.0+
+                    if bpy.app.version < (5, 0, 0) and hasattr(img, 'gl_free'):
+                        img.gl_free()
+                    
                     if hasattr(img, 'buffers_free'):
                         img.buffers_free()
                 except Exception as e:

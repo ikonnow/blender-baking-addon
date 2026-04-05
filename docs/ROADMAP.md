@@ -125,11 +125,35 @@ This document outlines the long-term strategic vision for Simple Bake Tool (SBT)
 
 ---
 
-## 🤖 Phase 6: Intelligence & Scalability (Focus: Next Generation)
-*Goal: Leverage AI and distributed computing for extreme-scale baking.*
 
-### 6.1 AI-Assisted Cage Optimization (AI-Cage)
-- **Concept**: Use a lightweight neural network to predict optimal cage extrusion/offset values by analyzing mesh topology and occlusion.
-
-### 6.2 Distributed Node Baking
-- **Concept**: A simple client-server architecture to delegate bake jobs to multiple machines on the same network.
+ ---
+ 
+-## 🤖 Phase 6: Intelligence & Scalability (Focus: Next Generation)
++## 🧠 Phase 6: Intelligence & Scalability (Focus: Next Generation)
+ *Goal: Leverage AI and distributed computing for extreme-scale baking.*
+ 
+ ### 6.1 AI-Assisted Cage Optimization (AI-Cage)
+@@ -134,3 +134,22 @@
+ ### 6.2 Distributed Node Baking
+ - **Concept**: A simple client-server architecture to delegate bake jobs to multiple machines on the same network.
+ 
++---
++
++## 🎨 Phase 7: UI & User Experience 2.0 (Planned v1.1.0)
++*Goal: Proactive assistance and extreme workflow simplification.*
++
++### 7.1 Dashboard Hub (Visual Status Management)
++- **Concept**: A single "Health Dashboard" showing status for all objects, materials, and paths in the current project.
++- **Sub-Feature**: "Global Auto-Fix" button for missing UVs or invalid resolutions.
++
++### 7.2 3D Viewport HUD (Real-time Feedback)
++- **Concept**: A floating progress bar and "Bake Complete" badge directly in the 3D scene (using GPU modules).
++
++### 7.3 Multi-Job Parallelization (Background)
++- **Concept**: Seamlessly hand off all enabled jobs to a separate thread/process to keep Blender alive for modeling.
++
++### 7.4 Smart Asset Naming Tokens
++- **Concept**: Standardized tokens like `<OBJECT>`, `<DATE>`, `<VERSION>`, `<ENGINE>` for dynamic output folder structures.
++
++### 7.5 Batch Asset Sync & Export
++- **Concept**: One-click sync from bake results to multiple game engines (Unity/Unreal/Godot) output folders simultaneously.

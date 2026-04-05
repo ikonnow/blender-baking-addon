@@ -4,15 +4,23 @@ import sys
 from pathlib import Path
 
 # Define Blender execution paths
-# You can add your local blender paths here. 
-# The script will automatically skip missing ones.
-BLENDER_PATHS = [
-    r"D:\Program Files\blender-3.3\blender.exe",
-    r"D:\Program Files\Blender-3.6\blender.exe",
-    r"D:\Program Files\blender-4.2\blender.exe",
-    r"D:\Program Files\blender-4.5\blender.exe",
-    r"D:\Program Files\blender-5.0\blender.exe",
-]
+# Priority: 1. Environment Variable 'BLENDER_PATHS' (semicolon separated)
+#           2. Hardcoded defaults below
+env_paths_str = os.environ.get("BLENDER_PATHS", "")
+BLENDER_PATHS = [p.strip() for p in env_paths_str.split(";") if p.strip()]
+
+if not BLENDER_PATHS:
+    BLENDER_PATHS = [
+        r"D:\Program Files\blender-3.3\blender.exe",
+        r"D:\Program Files\Blender-3.6\blender.exe",
+        r"D:\Program Files\blender-4.2\blender.exe",
+        r"D:\Program Files\blender-4.5\blender.exe",
+        r"D:\Program Files\blender-5.0\blender.exe",
+        # C:\ Fallbacks
+        r"C:\Program Files\Blender Foundation\Blender 3.3\blender.exe",
+        r"C:\Program Files\Blender Foundation\Blender 3.6\blender.exe",
+        r"C:\Program Files\Blender Foundation\Blender 4.2\blender.exe",
+    ]
 
 current_dir = str(Path(__file__).resolve().parent)
 runner_script = str(Path(current_dir) / "cli_runner.py")

@@ -120,8 +120,8 @@ class BakePostProcessor:
             if viewer_img:
                 if viewer_img.size[0] == image.size[0] and viewer_img.size[1] == image.size[1]:
                     try:
-                        # Version Guard for gl_free (Deprecated in B5)
-                        if bpy.app.version < (5, 0, 0) and hasattr(image, "gl_free"):
+                        from . import compat
+                        if not compat.is_blender_5() and hasattr(image, "gl_free"):
                             image.gl_free()
                         
                         image.pixels.foreach_set(viewer_img.pixels)
@@ -129,7 +129,8 @@ class BakePostProcessor:
                     except Exception as e:
                         logger.error(f"Failed to write back denoised pixels: {e}")
             
-            if viewer_img and bpy.app.version < (5, 0, 0) and hasattr(viewer_img, "gl_free"):
+            from . import compat
+            if viewer_img and not compat.is_blender_5() and hasattr(viewer_img, "gl_free"):
                 viewer_img.gl_free()
                 
         finally:
@@ -364,6 +365,12 @@ class JobPreparer:
 
             s = job.setting
             objs = [o.bakeobject for o in s.bake_objects if o.bakeobject]
+            
+            # HP-4: Protect against empty objs list
+            if not objs:
+                logger.warning(f"Job {job.name} has no valid objects. Skipping.")
+                continue
+                
             active = s.active_object if s.active_object else next((o for o in objs if o.type == 'MESH'), objs[0])
 
             tasks = TaskBuilder.build(context, s, objs, active)
@@ -716,6 +723,10 @@ class ModelExporter:
                 obj.data.materials.clear()
             
             if fmt == 'FBX':
+                # HP-8: Check for io_scene_fbx addon
+                if not hasattr(bpy.ops.export_scene, "fbx"):
+                    logger.error("FBX Export failed: Addon 'io_scene_fbx' not enabled.")
+                    return
                 # Force packing textures into FBX if requested
                 path_mode = 'COPY' if use_tex else 'AUTO'
                 bpy.ops.export_scene.fbx(
@@ -726,6 +737,10 @@ class ModelExporter:
                     mesh_smooth_type='FACE'
                 )
             elif fmt == 'GLB':
+                # HP-8: Check for io_scene_gltf2 addon
+                if not hasattr(bpy.ops.export_scene, "gltf"):
+                    logger.error("GLB/glTF Export failed: Addon 'io_scene_gltf2' not enabled.")
+                    return
                 # GLB standardly embeds all active Principled BSDF images automatically
                 bpy.ops.export_scene.gltf(
                     filepath=f"{abs_filepath}.glb", 
@@ -733,6 +748,10 @@ class ModelExporter:
                     export_format='GLB'
                 )
             elif fmt == 'USD':
+                # HP-8: Check for USD support (ops.wm.usd_export)
+                if not hasattr(bpy.ops.wm, "usd_export"):
+                    logger.error("USD Export failed: USD not supported in this Blender build.")
+                    return
                 bpy.ops.wm.usd_export(
                     filepath=f"{abs_filepath}.usd", 
                     selected_objects_only=True,

@@ -1,24 +1,22 @@
-# Simple Bake Tool (SBT) v0.9.5
+# Simple Bake Tool (SBT) v1.0.0
 
 A simplified, high-efficiency baking solution for Blender.
 
-### Key Features (v0.9.5 Update)
+### Key Features (v1.0.0 Update)
 - **Enhanced Performance Profiler**: Track precise `Bake Time` vs `Save Time` per channel to optimize your production pipeline.
 - **Node-Based Denoising**: Integrated OIDN (Open Image Denoise) support for high-quality results even with low sample counts.
-- **Preset Gallery Beta**: Browse your bake configurations with thumbnails via the new gallery UI.
-- **Data-Driven UI**: 100% decoupled UI architecture. Channels and panels are rendered purely from metadata.
-- **Resume Interrupted Bake**: Advanced state recovery allowing you to resume complex bake jobs precisely where they failed.
-- **Robust Context Management**: Utilizes `contextlib.ExitStack` to ensure system stability even in Headless mode.
-- **Cross-Version Rock-Solid**: 100% Pass Rate confirmed for Blender 3.6, 4.2 LTS, 4.3, 4.5, and 5.0.1. Verified with dynamic resource protection.
+- **Environment & Health Check**: Automatic validation for missing addons, paths, and UV maps before baking.
+- **One-Click PBR Setup**: Instant initialization for Color, Roughness, and Normal channels.
+- **Cross-Version Rock-Solid**: 100% Pass Rate confirmed for Blender 3.6, 4.2 LTS, and 5.0. Verified with dynamic resource protection.
 
 ## Documentation
-- [User Manual](USER_MANUAL.md) - How to use.
-- [Developer Guide](DEVELOPER_GUIDE.md) - How to extend.
-- [Roadmap](ROADMAP.md) - Future vision.
-## 🚀 **v0.9.5 PRODUCTION HARDENED** 🚀
+- [User Manual](docs/USER_MANUAL.md) - How to use.
+- [Developer Guide](docs/dev/DEVELOPER_GUIDE.md) - How to extend.
+- [Roadmap](docs/ROADMAP.md) - Future vision.
+## 🚀 **v1.0.0 PRODUCTION HARDENED** 🚀
 
 - **Core**: Multi-version Engine (Blender 3.3 - 5.0).
-- **Status**: **100% CI PASS** for 3.6, 4.2, 4.5, 5.0. 
+- **Status**: **100% CI PASS** for 3.6, 4.2, 5.0. 
 - **Highlights**: Zero-Friction Delivery (GLB/USD), Heatmap Cage Analysis, Denoise OIDN Pipeline.
 
 ---
@@ -31,8 +29,8 @@ A simplified, high-efficiency baking solution for Blender.
 
 ## 📖 文档
 
-- [用户参考手册 (中文)](USER_MANUAL.md)
-- [Developer Guide (Architecture & Testing)](DEVELOPER_GUIDE.md)
+- [用户参考手册 (中文)](docs/USER_MANUAL.md)
+- [Developer Guide (Architecture & Testing)](docs/dev/DEVELOPER_GUIDE.md)
 ## 🚀 Installation
 
 1.  Download `baketool.zip` from [Releases](https://github.com/lastraindrop/baketool/releases).
@@ -42,9 +40,9 @@ A simplified, high-efficiency baking solution for Blender.
 
 ## 📖 Documentation
 
-- [User Manual](USER_MANUAL.md) - Standard operating procedures for artists.
-- [Developer Guide](DEVELOPER_GUIDE.md) - Deep dive into architecture, tests, and APIs.
-- [Roadmap](ROADMAP.md) - Future vision and development phases.
+- [User Manual](docs/USER_MANUAL.md) - Standard operating procedures for artists.
+- [Developer Guide](docs/dev/DEVELOPER_GUIDE.md) - Deep dive into architecture, tests, and APIs.
+- [Roadmap](docs/ROADMAP.md) - Future vision and development phases.
 
 ## 🛠️ Development
 

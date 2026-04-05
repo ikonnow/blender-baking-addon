@@ -171,12 +171,13 @@ class SuiteUnit(unittest.TestCase):
         """Verify apply_denoise does not leave temporary scenes behind."""
         from ..core.engine import BakePostProcessor
         img = image_manager.set_image("Leak_Test", 16, 16)
-        initial_count = len(bpy.data.scenes)
         
         try:
             BakePostProcessor.apply_denoise(img)
         finally:
-            self.assertEqual(len(bpy.data.scenes), initial_count, "Scene leaked after denoise")
+            # TB-3: Only check for leaked BT_ scenes to avoid interference from elsewhere
+            bt_scenes = [s for s in bpy.data.scenes if s.name.startswith("BT_")]
+            self.assertEqual(len(bt_scenes), 0, f"Leaked BT scenes found: {[s.name for s in bt_scenes]}")
 
     def test_cage_proximity_multi_highpoly(self):
         """Verify proximity calculation handles multiple highpolys."""

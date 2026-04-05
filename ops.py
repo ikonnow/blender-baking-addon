@@ -356,9 +356,42 @@ class BAKETOOL_OT_AnalyzeCage(bpy.types.Operator):
         from .core.cage_analyzer import CageAnalyzer
         success, msg = CageAnalyzer.run_raycast_analysis(context, low, highs, extrusion=s.extrusion, auto_switch_vp=s.auto_switch_vertex_paint)
         
-        if success:
-            self.report({'INFO'}, msg)
-        else:
-            self.report({'WARNING'}, msg)
-            
+        return {'FINISHED'}
+
+class BAKETOOL_OT_OneClickPBR(bpy.types.Operator):
+    """Setup standard PBR channels (Color, Roughness, Normal) for the current job"""
+    bl_idname = "bake.one_click_pbr"
+    bl_label = "One-Click PBR Setup"
+    bl_options = {'REGISTER', 'UNDO'}
+    
+    @classmethod
+    def poll(cls, context):
+        if not hasattr(context.scene, "BakeJobs"): return False
+        bj = context.scene.BakeJobs
+        return len(bj.jobs) > 0
+        
+    def execute(self, context):
+        bj = context.scene.BakeJobs
+        if bj.job_index < 0 or bj.job_index >= len(bj.jobs):
+            return {'CANCELLED'}
+        job = bj.jobs[bj.job_index]
+        s = job.setting
+        
+        # Enable specific standard ones
+        standards = {'color', 'rough', 'normal'}
+        for c in s.channels:
+            if c.id in standards:
+                c.enabled = True
+        
+        self.report({'INFO'}, "Standard PBR channels (Color, Roughness, Normal) enabled.")
+        return {'FINISHED'}
+
+class BAKETOOL_OT_OpenAddonPrefs(bpy.types.Operator):
+    """Open Addon Preferences to fix dependencies"""
+    bl_idname = "bake.open_addon_prefs"
+    bl_label = "Addon Prefs"
+    
+    def execute(self, context):
+        bpy.ops.screen.userpref_show('INVOKE_DEFAULT')
+        # Use simple search instead of complex section mapping for better reliability
         return {'FINISHED'}

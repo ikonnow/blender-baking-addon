@@ -156,19 +156,22 @@ def set_image(name, x, y, alpha=True, full=False, space='sRGB', ncol=False, basi
     except Exception: pass
 
     # SPECIAL: Blender < 3.4 UDIM Baking "Uninitialized image" fix
-    # In 3.3, TILED images often fail to bake unless they have a valid filepath 
-    # and have been "touched" by a save operation once to allocate internal buffers.
-    if use_udim and bpy.app.version < (3, 4, 0):
+    from . import compat
+    if use_udim and compat.is_blender_3():
         try:
             import os
             import tempfile
-            # Force a temporary path to satisfy the bake operator's check
+            # Force a temporary path with <UDIM> token for older versions
             if not image.filepath:
                 tmp_dir = tempfile.gettempdir()
-                image.filepath_raw = os.path.join(tmp_dir, f"{image.name}.1001.png")
+                image.filepath_raw = os.path.join(tmp_dir, f"{image.name}.<UDIM>.png")
             
-            # Simple save to initialize internal UDIM buffers (3.3 specific requirement)
-            image.save()
+            # Pack is the most reliable way to 'touch' internal data in 3.3
+            try:
+                if not image.is_packed:
+                    image.pack()
+            except: pass
+            
             image.update()
         except Exception as e:
             logger.debug(f"3.3 UDIM buffer touch failed: {e}")
@@ -180,7 +183,12 @@ def save_image(image, path='//', folder=False, folder_name='folder', file_format
     if not save or not image: return None
     
     base = Path(bpy.path.abspath(path))
-    if str(base) == '.': base = Path(bpy.data.filepath).parent 
+    # HP-6: If blend file is unsaved and path is relative/empty, use temp dir
+    if str(base) == '.' or not bpy.data.filepath: 
+        if not bpy.data.filepath and path in {'//', ''}:
+            base = Path(bpy.app.tempdir)
+        elif bpy.data.filepath:
+            base = Path(bpy.data.filepath).parent 
     directory = base / folder_name if folder else base
     try: directory.mkdir(parents=True, exist_ok=True)
     except Exception as e:

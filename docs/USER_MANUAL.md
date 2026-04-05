@@ -1,9 +1,9 @@
 # Simple Bake Tool (SBT) - 用户参考手册
 
-**版本**: 0.9.5 (Update - Production E2E Validation)
+**版本**: 1.0.0 (Production Hardened Release)
 **分类**: 3D VIEW > N Panel > Baking
 
-> **📢 项目状态声明**: 本插件已通过涵盖 20x5 (1000+) 项测试用例的跨版本（Blender 3.3 - 5.0）自动化矩阵测试套件验证。Blender 3.6+ 已实现 100% 完美测试通过。v0.9.5 引入了全面资源隔离保护与动态参数对齐。
+> **📢 项目状态声明**: 本插件已通过涵盖 20x5 (1000+) 项测试用例的跨版本（Blender 3.3 - 5.0）自动化矩阵测试套件验证。Blender 3.6+ 已实现 100% 完美测试通过。v1.0.0 引入了全自动环境健康监测与一键式 PBR 工作流。
 
 Simple Bake Tool (SBT) 是一套专为 Blender 设计的非破坏性、全自动纹理烘焙解决方案。它接管了繁琐的节点连接、图像创建和保存工作，让您专注于参数设置。
 
@@ -15,8 +15,19 @@ Simple Bake Tool (SBT) 是一套专为 Blender 设计的非破坏性、全自动
 面板顶部是任务列表。你可以创建多个不同的烘焙预设（例如“角色烘焙”、“场景烘焙”）。
 *   **Add/Remove**: 添加或删除任务。
 *   **Save/Load Preset**: 将当前的所有设置保存为 `.json` 文件，方便在不同工程间共享配置。
+*   **One-Click PBR Setup [NEW]**: 一键初始化标准的 PBR 烘焙通道。点击后系统会自动启用 `Base Color`, `Roughness`, `Normal` 并配置推荐的后缀名。
 
-### 1.2 Input Settings (输入设置)
+### 1.2 Environment & Health Check (环境与健康检查) [NEW]
+系统会实时监控您的工程环境，并在面板顶部通过红色警告框提示：
+*   **Addon Dependency**: 检查 FBX/GLB/USD 导出插件是否开启。点击 **Fix** 可直接跳转至插件首选项进行修复。
+*   **Path Validation**: 验证输出路径是否合法且存在。
+
+### 1.3 Smart Object List (智能对象列表) [NEW]
+对象列表现在具备主动诊断能力：
+*   **UV 检测**: 列表会自动检测网格是否包含 UV。如果缺少 UV，图标会显示为红色感叹号并标注 **(No UV!)**，防止无效烘焙。
+
+### 1.4 Input Settings (输入设置)
+定义“谁来烘焙”以及“怎么烘焙”。
 定义“谁来烘焙”以及“怎么烘焙”。
 
 *   **Resolution (X/Y)**: 烘焙贴图的分辨率。对于 UDIM，这是每个 Tile 的分辨率。

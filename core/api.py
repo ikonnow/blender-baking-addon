@@ -28,9 +28,38 @@ def bake(objects, use_selection=True):
         logger.error("API Error: No objects provided for baking.")
         return False
         
-    # Logic to queue a bake job (Modal operators require UI context, 
-    # so this will trigger the existing operator but with API-initialized settings)
-    bpy.ops.bake.bake_operator('INVOKE_DEFAULT')
+    # CB-2: Rewrite to use engine logic directly instead of UI Operator
+    # We use the currently active job setup in the scene as the template
+    if not hasattr(bpy.context.scene, "BakeJobs"):
+        logger.error("API Error: BakeTool properties not registered.")
+        return False
+        
+    jobs_manager = bpy.context.scene.BakeJobs
+    if not jobs_manager.jobs:
+        # Create a default job for the API call
+        jobs_manager.jobs.add()
+        jobs_manager.jobs[0].name = "API_Auto_Job"
+        # Reset channels to default for new job
+        from .common import reset_channels_logic
+        reset_channels_logic(jobs_manager.jobs[0].setting)
+        
+    job = jobs_manager.jobs[0]
+    active_obj = bpy.context.active_object if (bpy.context.active_object and bpy.context.active_object.type == 'MESH') else None
+    
+    # Generate the execution queue
+    queue = JobPreparer.prepare_quick_bake_queue(bpy.context, job, objects, active_obj)
+    
+    if not queue:
+        logger.warning("API Warning: No bake steps generated for the given objects.")
+        return False
+        
+    # Run the bake steps synchronously
+    # Note: In UI this will block Blender, but for API usage (especially CLI/background) 
+    # this is often the expected behavior for programmatic control.
+    runner = BakeStepRunner(bpy.context)
+    for step in queue:
+        runner.run(step)
+        
     return True
 
 def get_udim_tiles(objects):

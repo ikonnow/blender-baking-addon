@@ -31,7 +31,12 @@ def create_preview_material(obj, s):
     # Create the Packing Logic (Combine RGBA)
     combine = nodes.new('ShaderNodeCombineColor')
     combine.location = (400, 0)
-    links.new(combine.outputs[0], output.inputs[0])
+    
+    # HP-5: Emission node between Color output and Shader input
+    emission = nodes.new('ShaderNodeEmission')
+    emission.location = (550, 0)
+    links.new(combine.outputs[0], emission.inputs[0])
+    links.new(emission.outputs[0], output.inputs[0])
     
     # Source mapping
     source_mat = obj.active_material

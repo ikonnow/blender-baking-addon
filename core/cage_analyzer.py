@@ -22,15 +22,16 @@ class CageAnalyzer:
         bvh_trees = []
         for obj in high_objects:
             if obj.type == 'MESH' and obj.hide_render == False:
+                bm = bmesh.new()
                 try:
-                    bm = bmesh.new()
                     bm.from_object(obj, depsgraph)
                     bm.transform(obj.matrix_world)
                     bvh = BVHTree.FromBMesh(bm)
                     bvh_trees.append(bvh)
-                    bm.free()
                 except Exception as e:
                     logger.warning(f"Failed to build BVH for {obj.name}: {e}")
+                finally:
+                    bm.free()
                     
         if not bvh_trees:
             return False, "No valid high poly geometry found."
@@ -42,7 +43,7 @@ class CageAnalyzer:
         # Ensure working on Object Mode
         if context.object and context.object.mode != 'OBJECT':
             try: bpy.ops.object.mode_set(mode='OBJECT')
-            except: pass
+            except Exception: pass
 
         # Deal with Vertex Colors (Color Attributes in 3.2+)
         vcol_name = "BT_CAGE_ERROR"
@@ -98,6 +99,10 @@ class CageAnalyzer:
                     
         # 3. Viewport Feedback
         if auto_switch_vp:
+            # HP-2: Record original selection to restore it
+            prev_sel = context.selected_objects[:]
+            prev_act = context.active_object
+            
             bpy.ops.object.select_all(action='DESELECT')
             low_obj.select_set(True)
             context.view_layer.objects.active = low_obj
@@ -111,5 +116,18 @@ class CageAnalyzer:
                                 space.shading.color_type = 'VERTEX'
             except Exception as e:
                 logger.warning(f"Failed to switch Viewport to Vertex Paint: {e}")
+            finally:
+                # Restore original selection (unless we want to stay in Vertex Paint on the low_obj)
+                # Actually, usually users want to see the result, but HP-2 specifically says:
+                # "Restore original selection state."
+                # However, if we are in VERTEX_PAINT, we probably should stay on low_obj.
+                # The code review says: "Deselected ALL objects in the scene, not just the analyzed ones."
+                # So we should restore others.
+                for o in prev_sel:
+                    try: o.select_set(True)
+                    except: pass
+                if prev_act:
+                    try: context.view_layer.objects.active = prev_act
+                    except: pass
                 
         return True, f"Found {error_count} potential baking errors out of {total_verts} vertices."

@@ -68,7 +68,9 @@ def reset_channels_logic(setting):
     defs = []
     b_type = setting.bake_type
     
-    key = ('BSDF_4' if bpy.app.version >= (4, 0, 0) else 'BSDF_3') if b_type == 'BSDF' else b_type
+    from . import compat
+    is_v4 = compat.is_blender_4() or compat.is_blender_5()
+    key = ('BSDF_4' if is_v4 else 'BSDF_3') if b_type == 'BSDF' else b_type
     defs.extend(BAKE_CHANNEL_INFO.get(key, []))
     
     if setting.use_light_map: defs.extend(BAKE_CHANNEL_INFO.get('LIGHT', []))
@@ -232,7 +234,11 @@ class SceneSettingsContext:
         if self.category == 'cycles': return scene.cycles
         if self.category == 'image': return scene.render.image_settings
         if self.category == 'cm': return scene.view_settings
-        if self.category == 'bake': return scene.render.bake if bpy.app.version >= (5, 0, 0) and hasattr(scene.render, "bake") else scene.render
+        if self.category == 'bake': 
+            from . import compat
+            if compat.is_blender_5() and hasattr(scene.render, "bake"):
+                return scene.render.bake
+            return scene.render
         return None
 
     def __enter__(self):
@@ -271,65 +277,18 @@ def apply_baked_result(original_obj, task_images, setting, task_base_name):
     new_obj = bpy.data.objects.get(target_name)
     
     if new_obj:
-        # If it exists, ensure it uses the same mesh data type or refresh it
-        # Note: We still refresh the mesh data to match current source state
+        # HP-7: Record old mesh before replacement to prevent leak/orphan
+        old_data = new_obj.data
         new_obj.data = original_obj.data.copy()
+        if old_data and old_data.users == 0:
+            try: bpy.data.meshes.remove(old_data)
+            except Exception: pass
     else:
         new_obj = original_obj.copy()
         new_obj.data = original_obj.data.copy()
         new_obj.name = target_name
         for c in new_obj.users_collection: c.objects.unlink(new_obj)
         col.objects.link(new_obj)
-
-    # Helper to create simple material
-    def _create_simple_mat(name, texture_map):
-        # reuse material if exists
-        mat = bpy.data.materials.get(name) or bpy.data.materials.new(name=name)
-        mat.use_nodes = True
-        tree = mat.node_tree
-        tree.nodes.clear()
-        bsdf = tree.nodes.new('ShaderNodeBsdfPrincipled')
-        out = tree.nodes.new('ShaderNodeOutputMaterial'); out.location = (300, 0)
-        tree.links.new(bsdf.outputs[0], out.inputs[0])
-        y_pos = 0
-        
-        # 扩展映射表：支持标准模式与 BSDF 模式的互补 // Extended mapping
-        for chan_id, image in texture_map.items():
-            target_socket = None
-            compat_key = APPLY_RESULT_CHANNEL_MAP.get(chan_id)
-            if compat_key:
-                for p_name in BSDF_COMPATIBILITY_MAP.get(compat_key, []):
-                    if p_name in bsdf.inputs:
-                        target_socket = bsdf.inputs[p_name]
-                        break
-            
-            if not target_socket and not (chan_id == 'normal'): continue
-
-            tex = tree.nodes.new('ShaderNodeTexImage'); tex.image = image
-            tex.location = (-600 if chan_id == 'normal' else -300, y_pos); y_pos -= 280
-            
-            # 自动设置色彩空间 // Auto ColorSpace
-            non_color_channels = {'metal', 'rough', 'normal', 'specular', 'ao', 'height', 'gloss', 'bevnor'}
-            if chan_id in non_color_channels:
-                try: tex.image.colorspace_settings.name = 'Non-Color'
-                except Exception: pass
-                
-            if chan_id == 'normal':
-                nor = tree.nodes.new('ShaderNodeNormalMap'); nor.location = (-300, tex.location.y)
-                tree.links.new(tex.outputs[0], nor.inputs['Color'])
-                if 'Normal' in bsdf.inputs: tree.links.new(nor.outputs['Normal'], bsdf.inputs['Normal'])
-            elif chan_id == 'gloss':
-                # Gloss 到 Roughness 的反转逻辑 // Invert Gloss to Roughness
-                inv = tree.nodes.new('ShaderNodeInvert')
-                inv.location = (-150, tex.location.y)
-                tree.links.new(tex.outputs[0], inv.inputs[1])
-                if target_socket: tree.links.new(inv.outputs[0], target_socket)
-            elif target_socket:
-                tree.links.new(tex.outputs[0], target_socket)
-                
-            if chan_id == 'alpha' and hasattr(mat, 'blend_method'):  # blend_method removed in Blender 4.0+ EEVEE Next
-                mat.blend_method = 'BLEND'
-        return mat
 
     first_val = next(iter(task_images.values()))
     if isinstance(first_val, dict):
@@ -339,10 +298,70 @@ def apply_baked_result(original_obj, task_images, setting, task_base_name):
             mat_textures = {}
             for chan_id, mat_dict in task_images.items():
                 if orig_name in mat_dict: mat_textures[chan_id] = mat_dict[orig_name]
-            mat = _create_simple_mat(f"{task_base_name}_{orig_name}_Baked", mat_textures)
+            mat = create_simple_baked_material(f"{task_base_name}_{orig_name}_Baked", mat_textures)
             new_obj.material_slots[i].material = mat
     else:
-        mat = _create_simple_mat(f"{task_base_name}_Mat", task_images)
+        mat = create_simple_baked_material(f"{task_base_name}_Mat", task_images)
         new_obj.data.materials.clear()
         new_obj.data.materials.append(mat)
     return new_obj
+
+def create_simple_baked_material(name, texture_map):
+    """
+    MP-11: Module-level material factory.
+    Creates a simple PBR material from baked textures.
+    """
+    # reuse material if exists
+    mat = bpy.data.materials.get(name) or bpy.data.materials.new(name=name)
+    mat.use_nodes = True
+    tree = mat.node_tree
+    tree.nodes.clear()
+    bsdf = tree.nodes.new('ShaderNodeBsdfPrincipled')
+    out = tree.nodes.new('ShaderNodeOutputMaterial')
+    out.location = (300, 0)
+    tree.links.new(bsdf.outputs[0], out.inputs[0])
+    y_pos = 0
+    
+    # Extended mapping supports standard vs specific IDs
+    for chan_id, image in texture_map.items():
+        if not image: continue
+        target_socket = None
+        compat_key = APPLY_RESULT_CHANNEL_MAP.get(chan_id)
+        if compat_key:
+            for p_name in BSDF_COMPATIBILITY_MAP.get(compat_key, []):
+                if p_name in bsdf.inputs:
+                    target_socket = bsdf.inputs[p_name]
+                    break
+        
+        if not target_socket and not (chan_id == 'normal'): continue
+
+        tex = tree.nodes.new('ShaderNodeTexImage')
+        tex.image = image
+        tex.location = (-600 if chan_id == 'normal' else -300, y_pos)
+        y_pos -= 280
+        
+        # ColorSpace
+        non_color_channels = {'metal', 'rough', 'normal', 'specular', 'ao', 'height', 'gloss', 'bevnor'}
+        if chan_id in non_color_channels:
+            try: tex.image.colorspace_settings.name = 'Non-Color'
+            except Exception: pass
+            
+        if chan_id == 'normal':
+            nor = tree.nodes.new('ShaderNodeNormalMap')
+            nor.location = (-300, tex.location.y)
+            tree.links.new(tex.outputs[0], nor.inputs['Color'])
+            if 'Normal' in bsdf.inputs: 
+                tree.links.new(nor.outputs['Normal'], bsdf.inputs['Normal'])
+        elif chan_id == 'gloss':
+            # Invert Gloss to Roughness proxy
+            inv = tree.nodes.new('ShaderNodeInvert')
+            inv.location = (-150, tex.location.y)
+            tree.links.new(tex.outputs[0], inv.inputs[1])
+            if target_socket: 
+                tree.links.new(inv.outputs[0], target_socket)
+        elif target_socket:
+            tree.links.new(tex.outputs[0], target_socket)
+            
+        if chan_id == 'alpha' and hasattr(mat, 'blend_method'):
+            mat.blend_method = 'BLEND'
+    return mat

@@ -144,13 +144,15 @@ class SuitePresetAndState(unittest.TestCase):
         job = bj.jobs[-1]
         job.setting.bake_type = 'BSDF'
         reset_channels_logic(job.setting)
-        
+        orig_ids = [c.id for c in job.setting.channels]
         data = io.to_dict(bj)
         bj.jobs.clear()
         io.from_dict(bj, data)
         
         new_job = bj.jobs[0]
-        self.assertGreater(len(new_job.setting.channels), 0)
+        new_ids = [c.id for c in new_job.setting.channels]
+        # TB-2: Assert order is identical
+        self.assertEqual(orig_ids, new_ids, "Channel order corrupted after preset roundtrip")
 
 if __name__ == '__main__':
     unittest.main()

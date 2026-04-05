@@ -1,5 +1,6 @@
 import unittest
 import bpy
+from pathlib import Path
 from .helpers import cleanup_scene, create_test_object, JobBuilder
 from ..constants import BAKE_MODES, BAKE_TYPES, BASIC_FORMATS
 
@@ -27,8 +28,10 @@ class SuiteParameterMatrix(unittest.TestCase):
             for type_id, _, _, _ in BAKE_TYPES:
                 for fmt in test_formats:
                     with self.subTest(mode=mode_id, type=type_id, format=fmt):
+                        import tempfile
+                        tmp_path = Path(tempfile.gettempdir()) / "bt_test_save"
                         builder = JobBuilder(f"Job_{mode_id}_{type_id}")
-                        builder.mode(mode_id).type(type_id).save_to("/tmp/test", format=fmt)
+                        builder.mode(mode_id).type(type_id).save_to(str(tmp_path), format=fmt)
                         builder.add_objects(self.obj)
                         
                         if mode_id == 'SELECT_ACTIVE':

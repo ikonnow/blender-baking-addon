@@ -15,7 +15,7 @@ except ImportError:
 
 def main():
     parser = argparse.ArgumentParser(description="BakeTool Unified CLI Test Runner")
-    parser.add_argument("--suite", choices=['all', 'api', 'unit', 'workflow', 'preset'], default='all', 
+    parser.add_argument("--suite", type=str, default='all', 
                         help="Run a specific test suite or 'all' suites (suite_*.py)")
     parser.add_argument("--test", type=str, 
                         help="Run a specific test case (e.g. baketool.test_cases.suite_api.SuiteAPI)")
