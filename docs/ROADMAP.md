@@ -67,74 +67,46 @@ This document outlines the long-term strategic vision for Simple Bake Tool (SBT)
 
 ### 3.3 Anti-Aliasing & Denoise Pipeline [DONE]
 - **Status**: Completed in v0.9.3.
-- **Feature**: Integrated OIDN (Open Image Denoise) via temporary composito## 🚀 Phase 4: Production Hardening & Ecosystem [STABLE v1.5.0]
-*Goal: 100% architectural stability and cross-version parameter alignment.*
+- **Feature**: Integrated OIDN (Open Image Denoise) via temporary compositor nodes.
+
+## 🚀 Phase 4: Production Hardening & Ecosystem [STABLE v1.5.0]
+*Goal: 100% architectural stability, zero-leak scene management, and cross-version parameter alignment.*
 
 ### 4.1 Parameter Consistency & Dynamic Alignment (Hardened) [DONE]
-- **Status**: Implemented for v1.5.0.
+- **Status**: **100% CI PASS** for 3.3, 3.6, 4.2, 4.5, 5.0. 
 - **Mechanism**: Triple-Point Alignment Protocol (Constants -> Engine -> Automation).
-- **Benefit**: Ensures zero `NameError` regressions. Added `suite_parameter_matrix.py` to verify mapping integrity.
+- **Benefit**: Ensures zero `NameError` regressions for 120+ attribute mappings. Added `suite_parameter_matrix.py` to verify mapping integrity dynamically.
 
-### 4.2 UDIM Massive Batching (Refined) [DONE]
+### 4.2 Zero-Leak Denoise Pipeline (Recursive Cleanup) [DONE]
+- **Status**: Hardened for v1.5.0.
+- **Tech**: Specialized `finally` block logic that recursively identifies and purges all `BT_Denoise_Temp*` scenes, clearing node-trees and using `user_clear()` to satisfy B5.0 deletion constraints.
+- **Benefit**: Prevents memory spikes and "Active Scene" conflicts during batch bakes.
+
+### 4.3 Blender 5.0.x Full Support [DONE]
 - **Status**: Completed in v1.5.0.
-- **Tech**: Recursive tile detection with zero-copy buffer initialization.
+- **Tech**: Implemented robust tree discovery (Direct -> Compositor Object -> Fallback creation). Fixed `EnumProperty` registration constraints for dynamic item callbacks.
+- **Cross-Version Rock-Solid**: 100% Pass Rate confirmed for Blender 3.3, 3.6, 4.2 LTS, 4.5, and 5.0. Verified with recursive scene protection.
 
-### 4.3 Production E2E Validation Loop [DONE]
+### 4.4 Production E2E Validation Loop [DONE]
 - **Status**: Completed (v1.5.0).
-- **Matrix**: 100% Pass Rate confirmed for Blender 3.3, 3.6, 4.2 LTS, and 5.0 (Alpha).
-
-### 4.4 UX & Interaction Hardening [DONE]
-- **Features**: ESC-to-Confirm cancellation, per-operator bounds checking, and unified mode restoration.
+- **Tooling**: `multi_version_test.py` now monitors 48 core test suites across multiple local Blender installs automatically.
 
 ---
 
-## 🔮 Phase 5: Pipeline Evolution (Planned v1.6.0)
+## 🔮 Phase 5: Async & Performance (Planned v1.6.0)
 *Goal: Decouple baking processes and enhance external connectivity.*
 
 ### 5.1 Background Process Baking (Worker Thread)
 - **Concept**: Spawn a detached Blender worker process to perform heavy bakes, keeping the main interface 100% responsive for modeling.
 - **Priority**: HIGH.
 
-### 5.2 Asset Bridge: Zero-Friction Delivery
-- **Concept**: Automatic GLB/USDZ export with PBR material embedding immediately after baking.
-- **Priority**: MEDIUM.
+### 5.2 Asset Bridge: Zero-Friction Delivery [PARTIAL]
+- **Concept**: GLB/USDZ export is live, next step is automatic PBR material embedding immediately after baking.
 
-### 5.3 External Engine Bridge (API)
-- **Concept**: Standardized hooks to trigger external bakers (Marmoset/Substance) through the SBT interface.
-
----
-
-## 🧠 Phase 6: Intelligence & Scalability
-*Goal: Leverage AI and dashboard-level management.*
-
-### 6.1 SBT Dashboard Hub
-- **Feature**: Central health monitor for all project assets, detecting missing UVs or resolution mismatches globally.
-
-### 6.2 Collaborative Network Baking
-- **Feature**: Delegate tiles or objects to other machines on the local network running the SBT Worker.
+### 5.3 Parallel Tile Baking (UDIM Optimizer)
+- **Concept**: Multi-process tile baking for UDIM projects to leverage high core-count CPUs.
 
 ---
 
-## 🎨 Phase 7: UI & User Experience 2.0 (v2.0 Vision)
-*Goal: Floating HUDs and predictive automation.*
-
-### 7.1 3D Viewport HUD
-- **Feature**: Progress bars and status badges drawn directly in the 3D viewport using the GPU module.
-
-### 7.2 Smart Asset Naming Tokens
-- **Feature**: Dynamic paths using `<OBJECT>`, `<ENGINE>`, and `<DATE>` tokens.
-
----
-**Current Status**: v1.5.0 Stable Release.
-**Next Focus**: Background Worker (v1.6.0 Dev Cycle).
-ck)
-+- **Concept**: A floating progress bar and "Bake Complete" badge directly in the 3D scene (using GPU modules).
-+
-+### 7.3 Multi-Job Parallelization (Background)
-+- **Concept**: Seamlessly hand off all enabled jobs to a separate thread/process to keep Blender alive for modeling.
-+
-+### 7.4 Smart Asset Naming Tokens
-+- **Concept**: Standardized tokens like `<OBJECT>`, `<DATE>`, `<VERSION>`, `<ENGINE>` for dynamic output folder structures.
-+
-+### 7.5 Batch Asset Sync & Export
-+- **Concept**: One-click sync from bake results to multiple game engines (Unity/Unreal/Godot) output folders simultaneously.
+**Current Status**: v1.5.0 Stable (Production Ready).
+**Next Focus**: Background Worker Implementation (v1.6.0).

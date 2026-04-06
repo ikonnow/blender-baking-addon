@@ -304,9 +304,9 @@ class NodeGraphHandler:
                 mix = self._add_node(mat, 'ShaderNodeMix')
                 mix.data_type = 'RGBA'
                 tree.links.new(metallic_out, mix.inputs[0])  # Factor
-                # B4+ Mix node: inputs索引: 0=Factor, 6=A(RGBA), 7=B(RGBA)
-                sock_a = mix.inputs[6] if len(mix.inputs) > 6 else None
-                sock_b = mix.inputs[7] if len(mix.inputs) > 7 else None
+                # B4+ Mix node: Use named sockets if possible for better forward compatibility
+                sock_a = mix.inputs.get("A", mix.inputs[6] if len(mix.inputs) > 6 else None)
+                sock_b = mix.inputs.get("B", mix.inputs[7] if len(mix.inputs) > 7 else None)
             else:
                 mix = self._add_node(mat, 'ShaderNodeMixRGB')
                 tree.links.new(metallic_out, mix.inputs[0])  # Fac

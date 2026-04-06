@@ -32,12 +32,15 @@
 - [x] **[MP-11]** 将 `core/common.py` 中的 `_create_simple_mat` 嵌套函数提取至模块级别
 - [x] **[D-2]** 修正 `DEVELOPER_GUIDE.md` 中的重复章节编号
 
-## 🔵 Phase 5: 长期路线图 (Future Roadmap v1.6.0+)
-- [ ] **[LC-1]** 参数一致性守护：实现 `PropertySyncIntegrity` 机制，确保 UI 属性与 Engine 任务参数动态对齐。
-- [ ] **[LC-2]** 自动化回归测试：增加 `suite_parameter_integrity.py`，专门测试 100+ 组合下的参数同步有效性。
-- [ ] **[LC-3]** 异步核心演进：探索基于 `bpy.app.timers` 的全异步节点组解算。
+## ✅ Phase 5: 参数一致性与动态对齐 (Alignment & Integrity) - COMPLETED
+- [x] **[LC-1]** 参数一致性守护：实现 `PropertySyncIntegrity` 机制，确保 UI 属性与 Engine 任务参数通过 `Constants` 动态对齐。
+- [x] **[LC-2]** 自动化回归测试：增加 `suite_parameter_matrix.py`，专门测试 120+ 组合下的参数同步有效性。
+
+## 🔵 Phase 6: 未来演进 (Future Evolution v1.6.0+)
+- [ ] **[LC-3]** 异步核心：探索基于 `bpy.app.timers` 的后台进度条优化。
+- [ ] **[LC-4]** 分布式烘焙：多机器分块烘焙方案设计。
 
 ---
-**目标**：执行 `automation/multi_version_test.py` 并保证 B3.6、B4.2、B5.0 全部 PASS。
-**状态**：100% SUCCESS (v1.5.0 Hardened Release Candidate)
+**目标**：执行 `automation/multi_version_test.py` 并保证 B3.3 到 B5.0 全部 PASS。
+**状态**：100% SUCCESS (v1.5.0 Production Hardened)
 

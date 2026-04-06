@@ -61,6 +61,16 @@ class BakeModalOperator:
     Subclasses must populate `self.bake_queue` in `invoke`.
     """
     
+    def __init__(self):
+        """Initialize core state attributes for early-exit protection."""
+        self._timer = None
+        self.state_mgr = None
+        self.bake_queue = []
+        self.current_step_idx = 0
+        self.total_steps = 0
+        self.sequence_tracking = {}
+        self.waiting_confirmation = False
+    
     def init_modal(self, context, start_idx=0):
         """Initialize state and start modal timer."""
         # Initialize instance variables defensively
@@ -77,7 +87,11 @@ class BakeModalOperator:
         context.scene.is_baking = True
         context.scene.bake_progress = (self.current_step_idx / max(1, self.total_steps)) * 100.0
         context.scene.bake_status = "Initializing..."
-        context.scene.bake_error_log = ""
+        
+        # HI-04: Append session separator instead of clearing history
+        import time
+        timestamp = time.strftime('%H:%M:%S')
+        context.scene.bake_error_log += f"\n--- New bake session {timestamp} ---\n"
         
         # Extract job names for logging
         job_names = list(set(step.job.name for step in self.bake_queue))
@@ -187,9 +201,14 @@ class BakeModalOperator:
         self.sequence_tracking.clear()
         
         if self.bake_queue and hasattr(self.bake_queue[0].job, 'setting'):
-             if getattr(self.bake_queue[0].job.setting, 'save_and_quit', False): 
-                logger.warning("BakeTool: save_and_quit enabled — saving and exiting Blender now.")
-                bpy.ops.wm.save_mainfile(exit=True)
+             s = self.bake_queue[0].job.setting
+             if getattr(s, 'save_and_quit', False): 
+                if not bpy.data.is_dirty:
+                    logger.warning("BakeTool: save_and_quit enabled — saving and exiting Blender now.")
+                    bpy.ops.wm.save_mainfile(exit=True)
+                else:
+                    logger.critical("BakeTool: Save and Quit ABORTED. Unsaved changes detected in the scene.")
+                    log_error(context, "Save and Quit aborted: Unsaved changes (dirty flag) detected.")
 
     def cancel(self, context):
         self._cleanup_state(context, "Cancelled")

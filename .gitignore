@@ -138,4 +138,4 @@ doc/
 logs/
 reports/
 code_review.txt
-code_review.md
+# code_review.md - now tracked in version control

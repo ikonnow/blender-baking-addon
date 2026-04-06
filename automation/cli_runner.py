@@ -41,7 +41,7 @@ def main():
         import baketool
         try:
             baketool.unregister()
-        except:
+        except Exception:
             pass
         baketool.register()
         print(">>> Addon registered successfully.")
@@ -54,8 +54,8 @@ def main():
             print(f">>> Loading specific test: {args.test}")
             suite = loader.loadTestsFromName(args.test)
         elif args.discover:
-            print(">>> Discovering all test_*.py...")
-            suite = loader.discover(start_dir=test_dir, pattern='test_*.py', top_level_dir=parent_dir)
+            print(">>> Discovering all suite_*.py...")
+            suite = loader.discover(start_dir=test_dir, pattern='suite_*.py', top_level_dir=parent_dir)
         else:
             pattern = 'suite_*.py' if args.suite == 'all' else f'suite_{args.suite}.py'
             print(f">>> Loading suites matching pattern: {pattern}")

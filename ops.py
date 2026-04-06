@@ -345,7 +345,7 @@ class BAKETOOL_OT_ExportResult(bpy.types.Operator):
                 export_dir = os.path.dirname(self.filepath)
                 if not os.path.exists(export_dir):
                     try: os.makedirs(export_dir)
-                    except: pass
+                    except Exception: pass
                 save_image(r.image, export_dir) 
                 self.report({'INFO'}, f"Exported {r.image.name} to {export_dir}")
             else:

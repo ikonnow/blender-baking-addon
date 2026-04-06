@@ -38,7 +38,16 @@ def cleanup_scene():
         bpy.data.collections.remove(col, do_unlink=True)
         
     for ng in list(bpy.data.node_groups):
-        bpy.data.node_groups.remove(ng, do_unlink=True)
+        try: bpy.data.node_groups.remove(ng, do_unlink=True)
+        except Exception: pass
+        
+    # Purge any leaked BT_ scenes
+    for s in list(bpy.data.scenes):
+        if s.name.startswith("BT_"):
+            try:
+                if s != bpy.context.scene: # Do not remove current context scene
+                    bpy.data.scenes.remove(s)
+            except Exception: pass
 
 def create_test_object(name, location=(0,0,0), color=(0.8, 0.8, 0.8, 1.0), metal=0.0, rough=0.5, mat_count=1):
     """Create a standard test object with Principled BSDF and multiple slots."""

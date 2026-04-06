@@ -126,7 +126,7 @@ def pack_channels_numpy(target_img, channel_map, array_cache=None):
         logger.error(f"Channel Packing Failed: {e}")
         return False
 
-def generate_optimized_colors(count, start_color=(1,0,0,1), iterations=0, manual_start=True, seed=0) :
+def generate_optimized_colors(count, start_color=(1,0,0,1), manual_start=True, seed=0) :
     """Generate distinct colors for ID maps using vectorized NumPy operations."""
     if count <= 0: return np.zeros((0, 4), dtype=np.float32)
     
@@ -176,7 +176,7 @@ def generate_optimized_colors(count, start_color=(1,0,0,1), iterations=0, manual
     
     return colors
 
-def setup_mesh_attribute(obj, id_type='ELEMENT', start_color=(1,0,0,1), iterations=0, manual_start=True, seed=0):
+def setup_mesh_attribute(obj, id_type='ELEMENT', start_color=(1,0,0,1), manual_start=True, seed=0):
     """
     Generate mesh attributes (Vertex Colors) for ID Maps using BMesh or NumPy.
     """
@@ -210,7 +210,7 @@ def _setup_material_id_numpy(obj, attr_name, start_color, manual_start, seed):
     obj.data.polygons.foreach_get("material_index", mat_indices)
     
     unique_mats = np.unique(mat_indices)
-    palette = generate_optimized_colors(len(unique_mats), start_color, iterations, manual_start, seed)
+    palette = generate_optimized_colors(len(unique_mats), start_color, manual_start, seed)
     
     # 安全索引：建立完整调色板以匹配材质索引
     max_idx = np.max(mat_indices) if len(mat_indices) > 0 else 0
@@ -237,7 +237,7 @@ def _setup_island_id_bmesh(obj, id_type, attr_name, start_color, manual_start, s
         
         islands = _find_islands_bmesh(bm, id_type)
         island_count = len(islands)
-        palette = generate_optimized_colors(max(1, island_count), start_color, 0, manual_start, seed)
+        palette = generate_optimized_colors(max(1, island_count), start_color, manual_start, seed)
         
         face_to_color_idx = np.zeros(len(bm.faces), dtype=np.int32)
         for idx, island_faces in enumerate(islands):

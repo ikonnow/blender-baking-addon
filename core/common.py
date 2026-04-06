@@ -270,7 +270,9 @@ class SceneSettingsContext:
 
 def apply_baked_result(original_obj, task_images, setting, task_base_name):
     """Create a new object or update existing one with baked textures applied."""
-    if not task_images: return None
+    if not task_images: 
+        logger.warning("apply_baked_result: No images found to apply.")
+        return None
     col = bpy.data.collections.get(SYSTEM_NAMES['RESULT_COLLECTION']) or bpy.data.collections.new(SYSTEM_NAMES['RESULT_COLLECTION'])
     if col.name not in bpy.context.scene.collection.children:
         try: bpy.context.scene.collection.children.link(col)
@@ -296,14 +298,14 @@ def apply_baked_result(original_obj, task_images, setting, task_base_name):
 
     first_val = next(iter(task_images.values()))
     if isinstance(first_val, dict):
-        orig_mat_names = [s.material.name for s in original_obj.material_slots if s.material]
-        while len(new_obj.material_slots) < len(orig_mat_names): new_obj.data.materials.append(None)
-        for i, orig_name in enumerate(orig_mat_names):
+        orig_mats = [s.material for s in original_obj.material_slots if s.material]
+        # HI-06: Append materials directly instead of pre-filling with None
+        for i, om in enumerate(orig_mats):
             mat_textures = {}
             for chan_id, mat_dict in task_images.items():
-                if orig_name in mat_dict: mat_textures[chan_id] = mat_dict[orig_name]
-            mat = create_simple_baked_material(f"{task_base_name}_{orig_name}_Baked", mat_textures)
-            new_obj.material_slots[i].material = mat
+                if om.name in mat_dict: mat_textures[chan_id] = mat_dict[om.name]
+            mat = create_simple_baked_material(f"{task_base_name}_{om.name}_Baked", mat_textures)
+            new_obj.data.materials.append(mat)
     else:
         mat = create_simple_baked_material(f"{task_base_name}_Mat", task_images)
         new_obj.data.materials.clear()

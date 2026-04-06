@@ -7,7 +7,7 @@ Professional texture baking suite for Blender 3.3 through 5.1. Features optimize
 - **Node-Based Denoising**: Integrated OIDN (Open Image Denoise) support for high-quality results even with low sample counts.
 - **Environment & Health Check**: Automatic validation for missing addons, paths, and UV maps before baking.
 - **One-Click PBR Setup**: Instant initialization for Color, Roughness, and Normal channels.
-- **Cross-Version Rock-Solid**: 100% Pass Rate confirmed for Blender 3.6, 4.2 LTS, and 5.0. Verified with dynamic resource protection.
+- **Cross-Version Rock-Solid**: 100% Pass Rate confirmed for Blender 3.3, 3.6, 4.2 LTS, 4.5, and 5.0. Verified with recursive scene protection.
 
 ## Documentation
 - [User Manual](docs/USER_MANUAL.md) - How to use.
@@ -15,8 +15,7 @@ Professional texture baking suite for Blender 3.3 through 5.1. Features optimize
 - [Roadmap](docs/ROADMAP.md) - Future vision.
 ## 🚀 **v1.5.0 PRODUCTION HARDENED** 🚀
 
-- **Core**: Multi-version Engine (Blender 3.3 - 5.0).
-- **Status**: **100% CI PASS** for 3.6, 4.2, 5.0. 
+- **Status**: **100% CI PASS** for 3.3, 3.6, 4.2, 4.5, 5.0. 
 - **Highlights**: Zero-Friction Delivery (GLB/USD), Heatmap Cage Analysis, Denoise OIDN Pipeline.
 
 ---

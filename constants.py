@@ -192,7 +192,8 @@ SYSTEM_NAMES = {
     'PROTECTION_LABEL': "BT Protection",
     'RESULT_COLLECTION': "Baked_Results",
     'ATTR_PREFIX': "BT_ATTR_",
-    'TEMP_IMG_PREFIX': "BT_TEMP_"
+    'TEMP_IMG_PREFIX': "BT_TEMP_",
+    'VIEWER_IMG': "Viewer Node"
 }
 
 BAKE_CHANNEL_INFO = {

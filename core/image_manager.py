@@ -177,9 +177,14 @@ def _touch_udim_buffer_v3(image):
         if not image.filepath:
             tmp_dir = tempfile.gettempdir()
             image.filepath_raw = os.path.join(tmp_dir, f"{image.name}.<UDIM>.png")
-        if not image.is_packed:
+        # Blender 4.2及更低版本不提供is_packed
+        is_packed = getattr(image, "is_packed", False)
+        if hasattr(image, "packed_files") and not is_packed:
+             is_packed = len(image.packed_files) > 0
+             
+        if not is_packed:
             try: image.pack()
-            except: pass
+            except Exception: pass
         image.update()
     except (ImportError, IOError, OSError, RuntimeError) as e:
         logger.debug(f"3.3 UDIM buffer touch failed: {e}")

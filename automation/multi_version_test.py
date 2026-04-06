@@ -29,7 +29,7 @@ def get_blender_version(path):
     try:
         res = subprocess.run([path, "--version"], capture_output=True, text=True, check=True)
         return res.stdout.splitlines()[0]
-    except:
+    except Exception:
         return "Unknown Version"
 
 def main():

@@ -80,7 +80,7 @@ class CageAnalyzer:
                 location, normal, index, distance = bvh.ray_cast(ray_origin, ray_dir)
                 # Give some tolerance. The ray travels inwards, typically 
                 # should hit within extrusion distance, maybe slight penetration (max 2*extrusion)
-                if location and distance <= extrusion * 2.5: 
+                if location is not None and distance <= extrusion * 2.5: 
                     hit_any = True
                     break
                     
@@ -125,9 +125,9 @@ class CageAnalyzer:
                 # So we should restore others.
                 for o in prev_sel:
                     try: o.select_set(True)
-                    except: pass
+                    except Exception: pass
                 if prev_act:
                     try: context.view_layer.objects.active = prev_act
-                    except: pass
+                    except Exception: pass
                 
         return True, f"Found {error_count} potential baking errors out of {total_verts} vertices."

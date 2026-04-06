@@ -8,13 +8,8 @@ from . import ops
 from . import property
 from . import preset_handler
 from .core import cleanup
-# 稳健加载测试模块 // Robust test module loading
-try:
-    from . import tests
-    HAS_TESTS = True
-except ImportError:
-    logging.getLogger(__name__).warning("Failed to load test module", exc_info=True)
-    HAS_TESTS = False
+# Tests are locally imported in get_classes to avoid circular dependencies
+HAS_TESTS = False
 
 from .constants import CHANNEL_BAKE_INFO
 
@@ -108,8 +103,11 @@ def get_classes():
     
     # Auto-discover other modules (Operators, UI lists, etc.)
     other_modules = [ops, ui]
-    if HAS_TESTS:
-        other_modules.append(tests)
+    try:
+        from . import test_cases
+        other_modules.append(test_cases)
+    except ImportError:
+        pass
     other_modules.append(cleanup)
 
     # Filter to avoid duplicates and ensure they are modules

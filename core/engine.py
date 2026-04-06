@@ -15,7 +15,7 @@ from .math_utils import process_pbr_numpy, setup_mesh_attribute, pack_channels_n
 from .uv_manager import get_active_uv_udim_tiles, UDIMPacker, UVLayoutManager, detect_object_udim_tile
 from .node_manager import NodeGraphHandler
 from ..constants import (
-    UI_MESSAGES, CHANNEL_BAKE_INFO, CHANNEL_MESH_TYPE_MAP, DATA_BAKE_FORCE_SINGLE_SAMPLE
+    UI_MESSAGES, CHANNEL_BAKE_INFO, CHANNEL_MESH_TYPE_MAP, DATA_BAKE_FORCE_SINGLE_SAMPLE, SYSTEM_NAMES
 )
 from . import compat
 
@@ -70,31 +70,31 @@ class BakePostProcessor:
         is_temp = (reuse_scene is None)
         try:
             tmp_scene.render.engine = 'CYCLES' 
-            # Use nodes and ensure tree exists
-            # Use nodes and ensure tree exists
-            tmp_scene.use_nodes = True
-            try:
-                if hasattr(tmp_scene, "node_tree_add"):
-                    tmp_scene.node_tree_add()
-            except Exception: pass
+            # Ensure compositor tree exists (B3.x-B5.x)
+            if not tmp_scene.use_nodes:
+                tmp_scene.use_nodes = True
             
-            # Support version-specific access or forceful creation
+            # 1. Direct access (B3.x, B4.x, some B5.x)
             tree = getattr(tmp_scene, "node_tree", None)
-            if not tree and hasattr(tmp_scene, "compositing_node_group"):
-                tree = tmp_scene.compositing_node_group
+            
+            # 2. B4.x/5.x check for compositor object (Modern API)
+            if not tree and hasattr(tmp_scene, "compositor"):
+                cm = getattr(tmp_scene, "compositor", None)
+                if cm and hasattr(cm, "node_tree"):
+                    tree = cm.node_tree
+                    
+            # 3. Fallback discovery or creation
+            if not tree:
+                try: 
+                    if hasattr(tmp_scene, "node_tree_add"):
+                        tmp_scene.node_tree_add()
+                    # Final attempt to find anything compositor-like
+                    tree = getattr(tmp_scene, "node_tree", None) or getattr(tmp_scene, "compositing_node_group", None)
+                except Exception: pass
                 
             if not tree:
-                # Forceful fallback for some builds/versions
-                try:
-                    if hasattr(bpy.ops.node, "tree_path_parent"):
-                        # This sometimes triggers internal tree creation
-                        pass
-                    tree = getattr(tmp_scene, "node_tree", None)
-                except Exception: pass
-            
-            if not tree:
                 logger.error("Could not find/create compositor node tree on temporary scene.")
-                return
+                return False
 
             nodes = tree.nodes
             links = tree.links
@@ -117,9 +117,9 @@ class BakePostProcessor:
             with bpy.context.temp_override(scene=tmp_scene):
                 bpy.ops.render.render() 
                 
-            # 4. 回写像素 // Retrieve processed pixels from Viewer
-            viewer_img = bpy.data.images.get("Viewer Node")
+            viewer_img = bpy.data.images.get(SYSTEM_NAMES['VIEWER_IMG'])
             if viewer_img:
+                # 兼容性修复: 避免删除 IMViewer 节点导致的用户残留错误 (Prevent user residue errors)
                 if viewer_img.size[0] == image.size[0] and viewer_img.size[1] == image.size[1]:
                     try:
                         if not compat.is_blender_5() and hasattr(image, "gl_free"):
@@ -130,17 +130,30 @@ class BakePostProcessor:
                     except Exception as e:
                         logger.error(f"无法回写降噪像素 (Failed to write back denoised pixels): {e}")
             
-            if viewer_img and not compat.is_blender_5() and hasattr(viewer_img, "gl_free"):
-                viewer_img.gl_free()
-                
         finally:
             # Important: Only remove if we created it locally
-            if is_temp and tmp_scene:
-                try: 
-                    bpy.data.scenes.remove(tmp_scene)
-                    # Force GC reference clear
-                    tmp_scene = None
-                except Exception: pass
+            if is_temp:
+                # 强力清理所有 BT_Denoise_Temp 前缀的辅助场景 (Aggressive cleanup of all helper scenes)
+                for s in list(bpy.data.scenes):
+                    if s.name.startswith("BT_Denoise_Temp"):
+                        try:
+                            # 1. 解除节点引用的像素数据 (Release node-held image/scene data)
+                            if s.use_nodes:
+                                for attr in ["node_tree", "compositing_node_group"]:
+                                    tree = getattr(s, attr, None)
+                                    if tree and hasattr(tree, "nodes"):
+                                        tree.nodes.clear()
+                            
+                            # 2. B5.0 环境下解除场景用户 (Clear scene users for B5.0)
+                            if hasattr(s, "user_clear"):
+                                s.user_clear()
+                                
+                            # 3. 彻底删除 (Force removal)
+                            bpy.data.scenes.remove(s, do_unlink=True)
+                        except Exception: 
+                            pass
+                tmp_scene = None
+
 
 
 class BakeStepRunner:
@@ -335,6 +348,9 @@ class TaskBuilder:
             for obj in objects:
                 mats = [ms.material for ms in obj.material_slots if ms.material]
                 if not mats:
+                    logger.warning(f"BakeTool: Object '{obj.name}' has no materials. Skipping.")
+                    from .common import log_error
+                    log_error(context, f"Object '{obj.name}' skipped: No materials assigned.")
                     continue # Skip objects with no materials
                 name = get_safe_base_name(setting, obj, mat=(mats[0] if mats else None), is_batch=is_batch)
                 tasks.append(BakeTask([obj], mats, obj, name, name))
@@ -679,7 +695,7 @@ class BakePassExecutor:
     def _ensure_attributes(task, setting, handler, chan_id):
         if not chan_id.startswith('ID_'): return None
         type_key = {'ID_mat':'MAT','ID_ele':'ELEMENT','ID_UVI':'UVI','ID_seam':'SEAM'}.get(chan_id, 'ELEMENT')
-        attr_name = setup_mesh_attribute(task.active_obj, type_key, setting.id_start_color, setting.id_iterations, setting.id_manual_start_color, setting.id_seed)
+        attr_name = setup_mesh_attribute(task.active_obj, type_key, setting.id_start_color, setting.id_manual_start_color, setting.id_seed)
         if attr_name: handler.temp_attributes.append((task.active_obj, attr_name))
         return attr_name
 

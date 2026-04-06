@@ -31,6 +31,12 @@ def get_bake_settings(scene):
     return scene.render
 
 
+BAKE_MAPPING = {
+    'EMIT': 'EMISSION',
+    'DIFFUSE': 'DIFFUSE',
+    'NORMAL': 'NORMALS' # Version-aware logic moved to set_bake_type if needed
+}
+
 def set_bake_type(scene, bake_type):
     """
     Set bake type in a version-safe way.
@@ -39,13 +45,10 @@ def set_bake_type(scene, bake_type):
         scene: Blender scene
         bake_type: String like 'EMIT', 'COMBINED', 'NORMAL', etc.
     """
-    # Mapping for different versions
-    BAKE_MAPPING = {
-        'EMIT': 'EMISSION',
-        'DIFFUSE': 'DIFFUSE',
-        'NORMAL': 'NORMALS' if (is_blender_4() or is_blender_5()) else 'NORMAL'
-    }
+    # Dynamic mapping adjust for Normal pass in modern Blender
     target_bake_type = BAKE_MAPPING.get(bake_type, bake_type)
+    if bake_type == 'NORMAL' and (is_blender_4() or is_blender_5()):
+        target_bake_type = 'NORMALS'
 
     try:
         # PRIORITY: Cycles-specific bake type property (Exists in 3.6 - 5.0+)
@@ -54,8 +57,11 @@ def set_bake_type(scene, bake_type):
             # Force Cycles engine temporarily if needed to avoid "property not found" errors in B3.x
             orig_engine = scene.render.engine
             if orig_engine != 'CYCLES':
-                try: scene.render.engine = 'CYCLES'
-                except Exception: pass
+                try: 
+                    scene.render.engine = 'CYCLES'
+                except Exception: 
+                    logger.error("BakeTool: Cannot switch to Cycles engine. Baking requires Cycles.")
+                    return False
                 
             if hasattr(scene.cycles, "bake_type"):
                 try:

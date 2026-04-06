@@ -223,8 +223,8 @@ class BakeJobSetting(bpy.types.PropertyGroup):
     use_external_save: props.BoolProperty(default=False, name='External Save')
     external_save_path: props.StringProperty(subtype='DIR_PATH', name='Save Path')
     external_save_format: props.EnumProperty(items=BASIC_FORMATS, name='Format', default="PNG")
-    color_depth: props.EnumProperty(items=get_valid_depths, name='Color Depth')
-    color_mode: props.EnumProperty(items=get_valid_modes, name='Color Mode')
+    color_depth: props.EnumProperty(items=get_valid_depths, name='Color Depth', default=0)
+    color_mode: props.EnumProperty(items=get_valid_modes, name='Color Mode', default=0)
     quality: props.IntProperty(name='Quality', default=85)
     exr_code: props.EnumProperty(items=EXR_CODECS, name='EXR Codec', default='ZIP')
     tiff_codec: props.EnumProperty(items=TIFF_CODECS, name='TIFF Codec', default='DEFLATE')
@@ -318,7 +318,7 @@ def update_library_preset(self, context):
     """Load the selected preset from the library."""
     if self.library_preset == 'NONE': return
     
-    path = self.library_preset
+    path = bpy.path.abspath(self.library_preset)
     if os.path.exists(path):
         import json
         from . import preset_handler
@@ -330,6 +330,7 @@ def update_library_preset(self, context):
             # (Blender enums stay on the last value)
         except Exception as e:
             logger.error(f"Failed to load preset from library: {e}")
+
 
 def get_library_preset_items(self, context):
     """Scan library path and return items with icons for the UI gallery."""
