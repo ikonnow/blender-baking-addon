@@ -79,7 +79,7 @@ class SuiteUnit(unittest.TestCase):
         for loop in uv_layer: loop.uv[0] += 1.0
         self.assertEqual(uv_manager.detect_object_udim_tile(obj), 1002)
 
-    # --- UI Config Integrity ---
+    # --- UI & Property Integrity (Hardened v1.0.0-p2) ---
     def test_ui_layout_config_integrity(self):
         from ..constants import CHANNEL_UI_LAYOUT
         from ..property import BakeChannel
@@ -94,7 +94,25 @@ class SuiteUnit(unittest.TestCase):
                     # Ensure class has the attribute either directly or via annotations
                     has_prop = hasattr(target, root_part) or (hasattr(target, '__annotations__') and root_part in target.__annotations__)
                     self.assertTrue(has_prop, f"Root property '{root_part}' (from '{prop_path}') not found in {target} for channel {chan_id}")
-                        # For pointer properties, testing deeper requires instances, so we skip deep validation of nested classes here
+
+    def test_property_group_integrity(self):
+        """Regression test for common RNA pitfalls (Dynamic Enum Defaults, etc.)"""
+        from ..property import BakeJobSetting
+        
+        # 1. Verify existence of critical properties
+        target = BakeJobSetting
+        has_depth = hasattr(target, 'color_depth') or (hasattr(target, '__annotations__') and 'color_depth' in target.__annotations__)
+        self.assertTrue(has_depth, f"BakeJobSetting missing 'color_depth' in annotations or members")
+        
+        # 2. Dynamic Enum Check (Hardened v1.0.0-p2)
+        # We check an actual instance
+        try:
+             job = JobBuilder().build()
+             setting = job.setting
+             val = setting.color_depth
+             self.assertIsInstance(val, str)
+        except Exception as e:
+             self.fail(f"BakeJobSetting instance check failed: {e}")
 
     # --- Auto-Cage 2.0 Proximity Logic ---
     def test_cage_proximity_analysis(self):
