@@ -203,3 +203,46 @@ def assert_no_leak(test_case):
     leaks = checker.check()
     if leaks:
         test_case.fail(f"Data leak detected after test: {', '.join(leaks)}")
+
+class MockSetting:
+    """Mock object for PropertyGroup settings used in tests."""
+    def __init__(self, **kwargs):
+        # Default mandatory attributes for context/node managers
+        self.res_x = 1024
+        self.res_y = 1024
+        self.bake_mode = 'SINGLE_OBJECT'
+        self.bake_type = 'BSDF'
+        self.use_auto_uv = False
+        self.island_margin = 0.001
+        self.margin = 16
+        self.device = 'GPU'
+        self.use_denoise = False
+        self.denoise_method = 'OPENIMAGEIO'
+        self.samples = 64
+        self.sample = 64
+        self.color_depth = '8'
+        self.color_mode = 'RGB'
+        self.quality = 50
+        self.use_motion = False
+        self.frame = 1
+        self.exr_code = 'ZIP'
+        self.tiff_code = 'NONE'
+        self.use_clear = True
+        self.use_external_save = False
+        self.external_save_path = "//"
+        self.external_save_format = 'PNG'
+        self.channels = []
+        self.id_start_color = (1.0, 0.0, 0.0, 1.0)
+        self.id_manual_start_color = True
+        self.id_seed = 0
+        self.id_iterations = 50
+        
+        # Shading specific
+        self.pack_r = 'NONE'
+        self.pack_g = 'NONE'
+        self.pack_b = 'NONE'
+        self.pack_a = 'NONE'
+        
+        # Override defaults
+        for k, v in kwargs.items():
+            setattr(self, k, v)

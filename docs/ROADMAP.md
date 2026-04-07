@@ -69,36 +69,37 @@ This document outlines the long-term strategic vision for Simple Bake Tool (SBT)
 - **Status**: Completed in v0.9.3.
 - **Feature**: Integrated OIDN (Open Image Denoise) via temporary compositor nodes.
 
-## 🚀 Phase 4: Production Hardening & Ecosystem [STABLE v1.5.0]
+## 🚀 Phase 4: Production Hardening & Ecosystem [STABLE v1.0.0]
 *Goal: 100% architectural stability, zero-leak scene management, and cross-version parameter alignment.*
 
 ### 4.1 Parameter Consistency & Dynamic Alignment (Hardened) [DONE]
 - **Status**: **100% CI PASS** for 3.3, 3.6, 4.2, 4.5, 5.0. 
 - **Mechanism**: Triple-Point Alignment Protocol (Constants -> Engine -> Automation).
-- **Benefit**: Ensures zero `NameError` regressions for 120+ attribute mappings. Added `suite_parameter_matrix.py` to verify mapping integrity dynamically.
+- **Benefit**: Ensures zero `AttributeError`/`NameError` regressions for 120+ attribute mappings. Added `suite_parameter_matrix.py` and `MockSetting` helpers to verify mapping integrity dynamically across all code paths.
+- **Prevention**: Established strict type-checking and `hasattr` guards in shading/node logic to handle Blender RNA variations.
 
 ### 4.2 Zero-Leak Denoise Pipeline (Recursive Cleanup) [DONE]
-- **Status**: Hardened for v1.5.0.
+- **Status**: Hardened for v1.0.0.
 - **Tech**: Specialized `finally` block logic that recursively identifies and purges all `BT_Denoise_Temp*` scenes, clearing node-trees and using `user_clear()` to satisfy B5.0 deletion constraints.
 - **Benefit**: Prevents memory spikes and "Active Scene" conflicts during batch bakes.
 
 ### 4.3 Blender 5.0.x Full Support [DONE]
-- **Status**: Completed in v1.5.0.
+- **Status**: Completed in v1.0.0.
 - **Tech**: Implemented robust tree discovery (Direct -> Compositor Object -> Fallback creation). Fixed `EnumProperty` registration constraints for dynamic item callbacks.
 - **Cross-Version Rock-Solid**: 100% Pass Rate confirmed for Blender 3.3, 3.6, 4.2 LTS, 4.5, and 5.0. Verified with recursive scene protection.
 
 ### 4.4 Production E2E Validation Loop [DONE]
-- **Status**: Completed (v1.5.0).
-- **Tooling**: `multi_version_test.py` now monitors 48 core test suites across multiple local Blender installs automatically.
+- **Status**: Completed (v1.0.0).
+- **Tooling**: `multi_version_test.py` now monitors 70 core test suites across multiple local Blender installs automatically. Added negative test suite to ensure error-path resilience.
 
 ---
 
-## 🔮 Phase 5: Async & Performance (Planned v1.6.0)
+## 🔮 Phase 5: Async & Performance (Planned v1.1.0)
 *Goal: Decouple baking processes and enhance external connectivity.*
 
 ### 5.1 Background Process Baking (Worker Thread)
 - **Concept**: Spawn a detached Blender worker process to perform heavy bakes, keeping the main interface 100% responsive for modeling.
-- **Priority**: HIGH.
+- **Priority**: HIGH (v1.1.0 focus).
 
 ### 5.2 Asset Bridge: Zero-Friction Delivery [PARTIAL]
 - **Concept**: GLB/USDZ export is live, next step is automatic PBR material embedding immediately after baking.
@@ -108,5 +109,5 @@ This document outlines the long-term strategic vision for Simple Bake Tool (SBT)
 
 ---
 
-**Current Status**: v1.5.0 Stable (Production Ready).
-**Next Focus**: Background Worker Implementation (v1.6.0).
+**Current Status**: v1.0.0 Stable (Production Ready).
+**Next Focus**: Background Worker Implementation (v1.1.0).

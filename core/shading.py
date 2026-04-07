@@ -110,7 +110,12 @@ def create_preview_material(obj, s):
                 else:
                     # Constant value
                     val_node = nodes.new('ShaderNodeValue')
-                    val_node.outputs[0].default_value = socket.default_value if not isinstance(socket.default_value, (list, tuple)) else socket.default_value[0]
+                    # Use hasattr to handle bpy_prop_array (color/vectors)
+                    dv = socket.default_value
+                    if hasattr(dv, "__iter__"):
+                        val_node.outputs[0].default_value = dv[0]
+                    else:
+                        val_node.outputs[0].default_value = dv
                     val_node.location = (-200, (1-combine_input_idx)*200)
                     links.new(val_node.outputs[0], combine.inputs[combine_input_idx])
 

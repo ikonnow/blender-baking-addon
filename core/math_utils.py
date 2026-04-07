@@ -260,8 +260,8 @@ def _setup_island_id_bmesh(obj, id_type, attr_name, start_color, manual_start, s
 def _find_islands_bmesh(bm, id_type):
     """识别 BMesh 中的孤岛 (拓扑/UV/缝合线)"""
     islands = [] 
-    for f in bm.faces: f.tag = 0
-    visited_tag = 1
+    for f in bm.faces: f.tag = False
+    visited_tag = True
 
     if id_type == 'ELEMENT':
         try:

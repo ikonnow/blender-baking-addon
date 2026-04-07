@@ -1,6 +1,6 @@
 schema_version = "1.0.0"
 id = "baketool"
-version = "1.5.0"
+version = "1.0.0"
 name = "BakeTool 2.0"
 tagline = "Professional Texture Baking Suite for Blender"
 maintainer = "BakeTool Team"

@@ -71,11 +71,20 @@ class NodeGraphHandler:
         self.temp_attributes = []
         self.original_links = {}
 
-    def __enter__(self): 
+    def __enter__(self):
+        for mat in self.materials:
+            tree = mat.node_tree
+            links_data = [] # List of (from_socket, to_socket) pairs
+            for l in tree.links:
+                # Store references to sockets. 
+                # Note: If nodes are deleted, these references become invalid, but we guard for that in cleanup.
+                links_data.append((l.from_socket, l.to_socket))
+            self.original_links[mat] = links_data
+            
         self._prepare_session_nodes()
         return self
         
-    def __exit__(self, exc_type, exc_val, exc_tb): 
+    def __exit__(self, exc_type, exc_val, exc_tb):
         self.cleanup()
         return False
 
@@ -113,22 +122,25 @@ class NodeGraphHandler:
                 nodes = self.temp_logic_nodes[mat]
                 for n in reversed(nodes):
                     try:
-                        if n in tree.nodes.values():
+                        if n.name in tree.nodes:
                             tree.nodes.remove(n)
                     except Exception: pass
                 self.temp_logic_nodes[mat] = []
         
         # 2. Restore original links
-        for mat, link_info in self.original_links.items():
+        for mat, links_data in self.original_links.items():
             if not mat or not mat.node_tree: continue
-            try:
-                out_n = self._find_output(mat.node_tree)
-                if out_n and link_info:
-                    from_socket, to_socket_idx = link_info
-                    # Ensure the from_socket belongs to a node that still exists
-                    if from_socket and from_socket.node and from_socket.node.name in mat.node_tree.nodes:
-                        mat.node_tree.links.new(from_socket, out_n.inputs[to_socket_idx])
-            except Exception: pass
+            tree = mat.node_tree
+            # Clear all current links to avoid conflicts (only if we have backup)
+            if links_data:
+                # Only restore if nodes still exist
+                for from_sock, to_sock in links_data:
+                    try:
+                        # Check if both nodes of the original link still exist in the tree
+                        if (from_sock and from_sock.node and from_sock.node.name in tree.nodes and 
+                            to_sock and to_sock.node and to_sock.node.name in tree.nodes):
+                            tree.links.new(from_sock, to_sock)
+                    except Exception: pass
         
         # 3. Clean up temp attributes
         for obj, attr in self.temp_attributes:
@@ -151,7 +163,6 @@ class NodeGraphHandler:
         """
         # Fallback to instance materials if not provided
         if not objects:
-            # Heuristic: We don't have objects, so we can't find 'other' materials to protect.
             return
         if active_materials is None:
             active_materials = self.materials
@@ -170,8 +181,7 @@ class NodeGraphHandler:
                     if m.library:
                         logger.debug(f"Skipping protection for library material: {m.name}")
                         continue
-                    # 将节点添加到材质的树中 // Add node to material's tree
-                    # NodeGraphHandler 将在 temp_logic_nodes[m] 中跟踪该节点
+                    # Add protection node
                     self._add_node(m, 'ShaderNodeTexImage', image=d, name=SYSTEM_NAMES['PROTECTION_NODE'], label=SYSTEM_NAMES['PROTECTION_LABEL'])
 
     def setup_for_pass(self, bake_pass, socket_name, image, mesh_type=None, attr_name=None, channel_settings=None):
@@ -184,11 +194,6 @@ class NodeGraphHandler:
                 try: tree.nodes.remove(n)
                 except Exception: pass
             self.temp_logic_nodes[mat] = []
-
-            if mat not in self.original_links:
-                # Find which input was linked (usually 0, but safety first)
-                socket = out_n.inputs[0]
-                self.original_links[mat] = (socket.links[0].from_socket, 0) if socket.is_linked else None
 
             s_nodes = self.session_nodes[mat]
             tex_n, emi_n = s_nodes['tex'], s_nodes['emi']
@@ -305,8 +310,10 @@ class NodeGraphHandler:
                 mix.data_type = 'RGBA'
                 tree.links.new(metallic_out, mix.inputs[0])  # Factor
                 # B4+ Mix node: Use named sockets if possible for better forward compatibility
-                sock_a = mix.inputs.get("A", mix.inputs[6] if len(mix.inputs) > 6 else None)
-                sock_b = mix.inputs.get("B", mix.inputs[7] if len(mix.inputs) > 7 else None)
+                # Blender 4.0+ handles named sockets "A" and "B" for RGBA.
+                # Fallback: search for RGBA sockets excluding Result (index 0) to avoid hard-coded index risk.
+                sock_a = mix.inputs.get("A") or next((s for s in mix.inputs if s.type == 'RGBA' and s != mix.inputs[0]), None)
+                sock_b = mix.inputs.get("B") or next((s for i, s in enumerate(mix.inputs) if s.type == 'RGBA' and s != sock_a and i > 0), None)
             else:
                 mix = self._add_node(mat, 'ShaderNodeMixRGB')
                 tree.links.new(metallic_out, mix.inputs[0])  # Fac

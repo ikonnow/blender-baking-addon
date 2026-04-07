@@ -277,7 +277,8 @@ class BakeJobSetting(bpy.types.PropertyGroup):
 
     id_manual_start_color: props.BoolProperty(name='Manual Start Color', default=True)
     id_start_color: props.FloatVectorProperty(name='ID Start Color', default=(1.0, 0.0, 0.0, 1.0), subtype='COLOR', size=4)
-    id_iterations: props.IntProperty(name='Quality (Iterations)', default=50, min=1, max=1000)
+    # Quality settings
+    use_antialiasing: props.BoolProperty(name='Anti-Aliasing', default=True)
     id_seed: props.IntProperty(name='Random Seed', default=0, min=0)
 
     # Texel Density

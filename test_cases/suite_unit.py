@@ -1,7 +1,7 @@
 import unittest
 import bpy
 import numpy as np
-from .helpers import cleanup_scene, create_test_object, get_job_setting, ensure_cycles
+from .helpers import cleanup_scene, create_test_object, JobBuilder, ensure_cycles, MockSetting
 from ..core import image_manager, uv_manager, math_utils, common, compat
 from ..core.node_manager import NodeGraphHandler
 
@@ -115,7 +115,10 @@ class SuiteUnit(unittest.TestCase):
         
         # 1. Invalid root type
         io.from_dict(bj, "Not a dict")
-        self.assertGreaterEqual(io.stats['error'], 0) # Should log but not crash
+        # Should not crash. stats['error'] might be 0 if it rejected 
+        # before deep processing, or >0 if it tried and failed. 
+        # The key is reaching the next line.
+        self.assertIsInstance(io.stats, dict)
         
         # 2. Corrupted nested data
         corrupted_data = {"jobs": [{"setting": {"res_x": "InvalidString"}}]}
@@ -259,6 +262,59 @@ class SuiteUnit(unittest.TestCase):
         density = math_utils.TexelDensityCalculator.get_mesh_density(obj, 1024, 1024)
         self.assertGreater(density, 0)
         self.assertIsInstance(density, float)
+
+    # --- Expanded Component Lifecycle Tests ---
+    def test_context_manager_exception_restores_state(self):
+        """Verify that BakeContextManager performs cleanup even if an exception occurs."""
+        from ..core.engine import BakeContextManager
+        orig_engine = bpy.context.scene.render.engine
+        
+        try:
+            with BakeContextManager(bpy.context, MockSetting()):
+                bpy.context.scene.render.engine = 'CYCLES'
+                raise RuntimeError("Simulated crash")
+        except RuntimeError:
+            pass
+        self.assertEqual(bpy.context.scene.render.engine, orig_engine)
+
+    def test_node_graph_handler_link_restoration(self):
+        """Verify material links are restored by NodeGraphHandler even if manually cleared."""
+        mat = bpy.data.materials.new("LinkRestoreMat")
+        mat.use_nodes = True
+        nodes, links = mat.node_tree.nodes, mat.node_tree.links
+        bsdf = nodes.new('ShaderNodeBsdfPrincipled')
+        out = nodes.new('ShaderNodeOutputMaterial')
+        links.new(bsdf.outputs[0], out.inputs[0])
+        
+        count = len(links)
+        with NodeGraphHandler([mat]) as h:
+            links.clear()
+        self.assertEqual(len(links), count, "Links not restored after NodeGraphHandler exit")
+
+    def test_uv_layer_manager_temp_cleanup(self):
+        """Verify UVLayoutManager cleans up temporary UV layers."""
+        obj = create_test_object("UVManagerObj")
+        cnt = len(obj.data.uv_layers)
+        ms = MockSetting(use_auto_uv=False)
+        with uv_manager.UVLayoutManager([obj], ms) as m:
+            # __enter__ calls _record_and_setup_layers which adds the temp layer
+            self.assertEqual(len(obj.data.uv_layers), cnt + 1)
+        self.assertEqual(len(obj.data.uv_layers), cnt, "Temp UV layer not removed")
+
+    def test_save_image_disk_existence(self):
+        """Verify image_manager writes valid file to disk."""
+        import tempfile, os
+        img = image_manager.set_image("DiskTest", 8, 8)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = image_manager.save_image(img, path=tmp)
+            self.assertTrue(os.path.exists(path), f"File not found: {path}")
+
+    def test_id_map_optimized_colors_integrity(self):
+        """Verify generated colors contain no NaNs and are within [0,1]."""
+        colors = math_utils.generate_optimized_colors(20)
+        self.assertEqual(colors.shape, (20, 4))
+        self.assertTrue(np.all(colors >= 0.0) and np.all(colors <= 1.0))
+        self.assertFalse(np.any(np.isnan(colors)))
 
 if __name__ == '__main__':
     unittest.main()

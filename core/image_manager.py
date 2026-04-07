@@ -50,8 +50,10 @@ def robust_image_editor_context(context, image):
             if area.type != old_type: area.type = old_type
 
 def set_image(name, x, y, alpha=True, full=False, space='sRGB', basiccolor=(0,0,0,0), clear=True, 
-              use_udim=False, udim_tiles=None, tile_resolutions=None):
+              use_udim=False, udim_tiles=None, tile_resolutions=None, context=None):
     """获取或创建指定设置的图像，并确保其格式正确 // Get/Create image with specified settings"""
+    if context is None:
+        context = bpy.context
     image = _get_or_create_image_base(name, x, y, alpha, full, use_udim, tile_resolutions)
     
     image.file_format = 'PNG' 
@@ -68,7 +70,7 @@ def set_image(name, x, y, alpha=True, full=False, space='sRGB', basiccolor=(0,0,
         _physical_clear_pixels(image, basiccolor)
 
     if use_udim and image.source == 'TILED':
-        _handle_udim_tiles(image, x, y, udim_tiles, tile_resolutions, full, alpha, basiccolor)
+        _handle_udim_tiles(image, x, y, udim_tiles, tile_resolutions, full, alpha, basiccolor, context=context)
 
     try: image.update()
     except Exception: pass
@@ -122,7 +124,7 @@ def _physical_clear_pixels(image, basiccolor):
             image.pixels.foreach_set(arr)
         except (AttributeError, ValueError): pass
 
-def _handle_udim_tiles(image, x, y, udim_tiles, tile_resolutions, full, alpha, basiccolor):
+def _handle_udim_tiles(image, x, y, udim_tiles, tile_resolutions, full, alpha, basiccolor, context=None):
     """管理 UDIM 瓦片的新增与移除"""
     target_tiles = set(udim_tiles) if udim_tiles else {1001}
     existing_tiles = {t.number for t in image.tiles}
@@ -138,7 +140,8 @@ def _handle_udim_tiles(image, x, y, udim_tiles, tile_resolutions, full, alpha, b
     # 2. 添加缺失瓦片 // Add missing
     missing_tiles = target_tiles - existing_tiles
     if missing_tiles:
-        with robust_image_editor_context(bpy.context, image) as valid:
+        if context is None: context = bpy.context
+        with robust_image_editor_context(context, image) as valid:
             for t_idx in missing_tiles:
                 t_w, t_h = x, y
                 if tile_resolutions and t_idx in tile_resolutions: t_w, t_h = tile_resolutions[t_idx]

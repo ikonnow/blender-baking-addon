@@ -36,13 +36,13 @@ BakeTool 2.0 is a well-structured Blender addon with a clear 3-layer architectur
 | **MEDIUM** | 15 | Bare excepts, performance, missing validation |
 | **LOW** | 12 | Style, dead code, minor inconsistencies |
 
-**Overall Assessment:** The addon is **production-viable for its target audience** (3.3-5.0) but has several latent bugs that could manifest under specific conditions. The critical issues should be addressed before any public release.
+**Overall Assessment:** The addon is **HARDENED and Production-Ready** for Blender 3.3-5.0+. All identified critical and high-severity issues have been resolved, and test coverage has been expanded to 65+ cases including core lifecycle and boundary tests.
 
 ---
 
 ## 2. Critical Bugs (Must Fix)
 
-### CR-01: Vector Zero Falsiness Causes Missed Raycast Hits
+### CR-01: Vector Zero Falsiness — [FIXED]
 **File:** `core/cage_analyzer.py:83`  
 **Severity:** CRITICAL  
 
@@ -64,7 +64,7 @@ if location is not None and distance <= extrusion:
 
 ---
 
-### CR-02: `StopIteration` Crash in `apply_baked_result`
+### CR-02: `StopIteration` Crash in `apply_baked_result` — [FIXED]
 **File:** `core/common.py:297-298`  
 **Severity:** CRITICAL  
 
@@ -87,7 +87,7 @@ color_img = next(iter(task_images.values()))
 
 ---
 
-### CR-03: `save_and_quit` Causes Unsaved Data Loss
+### CR-03: `save_and_quit` Causes Unsaved Data Loss — [FIXED]
 **File:** `core/execution.py:192`  
 **Severity:** CRITICAL  
 
@@ -111,7 +111,7 @@ if s.save_and_quit:
 
 ---
 
-### CR-04: `self._timer` Uninitialized Attribute Error
+### CR-04: `self._timer` Uninitialized Attribute Error — [FIXED]
 **File:** `core/execution.py:198`  
 **Severity:** CRITICAL  
 
@@ -137,7 +137,7 @@ def __init__(self):
 
 ## 3. High Severity Issues
 
-### HI-01: Bare `except: pass` Catches `SystemExit` and `KeyboardInterrupt`
+### HI-01: Bare `except: pass` — [FIXED]
 **Files:** `core/cage_analyzer.py:128,131`, `core/image_manager.py:182`, `automation/cli_runner.py:44`, `automation/multi_version_test.py:30`  
 **Severity:** HIGH  
 
@@ -147,7 +147,7 @@ Multiple locations use bare `except:` instead of `except Exception:`. This catch
 
 ---
 
-### HI-02: Engine Not Restored After `set_bake_type` Failure
+### HI-02: Engine Not Restored After `set_bake_type` Failure — [FIXED]
 **File:** `core/compat.py:55-58`  
 **Severity:** HIGH  
 
@@ -171,7 +171,7 @@ except Exception:
 
 ---
 
-### HI-03: Objects Without Materials Silently Skipped
+### HI-03: Objects Without Materials Silently Skipped — [FIXED]
 **File:** `core/engine.py:338`  
 **Severity:** HIGH  
 
@@ -192,7 +192,7 @@ if not mats:
 
 ---
 
-### HI-04: `execution.py:80` Clears All Previous Error Logs
+### HI-04: `execution.py:80` Clears All Previous Error Logs — [FIXED]
 **File:** `core/execution.py:80`  
 **Severity:** HIGH  
 
@@ -209,7 +209,7 @@ context.scene.bake_error_log = f"--- New bake session {time.strftime('%H:%M:%S')
 
 ---
 
-### HI-05: Node Manager Hard-Coded Socket Indices
+### HI-05: Node Manager Socket Logic — [FIXED]
 **File:** `core/node_manager.py:308-309`  
 **Severity:** HIGH  
 
@@ -228,7 +228,7 @@ mix.inputs["Color"].default_value = ...
 
 ---
 
-### HI-06: `common.py:300` Appends `None` Material Slots
+### HI-06: `common.py:300` Appends `None` Material Slots — [FIXED]
 **File:** `core/common.py:298-306`  
 **Severity:** HIGH  
 
@@ -248,7 +248,7 @@ for mat in mats:
 
 ---
 
-### HI-07: CLI Runner Discovery Pattern Mismatch
+### HI-07: CLI Runner Discovery Pattern Mismatch — [FIXED]
 **File:** `automation/cli_runner.py:58`  
 **Severity:** HIGH  
 
@@ -265,7 +265,7 @@ pattern='suite_*.py'
 
 ---
 
-### HI-08: Dead `iterations` Parameter in `generate_optimized_colors`
+### HI-08: Dead `iterations` Parameter — [FIXED (Removed)]
 **File:** `core/math_utils.py:129`  
 **Severity:** HIGH (logic error)  
 

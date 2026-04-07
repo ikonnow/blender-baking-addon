@@ -507,7 +507,6 @@ class BAKE_PT_BakePanel(bpy.types.Panel):
             if s.id_manual_start_color:
                 sb.prop(s, "id_start_color", text="")
                 
-            sb.prop(s, "id_iterations", slider=True)
             sb.prop(s, "id_seed")
 
         if s.bake_mode == 'SELECT_ACTIVE':

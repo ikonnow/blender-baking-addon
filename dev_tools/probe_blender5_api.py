@@ -15,7 +15,8 @@ def probe():
                 print(f"scene.cycles.bake_type enums: {scene.cycles.bl_rna.properties['bake_type'].enum_items.keys()}")
             except Exception as e:
                 print(f"Could not get scene.cycles.bake_type enums: {e}")
-    except: pass
+    except Exception:
+        pass
     
     print("scene.render keys: ", [p for p in dir(scene.render) if 'bake' in p])
     

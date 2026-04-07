@@ -39,7 +39,11 @@ def load_preset_thumbnails(directory):
             # 使用文件名作为标识符
             name = f.stem
             if name not in pcoll:
-                pcoll.load(name, str(f.resolve()), 'IMAGE')
+                try:
+                    pcoll.load(name, str(f.resolve()), 'IMAGE')
+                except Exception as e:
+                    import logging
+                    logging.getLogger(__name__).warning(f"Failed to load preview '{name}': {e}")
 
 def get_icon_id(name, collection="presets"):
     """获取加载图标的整数 ID"""

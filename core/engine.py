@@ -118,6 +118,10 @@ class BakePostProcessor:
                 bpy.ops.render.render() 
                 
             viewer_img = bpy.data.images.get(SYSTEM_NAMES['VIEWER_IMG'])
+            if not viewer_img:
+                # Fallback: search for any viewer-like image (B5 compatibility)
+                viewer_img = next((img for img in bpy.data.images if 'viewer' in img.name.lower()), None)
+                
             if viewer_img:
                 # 兼容性修复: 避免删除 IMViewer 节点导致的用户残留错误 (Prevent user residue errors)
                 if viewer_img.size[0] == image.size[0] and viewer_img.size[1] == image.size[1]:
