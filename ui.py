@@ -408,7 +408,7 @@ class BAKE_PT_BakePanel(bpy.types.Panel):
         
         # Active Job Config
         col = layout.column(align=True)
-        col.prop(job, "name", text="Config Name", icon='SYNCHRONIZED')
+        col.prop(job, "name", text="Config Name", icon='FILE_REFRESH')
         
         self.draw_inputs(context, col, bj, s)
         self.draw_channels(context, col, bj, s)
@@ -553,7 +553,7 @@ class BAKE_PT_BakePanel(bpy.types.Panel):
         row.prop(s, "texel_density", text="Texel")
         row.prop(s, "auto_switch_vertex_paint", text="Auto-VP", toggle=True)
         
-        sub.operator("bake.analyze_cage", text="Analyze Overlap", icon='RAYCAST')
+        sub.operator("bake.analyze_cage", text="Analyze Overlap", icon='MOD_PHYSICS')
 
     def draw_others(self, context, l, bj, s):
         row = l.row(align=True)

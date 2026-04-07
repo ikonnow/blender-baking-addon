@@ -92,6 +92,16 @@ This document outlines the long-term strategic vision for Simple Bake Tool (SBT)
 - **Status**: Completed (v1.0.0).
 - **Tooling**: `multi_version_test.py` now monitors 70 core test suites across multiple local Blender installs automatically. Added negative test suite to ensure error-path resilience.
 
+### 4.5 UI/UX Production Refactor & Dashboard Logic [DONE]
+- **Status**: Completed in v1.0.0.
+- **Feature**: Comprehensive dashboard-style refactor. Replaced nested boxes with aligned columns and grouped functional zones for better vertical flow.
+- **Goal**: Professional, streamlined aesthetic matching high-end Blender addons.
+
+### 4.6 Multi-Version Icon & Operator Audit [DONE]
+- **Status**: Completed (v1.0.0-p5).
+- **Feature**: Automated integrity check (`test_ui_operator_integrity`) verifying that every operator used in `ui.py` is correctly registered. 
+- **Hardening**: Audited and replaced high-version icons (e.g., `SYNCHRONIZED`, `RAYCAST`) with widely compatible alternatives for Blender 3.3 - 4.2+ support.
+
 ---
 
 ## 🔮 Phase 5: Async & Performance (Planned v1.1.0)

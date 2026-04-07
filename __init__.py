@@ -1,3 +1,15 @@
+bl_info = {
+    "name": "BakeTool",
+    "description": "Professional Texture Baking Suite for Blender",
+    "author": "BakeTool Team",
+    "version": (1, 0, 0),
+    "blender": (3, 3, 0),
+    "location": "View3D > Sidebar > Baking",
+    "warning": "",
+    "doc_url": "https://example.com/baketool",
+    "category": "Render",
+}
+
 import bpy
 import logging
 from bpy import (props, types)
