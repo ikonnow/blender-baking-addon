@@ -52,7 +52,17 @@ DIRECTIONS = [('X', 'X', 'X'), ('Y', 'Y', 'Y'), ('Z', 'Z', 'Z')]
 NORMAL_TYPES = [('OPENGL', 'OPENGL', 'Use OPENGL Standard'), ('DIRECTX', 'DIRECTX', 'Use DIRECTX Standard'), ('CUSTOM', 'Custom', 'Use Custom Standard')]
 NORMAL_CHANNELS = [('POS_X', '+X', '+X'), ('POS_Y', '+Y', '+Y'), ('POS_Z', '+Z', '+Z'), ('NEG_X', '-X', '-X'), ('NEG_Y', '-Y', '-Y'), ('NEG_Z', '-Z', '-Z')]
 
-COLOR_DEPTHS = [('8', '8', '8 Bits'), ('10', '10', '10 Bits'), ('12', '12', '12 Bits'), ('16', '16', '16 Bits'), ('32', '32', '32 Bits')]
+COLOR_DEPTHS = [
+    ('8', '8', '8 Bits'), 
+    ('10', '10', '10 Bits'), 
+    ('12', '12', '12 Bits'), 
+    ('16', '16', '16 Bits'), 
+    ('32', '32', '32 Bits'),
+    # Legacy Support (Hidden from UI but present for RNA mapping)
+    ('0', '8', 'Legacy 8-bit', 'NONE', 0o1),
+    ('1', '16', 'Legacy 16-bit', 'NONE', 0o2),
+    ('2', '32', 'Legacy 32-bit', 'NONE', 0o3),
+]
 COLOR_MODES = [('RGBA', 'RGBA', 'RGB and Alpha channel'), ('RGB', 'RGB', 'RGB channel'), ('BW', 'BW', 'BW channel')]
 COLOR_SPACES = [('NONCOL', 'Non-Color', 'Non-Color'), ('SRGB', 'sRGB', 'sRGB'), ('LINEAR', 'Linear', 'Linear')]
 
