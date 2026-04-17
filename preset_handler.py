@@ -118,6 +118,13 @@ class PropertyIO:
         for old_key, new_path in PRESET_MIGRATION_MAP.items():
             if old_key in data:
                 val = processed_data.pop(old_key)
+                
+                # M-02: Use Deterministic OR logic for boolean flags mapping to the same target
+                if isinstance(val, bool):
+                     curr_val = self._get_nested_attr(prop_group, new_path)
+                     if isinstance(curr_val, bool):
+                         val = val or curr_val
+                
                 self._set_nested_attr(prop_group, new_path, val)
 
         # 获取对象所有有效属性名，用于检测“废弃属性”
@@ -197,6 +204,17 @@ class PropertyIO:
             logger.debug(f"FromDict: Nested set failed '{path}': {e}")
             pass
 
+    def _get_nested_attr(self, obj, path):
+        """Helper to get nested attribute value, e.g. 'mesh_settings.samples'"""
+        parts = path.split('.')
+        target = obj
+        for part in parts[:-1]:
+            if hasattr(target, part):
+                target = getattr(target, part)
+            else:
+                return None
+        return getattr(target, parts[-1], None)
+
     def report_stats(self):
         """返回加载统计信息字符串"""
         return (f"Loaded: {self.stats['loaded']}, "
@@ -232,7 +250,9 @@ class AutoLoadHandler:
 
         # Only load if the current scene is "clean" (has no jobs)
         scene = bpy.context.scene
-        if scene and hasattr(scene, "BakeJobs") and len(scene.BakeJobs.jobs) == 0:
+        if not scene: return
+        
+        if hasattr(scene, "BakeJobs") and len(scene.BakeJobs.jobs) == 0:
             try:
                 with open(filepath, 'r') as f:
                     data = json.load(f)

@@ -5,20 +5,20 @@
 # --- UI Enum Definitions (Used in property.py) ---
 
 JOB_TYPES = [
-    ('S', 'Simple', 'Simple Jobs Setting', 1),
-    ('A', 'Accurate', 'Accurate Jobs Setting', 2),
+    ("S", "Simple", "Simple Jobs Setting", 1),
+    ("A", "Accurate", "Accurate Jobs Setting", 2),
 ]
 
 CUSTOM_CHANNEL_SEP = [
-    ('R', 'Red', 'Use Red channel', 1),
-    ('G', 'Green', 'Use Green channel', 2),
-    ('B', 'Blue', 'Use Blue channel', 3),
-    ('A', 'Alpha', 'Use Alpha channel', 4)
+    ("R", "Red", "Use Red channel", 1),
+    ("G", "Green", "Use Green channel", 2),
+    ("B", "Blue", "Use Blue channel", 3),
+    ("A", "Alpha", "Use Alpha channel", 4),
 ]
 
 BAKE_TYPES = [
     ("BASIC", "Basic Bake", "Blender Default Baking", 1),
-    ("BSDF", "BSDF Bake", "Use BSDF Baking (requires Principled BSDF)", 2)
+    ("BSDF", "BSDF Bake", "Use BSDF Baking (requires Principled BSDF)", 2),
 ]
 
 BAKE_MODES = [
@@ -26,7 +26,7 @@ BAKE_MODES = [
     ("COMBINE_OBJECT", "Multi Objects Bake", "Bake multi objects", 2),
     ("SELECT_ACTIVE", "Active Bake", "Bake selected to active", 3),
     ("SPLIT_MATERIAL", "Split Material Bake", "Bake each split material", 4),
-    ("UDIM", "UDIM Bake", "Bake selected objects to UDIM tiles", 5)
+    ("UDIM", "UDIM Bake", "Bake selected objects to UDIM tiles", 5),
 ]
 
 BASIC_FORMATS = [
@@ -39,411 +39,989 @@ BASIC_FORMATS = [
     ("TARGA_RAW", "Targa Raw", "Output image in uncompressed Targa format", 7),
     ("CINEON", "Cineon", "Output image in Cineon format", 8),
     ("DPX", "DPX", "Output image in DPX format", 9),
-    ("OPEN_EXR_MULTILAYER", "OpenEXR MultiLayer", "Output image in multilayer OpenEXR format", 10),
+    (
+        "OPEN_EXR_MULTILAYER",
+        "OpenEXR MultiLayer",
+        "Output image in multilayer OpenEXR format",
+        10,
+    ),
     ("OPEN_EXR", "OpenEXR", "Output image in OpenEXR format", 11),
     ("HDR", "Radiance HDR", "Output image in Radiance HDR format", 12),
     ("TIFF", "TIFF", "Output image in TIFF format", 13),
     ("WEBP", "WebP", "Output image in WebP format", 14),
 ]
 
-DEVICES = [('GPU', 'GPU', 'Use GPU'), ('CPU', 'CPU', 'Use CPU')]
-ATLAS_PACK_METHODS = [('REPACK', 'Smart Project', 'Use Smart UV Project repack UV'), ('ISLAND', 'Pack Island', 'Pack UV island for current UV')]
-DIRECTIONS = [('X', 'X', 'X'), ('Y', 'Y', 'Y'), ('Z', 'Z', 'Z')]
-NORMAL_TYPES = [('OPENGL', 'OPENGL', 'Use OPENGL Standard'), ('DIRECTX', 'DIRECTX', 'Use DIRECTX Standard'), ('CUSTOM', 'Custom', 'Use Custom Standard')]
-NORMAL_CHANNELS = [('POS_X', '+X', '+X'), ('POS_Y', '+Y', '+Y'), ('POS_Z', '+Z', '+Z'), ('NEG_X', '-X', '-X'), ('NEG_Y', '-Y', '-Y'), ('NEG_Z', '-Z', '-Z')]
+DEVICES = [("GPU", "GPU", "Use GPU"), ("CPU", "CPU", "Use CPU")]
+ATLAS_PACK_METHODS = [
+    ("REPACK", "Smart Project", "Use Smart UV Project repack UV"),
+    ("ISLAND", "Pack Island", "Pack UV island for current UV"),
+]
+DIRECTIONS = [("X", "X", "X"), ("Y", "Y", "Y"), ("Z", "Z", "Z")]
+NORMAL_TYPES = [
+    ("OPENGL", "OPENGL", "Use OPENGL Standard"),
+    ("DIRECTX", "DIRECTX", "Use DIRECTX Standard"),
+    ("CUSTOM", "Custom", "Use Custom Standard"),
+]
+NORMAL_CHANNELS = [
+    ("POS_X", "+X", "+X"),
+    ("POS_Y", "+Y", "+Y"),
+    ("POS_Z", "+Z", "+Z"),
+    ("NEG_X", "-X", "-X"),
+    ("NEG_Y", "-Y", "-Y"),
+    ("NEG_Z", "-Z", "-Z"),
+]
 
 COLOR_DEPTHS = [
-    ('8', '8', '8 Bits'), 
-    ('10', '10', '10 Bits'), 
-    ('12', '12', '12 Bits'), 
-    ('16', '16', '16 Bits'), 
-    ('32', '32', '32 Bits'),
+    ("8", "8", "8 Bits"),
+    ("10", "10", "10 Bits"),
+    ("12", "12", "12 Bits"),
+    ("16", "16", "16 Bits"),
+    ("32", "32", "32 Bits"),
     # Legacy Support (Hidden from UI but present for RNA mapping)
-    ('0', '8', 'Legacy 8-bit', 'NONE', 0o1),
-    ('1', '16', 'Legacy 16-bit', 'NONE', 0o2),
-    ('2', '32', 'Legacy 32-bit', 'NONE', 0o3),
+    ("0", "8", "Legacy 8-bit", "NONE", 0o1),
+    ("1", "16", "Legacy 16-bit", "NONE", 0o2),
+    ("2", "32", "Legacy 32-bit", "NONE", 0o3),
 ]
-COLOR_MODES = [('RGBA', 'RGBA', 'RGB and Alpha channel'), ('RGB', 'RGB', 'RGB channel'), ('BW', 'BW', 'BW channel')]
-COLOR_SPACES = [('NONCOL', 'Non-Color', 'Non-Color'), ('SRGB', 'sRGB', 'sRGB'), ('LINEAR', 'Linear', 'Linear')]
+COLOR_MODES = [
+    ("RGBA", "RGBA", "RGB and Alpha channel"),
+    ("RGB", "RGB", "RGB channel"),
+    ("BW", "BW", "BW channel"),
+]
+COLOR_SPACES = [
+    ("NONCOL", "Non-Color", "Non-Color"),
+    ("SRGB", "sRGB", "sRGB"),
+    ("LINEAR", "Linear", "Linear"),
+]
 
-TIFF_CODECS = [('NONE', 'None', 'No compression'), ('DEFLATE', 'Deflate', 'Deflate compression'), ('LZW', 'LZW', 'LZW compression'), ('PACKBITS', 'Packbits', 'Packbits compression')]
-EXR_CODECS = [('NONE', 'None', 'No compression'), ('PXR24', 'Pxr24', 'Lossy'), ('ZIP', 'ZIP', 'Lossless'), ('PIZ', 'PIZ', 'Lossless'), ('RLE', 'RLE', 'Lossless'), ('ZIPS', 'ZIPS', 'Lossless'), ('B44', 'B44', 'Lossy'), ('B44A', 'B44A', 'Lossy'), ('DWAA', 'DWAA', 'Lossy'), ('DWAB', 'DWAB', 'Lossy')]
-DENOISE_METHODS = [("NONE", "No", "No Prefilter"), ("FAST", "Fast", "Fast"), ("ACCURATE", "Accurate", "Accurate")]
-NAMING_MODES = [("OBJECT", "Object", "Object"), ("MAT", "Material", "Material"), ("OBJ_MAT", "Object-Material", "Obj-Mat"), ("CUSTOM", "Custom", "Custom")]
+TIFF_CODECS = [
+    ("NONE", "None", "No compression"),
+    ("DEFLATE", "Deflate", "Deflate compression"),
+    ("LZW", "LZW", "LZW compression"),
+    ("PACKBITS", "Packbits", "Packbits compression"),
+]
+EXR_CODECS = [
+    ("NONE", "None", "No compression"),
+    ("PXR24", "Pxr24", "Lossy"),
+    ("ZIP", "ZIP", "Lossless"),
+    ("PIZ", "PIZ", "Lossless"),
+    ("RLE", "RLE", "Lossless"),
+    ("ZIPS", "ZIPS", "Lossless"),
+    ("B44", "B44", "Lossy"),
+    ("B44A", "B44A", "Lossy"),
+    ("DWAA", "DWAA", "Lossy"),
+    ("DWAB", "DWAB", "Lossy"),
+]
+DENOISE_METHODS = [
+    ("NONE", "No", "No Prefilter"),
+    ("FAST", "Fast", "Fast"),
+    ("ACCURATE", "Accurate", "Accurate"),
+]
+NAMING_MODES = [
+    ("OBJECT", "Object", "Object"),
+    ("MAT", "Material", "Material"),
+    ("OBJ_MAT", "Object-Material", "Obj-Mat"),
+    ("CUSTOM", "Custom", "Custom"),
+]
 
 # --- Image Format Technical Settings ---
 
 FORMAT_SETTINGS = {
-    "BMP": {"modes": {'BW', 'RGB'}, "depths": {'8'}, "quality": False, "extensions": ['.bmp']},
-    "IRIS": {"modes": {'BW', 'RGB', 'RGBA'}, "depths": {'8'}, "quality": False, "extensions": ['.rgb']},
-    "PNG": {"modes": {'BW', 'RGB', 'RGBA'}, "depths": {'8', '16'}, "compression": True, "extensions": ['.png']},
-    "JPEG": {"modes": {'BW', 'RGB'}, "depths": {'8'}, "quality": True, "extensions": ['.jpg', '.jpeg']},
-    "JPEG2000": {"modes": {'BW', 'RGB', 'RGBA'}, "depths": {'8', '12', '16'}, "quality": True, "extensions": ['.jp2']},
-    "TARGA": {"modes": {'BW', 'RGB', 'RGBA'}, "depths": {'8'}, "quality": False, "extensions": ['.tga']},
-    "TARGA_RAW": {"modes": {'BW', 'RGB', 'RGBA'}, "depths": {'8'}, "quality": False, "extensions": ['.tga']},
-    "CINEON": {"modes": {'BW', 'RGB'}, "depths": {'10'}, "quality": False, "extensions": ['.cin']},
-    "DPX": {"modes": {'BW', 'RGB', 'RGBA'}, "depths": {'8', '10', '12', '16'}, "quality": False, "extensions": ['.dpx']},
-    "OPEN_EXR_MULTILAYER": {"modes": {'RGBA'}, "depths": {'16', '32'}, "codec": True, "extensions": ['.exr']},
-    "OPEN_EXR": {"modes": {'BW', 'RGB', 'RGBA'}, "depths": {'16', '32'}, "codec": True, "extensions": ['.exr']},
-    "HDR": {"modes": {'BW', 'RGB'}, "depths": {'32'}, "quality": False, "extensions": ['.hdr']},
-    "TIFF": {"modes": {'BW', 'RGB', 'RGBA'}, "depths": {'8', '16'}, "tiff_codec": True, "extensions": ['.tif', '.tiff']},
-    "WEBP": {"modes": {'BW', 'RGB', 'RGBA'}, "depths": {'8'}, "quality": True, "extensions": ['.webp']},
+    "BMP": {
+        "modes": {"BW", "RGB"},
+        "depths": {"8"},
+        "quality": False,
+        "extensions": [".bmp"],
+    },
+    "IRIS": {
+        "modes": {"BW", "RGB", "RGBA"},
+        "depths": {"8"},
+        "quality": False,
+        "extensions": [".rgb"],
+    },
+    "PNG": {
+        "modes": {"BW", "RGB", "RGBA"},
+        "depths": {"8", "16"},
+        "compression": True,
+        "extensions": [".png"],
+    },
+    "JPEG": {
+        "modes": {"BW", "RGB"},
+        "depths": {"8"},
+        "quality": True,
+        "extensions": [".jpg", ".jpeg"],
+    },
+    "JPEG2000": {
+        "modes": {"BW", "RGB", "RGBA"},
+        "depths": {"8", "12", "16"},
+        "quality": True,
+        "extensions": [".jp2"],
+    },
+    "TARGA": {
+        "modes": {"BW", "RGB", "RGBA"},
+        "depths": {"8"},
+        "quality": False,
+        "extensions": [".tga"],
+    },
+    "TARGA_RAW": {
+        "modes": {"BW", "RGB", "RGBA"},
+        "depths": {"8"},
+        "quality": False,
+        "extensions": [".tga"],
+    },
+    "CINEON": {
+        "modes": {"BW", "RGB"},
+        "depths": {"10"},
+        "quality": False,
+        "extensions": [".cin"],
+    },
+    "DPX": {
+        "modes": {"BW", "RGB", "RGBA"},
+        "depths": {"8", "10", "12", "16"},
+        "quality": False,
+        "extensions": [".dpx"],
+    },
+    "OPEN_EXR_MULTILAYER": {
+        "modes": {"RGBA"},
+        "depths": {"16", "32"},
+        "codec": True,
+        "extensions": [".exr"],
+    },
+    "OPEN_EXR": {
+        "modes": {"BW", "RGB", "RGBA"},
+        "depths": {"16", "32"},
+        "codec": True,
+        "extensions": [".exr"],
+    },
+    "HDR": {
+        "modes": {"BW", "RGB"},
+        "depths": {"32"},
+        "quality": False,
+        "extensions": [".hdr"],
+    },
+    "TIFF": {
+        "modes": {"BW", "RGB", "RGBA"},
+        "depths": {"8", "16"},
+        "tiff_codec": True,
+        "extensions": [".tif", ".tiff"],
+    },
+    "WEBP": {
+        "modes": {"BW", "RGB", "RGBA"},
+        "depths": {"8"},
+        "quality": True,
+        "extensions": [".webp"],
+    },
 }
 
 # --- Bake Channel Categories ---
 
-CAT_DATA = 'DATA'
-CAT_LIGHT = 'LIGHT'
-CAT_MESH = 'MESH'
-CAT_EXTENSION = 'EXTENSION'
+CAT_DATA = "DATA"
+CAT_LIGHT = "LIGHT"
+CAT_MESH = "MESH"
+CAT_EXTENSION = "EXTENSION"
 
 # --- Channel Metadata & Pass Config ---
 
 CHANNEL_BAKE_INFO = {
     # --- PBR Data ---
-    'color': {'bake_pass': 'EMIT', 'cat': CAT_DATA, 'def_cs': 'sRGB', 'def_mode': 'RGB'},
-    'metal': {'bake_pass': 'EMIT', 'cat': CAT_DATA, 'def_cs': 'Non-Color', 'def_mode': 'BW'},
-    'rough': {'bake_pass': 'EMIT', 'cat': CAT_DATA, 'def_cs': 'Non-Color', 'def_mode': 'BW'},
-    'specular': {'bake_pass': 'EMIT', 'cat': CAT_DATA, 'def_cs': 'Non-Color', 'def_mode': 'BW'},
-    'specular_tint': {'bake_pass': 'EMIT', 'cat': CAT_DATA, 'def_cs': 'Non-Color', 'def_mode': 'RGB'},
-    'anisotropic': {'bake_pass': 'EMIT', 'cat': CAT_DATA, 'def_cs': 'Non-Color', 'def_mode': 'BW'},
-    'anisotropic_rot': {'bake_pass': 'EMIT', 'cat': CAT_DATA, 'def_cs': 'Non-Color', 'def_mode': 'BW'},
-    'sheen': {'bake_pass': 'EMIT', 'cat': CAT_DATA, 'def_cs': 'Non-Color', 'def_mode': 'BW'},
-    'sheen_tint': {'bake_pass': 'EMIT', 'cat': CAT_DATA, 'def_cs': 'Non-Color', 'def_mode': 'RGB'},
-    'sheen_rough': {'bake_pass': 'EMIT', 'cat': CAT_DATA, 'def_cs': 'Non-Color', 'def_mode': 'BW'},
-    'clearcoat': {'bake_pass': 'EMIT', 'cat': CAT_DATA, 'def_cs': 'Non-Color', 'def_mode': 'BW'},
-    'clearcoat_rough': {'bake_pass': 'EMIT', 'cat': CAT_DATA, 'def_cs': 'Non-Color', 'def_mode': 'BW'},
-    'clearcoat_tint': {'bake_pass': 'EMIT', 'cat': CAT_DATA, 'def_cs': 'Non-Color', 'def_mode': 'RGB'},
-    'tran': {'bake_pass': 'EMIT', 'cat': CAT_DATA, 'def_cs': 'Non-Color', 'def_mode': 'BW'},
-    'tran_rou': {'bake_pass': 'EMIT', 'cat': CAT_DATA, 'def_cs': 'Non-Color', 'def_mode': 'BW'},
-    'emi': {'bake_pass': 'EMIT', 'cat': CAT_DATA, 'def_cs': 'sRGB', 'def_mode': 'RGB'},
-    'emi_str': {'bake_pass': 'EMIT', 'cat': CAT_DATA, 'def_cs': 'Non-Color', 'def_mode': 'BW'},
-    'alpha': {'bake_pass': 'EMIT', 'cat': CAT_DATA, 'def_cs': 'Non-Color', 'def_mode': 'BW'},
-    'normal': {'bake_pass': 'NORMAL', 'cat': CAT_DATA, 'def_cs': 'Non-Color', 'def_mode': 'RGB'},
-    'subface': {'bake_pass': 'EMIT', 'cat': CAT_DATA, 'def_cs': 'Non-Color', 'def_mode': 'BW'},
-    'subface_col': {'bake_pass': 'EMIT', 'cat': CAT_DATA, 'def_cs': 'sRGB', 'def_mode': 'RGB'},
-    'subface_ani': {'bake_pass': 'EMIT', 'cat': CAT_DATA, 'def_cs': 'Non-Color', 'def_mode': 'BW'},
-    
+    "color": {
+        "bake_pass": "EMIT",
+        "cat": CAT_DATA,
+        "def_cs": "sRGB",
+        "def_mode": "RGB",
+    },
+    "metal": {
+        "bake_pass": "EMIT",
+        "cat": CAT_DATA,
+        "def_cs": "Non-Color",
+        "def_mode": "BW",
+    },
+    "rough": {
+        "bake_pass": "EMIT",
+        "cat": CAT_DATA,
+        "def_cs": "Non-Color",
+        "def_mode": "BW",
+    },
+    "specular": {
+        "bake_pass": "EMIT",
+        "cat": CAT_DATA,
+        "def_cs": "Non-Color",
+        "def_mode": "BW",
+    },
+    "specular_tint": {
+        "bake_pass": "EMIT",
+        "cat": CAT_DATA,
+        "def_cs": "Non-Color",
+        "def_mode": "RGB",
+    },
+    "anisotropic": {
+        "bake_pass": "EMIT",
+        "cat": CAT_DATA,
+        "def_cs": "Non-Color",
+        "def_mode": "BW",
+    },
+    "anisotropic_rot": {
+        "bake_pass": "EMIT",
+        "cat": CAT_DATA,
+        "def_cs": "Non-Color",
+        "def_mode": "BW",
+    },
+    "sheen": {
+        "bake_pass": "EMIT",
+        "cat": CAT_DATA,
+        "def_cs": "Non-Color",
+        "def_mode": "BW",
+    },
+    "sheen_tint": {
+        "bake_pass": "EMIT",
+        "cat": CAT_DATA,
+        "def_cs": "Non-Color",
+        "def_mode": "RGB",
+    },
+    "sheen_rough": {
+        "bake_pass": "EMIT",
+        "cat": CAT_DATA,
+        "def_cs": "Non-Color",
+        "def_mode": "BW",
+    },
+    "clearcoat": {
+        "bake_pass": "EMIT",
+        "cat": CAT_DATA,
+        "def_cs": "Non-Color",
+        "def_mode": "BW",
+    },
+    "clearcoat_rough": {
+        "bake_pass": "EMIT",
+        "cat": CAT_DATA,
+        "def_cs": "Non-Color",
+        "def_mode": "BW",
+    },
+    "clearcoat_tint": {
+        "bake_pass": "EMIT",
+        "cat": CAT_DATA,
+        "def_cs": "Non-Color",
+        "def_mode": "RGB",
+    },
+    "tran": {
+        "bake_pass": "EMIT",
+        "cat": CAT_DATA,
+        "def_cs": "Non-Color",
+        "def_mode": "BW",
+    },
+    "tran_rou": {
+        "bake_pass": "EMIT",
+        "cat": CAT_DATA,
+        "def_cs": "Non-Color",
+        "def_mode": "BW",
+    },
+    "emi": {"bake_pass": "EMIT", "cat": CAT_DATA, "def_cs": "sRGB", "def_mode": "RGB"},
+    "emi_str": {
+        "bake_pass": "EMIT",
+        "cat": CAT_DATA,
+        "def_cs": "Non-Color",
+        "def_mode": "BW",
+    },
+    "alpha": {
+        "bake_pass": "EMIT",
+        "cat": CAT_DATA,
+        "def_cs": "Non-Color",
+        "def_mode": "BW",
+    },
+    "normal": {
+        "bake_pass": "NORMAL",
+        "cat": CAT_DATA,
+        "def_cs": "Non-Color",
+        "def_mode": "RGB",
+    },
+    "subface": {
+        "bake_pass": "EMIT",
+        "cat": CAT_DATA,
+        "def_cs": "Non-Color",
+        "def_mode": "BW",
+    },
+    "subface_col": {
+        "bake_pass": "EMIT",
+        "cat": CAT_DATA,
+        "def_cs": "sRGB",
+        "def_mode": "RGB",
+    },
+    "subface_ani": {
+        "bake_pass": "EMIT",
+        "cat": CAT_DATA,
+        "def_cs": "Non-Color",
+        "def_mode": "BW",
+    },
     # --- Light / Render Result ---
-    'diff': {'bake_pass': 'DIFFUSE', 'cat': CAT_LIGHT, 'def_cs': 'sRGB', 'def_mode': 'RGB'},
-    'gloss': {'bake_pass': 'GLOSSY', 'cat': CAT_LIGHT, 'def_cs': 'sRGB', 'def_mode': 'RGB'},
-    'tranb': {'bake_pass': 'TRANSMISSION', 'cat': CAT_LIGHT, 'def_cs': 'sRGB', 'def_mode': 'RGB'},
-    'combine': {'bake_pass': 'COMBINED', 'cat': CAT_LIGHT, 'def_cs': 'sRGB', 'def_mode': 'RGB'},
-    'shadow': {'bake_pass': 'SHADOW', 'cat': CAT_LIGHT, 'def_cs': 'Non-Color', 'def_mode': 'BW'},
-    'env': {'bake_pass': 'ENVIRONMENT', 'cat': CAT_LIGHT, 'def_cs': 'sRGB', 'def_mode': 'RGB'},
-    'ao': {'bake_pass': 'EMIT', 'cat': CAT_LIGHT, 'def_cs': 'Non-Color', 'def_mode': 'BW'},
-    
+    "diff": {
+        "bake_pass": "DIFFUSE",
+        "cat": CAT_LIGHT,
+        "def_cs": "sRGB",
+        "def_mode": "RGB",
+    },
+    "gloss": {
+        "bake_pass": "GLOSSY",
+        "cat": CAT_LIGHT,
+        "def_cs": "sRGB",
+        "def_mode": "RGB",
+    },
+    "tranb": {
+        "bake_pass": "TRANSMISSION",
+        "cat": CAT_LIGHT,
+        "def_cs": "sRGB",
+        "def_mode": "RGB",
+    },
+    "combine": {
+        "bake_pass": "COMBINED",
+        "cat": CAT_LIGHT,
+        "def_cs": "sRGB",
+        "def_mode": "RGB",
+    },
+    "shadow": {
+        "bake_pass": "SHADOW",
+        "cat": CAT_LIGHT,
+        "def_cs": "Non-Color",
+        "def_mode": "BW",
+    },
+    "env": {
+        "bake_pass": "ENVIRONMENT",
+        "cat": CAT_LIGHT,
+        "def_cs": "sRGB",
+        "def_mode": "RGB",
+    },
+    "ao": {
+        "bake_pass": "EMIT",
+        "cat": CAT_LIGHT,
+        "def_cs": "Non-Color",
+        "def_mode": "BW",
+    },
     # --- Mesh / Topology ---
-    'height': {'bake_pass': 'DISPLACEMENT', 'cat': CAT_MESH, 'def_cs': 'Non-Color', 'def_mode': 'BW'},
-    'vertex': {'bake_pass': 'EMIT', 'cat': CAT_MESH, 'def_cs': 'sRGB', 'def_mode': 'RGB'},
-    'bevel': {'bake_pass': 'EMIT', 'cat': CAT_MESH, 'def_cs': 'Non-Color', 'def_mode': 'BW'},
-    'bevnor': {'bake_pass': 'NORMAL', 'cat': CAT_MESH, 'def_cs': 'Non-Color', 'def_mode': 'RGB'},
-    'UV': {'bake_pass': 'EMIT', 'cat': CAT_MESH, 'def_cs': 'Non-Color', 'def_mode': 'RGB'},
-    'wireframe': {'bake_pass': 'EMIT', 'cat': CAT_MESH, 'def_cs': 'Non-Color', 'def_mode': 'BW'},
-    'position': {'bake_pass': 'EMIT', 'cat': CAT_MESH, 'def_cs': 'Non-Color', 'def_mode': 'RGB'},
-    'slope': {'bake_pass': 'EMIT', 'cat': CAT_MESH, 'def_cs': 'Non-Color', 'def_mode': 'BW'},
-    'thickness': {'bake_pass': 'EMIT', 'cat': CAT_MESH, 'def_cs': 'Non-Color', 'def_mode': 'BW'},
-    'ID_mat': {'bake_pass': 'EMIT', 'cat': CAT_MESH, 'def_cs': 'Non-Color', 'def_mode': 'RGB'},
-    'ID_ele': {'bake_pass': 'EMIT', 'cat': CAT_MESH, 'def_cs': 'Non-Color', 'def_mode': 'RGB'},
-    'ID_UVI': {'bake_pass': 'EMIT', 'cat': CAT_MESH, 'def_cs': 'Non-Color', 'def_mode': 'RGB'},
-    'ID_seam': {'bake_pass': 'EMIT', 'cat': CAT_MESH, 'def_cs': 'Non-Color', 'def_mode': 'RGB'},
-    'select': {'bake_pass': 'EMIT', 'cat': CAT_MESH, 'def_cs': 'Non-Color', 'def_mode': 'BW'},
-    'curvature': {'bake_pass': 'EMIT', 'cat': CAT_MESH, 'def_cs': 'Non-Color', 'def_mode': 'BW'},
-    
+    "height": {
+        "bake_pass": "DISPLACEMENT",
+        "cat": CAT_MESH,
+        "def_cs": "Non-Color",
+        "def_mode": "BW",
+    },
+    "vertex": {
+        "bake_pass": "EMIT",
+        "cat": CAT_MESH,
+        "def_cs": "sRGB",
+        "def_mode": "RGB",
+    },
+    "bevel": {
+        "bake_pass": "EMIT",
+        "cat": CAT_MESH,
+        "def_cs": "Non-Color",
+        "def_mode": "BW",
+    },
+    "bevnor": {
+        "bake_pass": "NORMAL",
+        "cat": CAT_MESH,
+        "def_cs": "Non-Color",
+        "def_mode": "RGB",
+    },
+    "UV": {
+        "bake_pass": "EMIT",
+        "cat": CAT_MESH,
+        "def_cs": "Non-Color",
+        "def_mode": "RGB",
+    },
+    "wireframe": {
+        "bake_pass": "EMIT",
+        "cat": CAT_MESH,
+        "def_cs": "Non-Color",
+        "def_mode": "BW",
+    },
+    "position": {
+        "bake_pass": "EMIT",
+        "cat": CAT_MESH,
+        "def_cs": "Non-Color",
+        "def_mode": "RGB",
+    },
+    "slope": {
+        "bake_pass": "EMIT",
+        "cat": CAT_MESH,
+        "def_cs": "Non-Color",
+        "def_mode": "BW",
+    },
+    "thickness": {
+        "bake_pass": "EMIT",
+        "cat": CAT_MESH,
+        "def_cs": "Non-Color",
+        "def_mode": "BW",
+    },
+    "ID_mat": {
+        "bake_pass": "EMIT",
+        "cat": CAT_MESH,
+        "def_cs": "Non-Color",
+        "def_mode": "RGB",
+    },
+    "ID_ele": {
+        "bake_pass": "EMIT",
+        "cat": CAT_MESH,
+        "def_cs": "Non-Color",
+        "def_mode": "RGB",
+    },
+    "ID_UVI": {
+        "bake_pass": "EMIT",
+        "cat": CAT_MESH,
+        "def_cs": "Non-Color",
+        "def_mode": "RGB",
+    },
+    "ID_seam": {
+        "bake_pass": "EMIT",
+        "cat": CAT_MESH,
+        "def_cs": "Non-Color",
+        "def_mode": "RGB",
+    },
+    "select": {
+        "bake_pass": "EMIT",
+        "cat": CAT_MESH,
+        "def_cs": "Non-Color",
+        "def_mode": "BW",
+    },
+    "curvature": {
+        "bake_pass": "EMIT",
+        "cat": CAT_MESH,
+        "def_cs": "Non-Color",
+        "def_mode": "BW",
+    },
     # --- Extension / Conversion ---
-    'pbr_conv_base': {'bake_pass': 'EMIT', 'cat': CAT_EXTENSION, 'def_cs': 'sRGB', 'def_mode': 'RGB'},
-    'pbr_conv_metal': {'bake_pass': 'EMIT', 'cat': CAT_EXTENSION, 'def_cs': 'Non-Color', 'def_mode': 'BW'},
-    'node_group': {'bake_pass': 'EMIT', 'cat': CAT_EXTENSION, 'def_cs': 'sRGB', 'def_mode': 'RGB'},
+    "pbr_conv_base": {
+        "bake_pass": "EMIT",
+        "cat": CAT_EXTENSION,
+        "def_cs": "sRGB",
+        "def_mode": "RGB",
+    },
+    "pbr_conv_metal": {
+        "bake_pass": "EMIT",
+        "cat": CAT_EXTENSION,
+        "def_cs": "Non-Color",
+        "def_mode": "BW",
+    },
+    "node_group": {
+        "bake_pass": "EMIT",
+        "cat": CAT_EXTENSION,
+        "def_cs": "sRGB",
+        "def_mode": "RGB",
+    },
 }
 
 # --- BSDF Node Connector Mapping ---
 
 BSDF_COMPATIBILITY_MAP = {
-    'color': ['Base Color', 'Diffuse'],
-    'alpha': ['Alpha'],
-    'normal': ['Normal'],
-    'emi': ['Emission Color', 'Emission'],
-    'emi_str': ['Emission Strength'],
-    'metal': ['Metallic'],
-    'specular': ['Specular IOR Level', 'Specular'], 
-    'specular_tint': ['Specular Tint'], 
-    'rough': ['Roughness'],
-    'subface': ['Subsurface Weight', 'Subsurface'],
-    'subface_col': ['Subsurface Radius', 'Subsurface Color'], 
-    'subface_ani': ['Subsurface Anisotropy'],
-    'tran': ['Transmission Weight', 'Transmission'],
-    'tran_rou': ['Transmission Roughness'], 
-    'clearcoat': ['Coat Weight', 'Coat', 'Clearcoat'],
-    'clearcoat_rough': ['Coat Roughness', 'Clearcoat Roughness'],
-    'clearcoat_tint': ['Coat Tint', 'Clearcoat Tint'],
-    'sheen': ['Sheen Weight', 'Sheen'],
-    'sheen_rough': ['Sheen Roughness'],
-    'sheen_tint': ['Sheen Tint'],
-    'anisotropic': ['Anisotropic'],
-    'anisotropic_rot': ['Anisotropic Rotation'],
+    "color": ["Base Color", "Diffuse"],
+    "alpha": ["Alpha"],
+    "normal": ["Normal"],
+    "emi": ["Emission Color", "Emission"],
+    "emi_str": ["Emission Strength"],
+    "metal": ["Metallic"],
+    "specular": ["Specular IOR Level", "Specular"],
+    "specular_tint": ["Specular Tint"],
+    "rough": ["Roughness"],
+    "subface": ["Subsurface Weight", "Subsurface"],
+    "subface_col": ["Subsurface Radius", "Subsurface Color"],
+    "subface_ani": ["Subsurface Anisotropy"],
+    "tran": ["Transmission Weight", "Transmission"],
+    "tran_rou": ["Transmission Roughness"],
+    "clearcoat": ["Coat Weight", "Coat", "Clearcoat"],
+    "clearcoat_rough": ["Coat Roughness", "Clearcoat Roughness"],
+    "clearcoat_tint": ["Coat Tint", "Clearcoat Tint"],
+    "sheen": ["Sheen Weight", "Sheen"],
+    "sheen_rough": ["Sheen Roughness"],
+    "sheen_tint": ["Sheen Tint"],
+    "anisotropic": ["Anisotropic"],
+    "anisotropic_rot": ["Anisotropic Rotation"],
 }
 
 SOCKET_DEFAULT_TYPE = {
-    'color': (0.8, 0.8, 0.8, 1.0),
-    'normal': (0.5, 0.5, 1.0, 1.0),
-    'rough': 0.5,
-    'metal': 0.0,
-    'alpha': 1.0,
-    'emi': (0.0, 0.0, 0.0, 1.0),
-    'emi_str': 0.0,
+    "color": (0.8, 0.8, 0.8, 1.0),
+    "normal": (0.5, 0.5, 1.0, 1.0),
+    "rough": 0.5,
+    "metal": 0.0,
+    "alpha": 1.0,
+    "emi": (0.0, 0.0, 0.0, 1.0),
+    "emi_str": 0.0,
 }
 
 # --- Channel Preset Definitions ---
 
 SYSTEM_NAMES = {
-    'TEMP_UV': "BT_Bake_Temp_UV",
-    'DUMMY_IMG': "BT_Protection_Dummy",
-    'PROTECTION_NODE': "BT_Protection_Node",
-    'PROTECTION_LABEL': "BT Protection",
-    'RESULT_COLLECTION': "Baked_Results",
-    'ATTR_PREFIX': "BT_ATTR_",
-    'TEMP_IMG_PREFIX': "BT_TEMP_",
-    'VIEWER_IMG': "Viewer Node"
+    "TEMP_UV": "BT_Bake_Temp_UV",
+    "DUMMY_IMG": "BT_Protection_Dummy",
+    "PROTECTION_NODE": "BT_Protection_Node",
+    "PROTECTION_LABEL": "BT Protection",
+    "RESULT_COLLECTION": "Baked_Results",
+    "ATTR_PREFIX": "BT_ATTR_",
+    "TEMP_IMG_PREFIX": "BT_TEMP_",
+    "VIEWER_IMG": "Viewer Node",
 }
 
 BAKE_CHANNEL_INFO = {
-    'BSDF_3': [
-        {'id': 'color', 'name': 'Base Color', 'defaults': {'enabled': True, 'suffix': '_color'}},
-        {'id': 'subface', 'name': 'SSS', 'defaults': {'suffix': '_subface'}},
-        {'id': 'subface_col', 'name': 'SSS Base Color', 'defaults': {'suffix': '_subfacecol'}},
-        {'id': 'subface_ani', 'name': 'SSS Anisotropy', 'defaults': {'suffix': '_subfaceani'}},
-        {'id': 'metal', 'name': 'Metalness', 'defaults': {'suffix': '_metal'}},
-        {'id': 'specular', 'name': 'Specular', 'defaults': {'suffix': '_spe'}},
-        {'id': 'specular_tint', 'name': 'Specular Tint', 'defaults': {'suffix': '_spet'}},
-        {'id': 'rough', 'name': 'Roughness', 'defaults': {'enabled': True, 'suffix': '_rough'}},
-        {'id': 'anisotropic', 'name': 'Anisotropy', 'defaults': {'suffix': '_aniso'}},
-        {'id': 'anisotropic_rot', 'name': 'Anisotropy Rotating', 'defaults': {'suffix': '_anisorot'}},
-        {'id': 'sheen', 'name': 'Sheen', 'defaults': {'suffix': '_sheen'}},
-        {'id': 'sheen_tint', 'name': 'Sheen Tint', 'defaults': {'suffix': '_sheentint'}},
-        {'id': 'clearcoat', 'name': 'Clearcoat', 'defaults': {'suffix': '_cc'}},
-        {'id': 'clearcoat_rough', 'name': 'Clearcoat Roughness', 'defaults': {'suffix': '_ccr'}},
-        {'id': 'tran', 'name': 'Transmission', 'defaults': {'suffix': '_tran'}},
-        {'id': 'tran_rou', 'name': 'Transmission Roughness', 'defaults': {'suffix': '_tranr'}},
-        {'id': 'emi', 'name': 'Emission', 'defaults': {'suffix': '_emi'}},
-        {'id': 'emi_str', 'name': 'Emission Strength', 'defaults': {'suffix': '_emistr'}},
-        {'id': 'alpha', 'name': 'Alpha', 'defaults': {'suffix': '_alpha'}},
-        {'id': 'normal', 'name': 'Normal', 'defaults': {'enabled': True, 'suffix': '_nor'}},
+    "BSDF_3": [
+        {
+            "id": "color",
+            "name": "Base Color",
+            "defaults": {"enabled": True, "suffix": "_color"},
+        },
+        {"id": "subface", "name": "SSS", "defaults": {"suffix": "_subface"}},
+        {
+            "id": "subface_col",
+            "name": "SSS Base Color",
+            "defaults": {"suffix": "_subfacecol"},
+        },
+        {
+            "id": "subface_ani",
+            "name": "SSS Anisotropy",
+            "defaults": {"suffix": "_subfaceani"},
+        },
+        {"id": "metal", "name": "Metalness", "defaults": {"suffix": "_metal"}},
+        {"id": "specular", "name": "Specular", "defaults": {"suffix": "_spe"}},
+        {
+            "id": "specular_tint",
+            "name": "Specular Tint",
+            "defaults": {"suffix": "_spet"},
+        },
+        {
+            "id": "rough",
+            "name": "Roughness",
+            "defaults": {"enabled": True, "suffix": "_rough"},
+        },
+        {"id": "anisotropic", "name": "Anisotropy", "defaults": {"suffix": "_aniso"}},
+        {
+            "id": "anisotropic_rot",
+            "name": "Anisotropy Rotating",
+            "defaults": {"suffix": "_anisorot"},
+        },
+        {"id": "sheen", "name": "Sheen", "defaults": {"suffix": "_sheen"}},
+        {
+            "id": "sheen_tint",
+            "name": "Sheen Tint",
+            "defaults": {"suffix": "_sheentint"},
+        },
+        {"id": "clearcoat", "name": "Clearcoat", "defaults": {"suffix": "_cc"}},
+        {
+            "id": "clearcoat_rough",
+            "name": "Clearcoat Roughness",
+            "defaults": {"suffix": "_ccr"},
+        },
+        {"id": "tran", "name": "Transmission", "defaults": {"suffix": "_tran"}},
+        {
+            "id": "tran_rou",
+            "name": "Transmission Roughness",
+            "defaults": {"suffix": "_tranr"},
+        },
+        {"id": "emi", "name": "Emission", "defaults": {"suffix": "_emi"}},
+        {
+            "id": "emi_str",
+            "name": "Emission Strength",
+            "defaults": {"suffix": "_emistr"},
+        },
+        {"id": "alpha", "name": "Alpha", "defaults": {"suffix": "_alpha"}},
+        {
+            "id": "normal",
+            "name": "Normal",
+            "defaults": {"enabled": True, "suffix": "_nor"},
+        },
     ],
-    'BSDF_4': [
-        {'id': 'color', 'name': 'Base Color', 'defaults': {'enabled': True, 'suffix': '_color'}},
-        {'id': 'subface', 'name': 'SSS', 'defaults': {'suffix': '_subface'}},
-        {'id': 'subface_ani', 'name': 'SSS Anisotropy', 'defaults': {'suffix': '_subfaceani'}},
-        {'id': 'metal', 'name': 'Metalness', 'defaults': {'suffix': '_metal'}},
-        {'id': 'specular', 'name': 'Specular', 'defaults': {'suffix': '_spe'}},
-        {'id': 'specular_tint', 'name': 'Specular Tint', 'defaults': {'suffix': '_spet'}},
-        {'id': 'rough', 'name': 'Roughness', 'defaults': {'enabled': True, 'suffix': '_rough'}},
-        {'id': 'anisotropic', 'name': 'Anisotropy', 'defaults': {'suffix': '_aniso'}},
-        {'id': 'anisotropic_rot', 'name': 'Anisotropy Rotating', 'defaults': {'suffix': '_anisorot'}},
-        {'id': 'sheen', 'name': 'Sheen', 'defaults': {'suffix': '_sheen'}},
-        {'id': 'sheen_tint', 'name': 'Sheen Tint', 'defaults': {'suffix': '_sheentint'}},
-        {'id': 'sheen_rough', 'name': 'Sheen Roughness', 'defaults': {'suffix': '_sheenrough'}},
-        {'id': 'clearcoat', 'name': 'Clearcoat', 'defaults': {'suffix': '_cc'}},
-        {'id': 'clearcoat_rough', 'name': 'Clearcoat Roughness', 'defaults': {'suffix': '_ccr'}},
-        {'id': 'clearcoat_tint', 'name': 'Clearcoat Tint', 'defaults': {'suffix': '_cct'}},
-        {'id': 'tran', 'name': 'Transmission', 'defaults': {'suffix': '_tran'}},
-        {'id': 'emi', 'name': 'Emission', 'defaults': {'suffix': '_emi'}},
-        {'id': 'emi_str', 'name': 'Emission Strength', 'defaults': {'suffix': '_emistr'}},
-        {'id': 'alpha', 'name': 'Alpha', 'defaults': {'suffix': '_alpha'}},
-        {'id': 'normal', 'name': 'Normal', 'defaults': {'enabled': True, 'suffix': '_nor'}},
+    "BSDF_4": [
+        {
+            "id": "color",
+            "name": "Base Color",
+            "defaults": {"enabled": True, "suffix": "_color"},
+        },
+        {"id": "subface", "name": "SSS", "defaults": {"suffix": "_subface"}},
+        {
+            "id": "subface_ani",
+            "name": "SSS Anisotropy",
+            "defaults": {"suffix": "_subfaceani"},
+        },
+        {"id": "metal", "name": "Metalness", "defaults": {"suffix": "_metal"}},
+        {"id": "specular", "name": "Specular", "defaults": {"suffix": "_spe"}},
+        {
+            "id": "specular_tint",
+            "name": "Specular Tint",
+            "defaults": {"suffix": "_spet"},
+        },
+        {
+            "id": "rough",
+            "name": "Roughness",
+            "defaults": {"enabled": True, "suffix": "_rough"},
+        },
+        {"id": "anisotropic", "name": "Anisotropy", "defaults": {"suffix": "_aniso"}},
+        {
+            "id": "anisotropic_rot",
+            "name": "Anisotropy Rotating",
+            "defaults": {"suffix": "_anisorot"},
+        },
+        {"id": "sheen", "name": "Sheen", "defaults": {"suffix": "_sheen"}},
+        {
+            "id": "sheen_tint",
+            "name": "Sheen Tint",
+            "defaults": {"suffix": "_sheentint"},
+        },
+        {
+            "id": "sheen_rough",
+            "name": "Sheen Roughness",
+            "defaults": {"suffix": "_sheenrough"},
+        },
+        {"id": "clearcoat", "name": "Clearcoat", "defaults": {"suffix": "_cc"}},
+        {
+            "id": "clearcoat_rough",
+            "name": "Clearcoat Roughness",
+            "defaults": {"suffix": "_ccr"},
+        },
+        {
+            "id": "clearcoat_tint",
+            "name": "Clearcoat Tint",
+            "defaults": {"suffix": "_cct"},
+        },
+        {"id": "tran", "name": "Transmission", "defaults": {"suffix": "_tran"}},
+        {"id": "emi", "name": "Emission", "defaults": {"suffix": "_emi"}},
+        {
+            "id": "emi_str",
+            "name": "Emission Strength",
+            "defaults": {"suffix": "_emistr"},
+        },
+        {"id": "alpha", "name": "Alpha", "defaults": {"suffix": "_alpha"}},
+        {
+            "id": "normal",
+            "name": "Normal",
+            "defaults": {"enabled": True, "suffix": "_nor"},
+        },
     ],
-    'BASIC': [
-        {'id': 'diff', 'name': 'Diffuse', 'defaults': {'enabled': True, 'suffix': '_diff'}},
-        {'id': 'gloss', 'name': 'Gloss', 'defaults': {'suffix': '_gloss'}},
-        {'id': 'tranb', 'name': 'Transmission', 'defaults': {'suffix': '_tran'}},
-        {'id': 'normal', 'name': 'Normal', 'defaults': {'enabled': True, 'suffix': '_nor'}},
-        {'id': 'combine', 'name': 'Combine', 'defaults': {'suffix': '_com'}},
-        {'id': 'emi', 'name': 'Emission', 'defaults': {'suffix': '_emi'}},
-        {'id': 'rough', 'name': 'Roughness', 'defaults': {'enabled': True, 'suffix': '_rough'}},
+    "BASIC": [
+        {
+            "id": "diff",
+            "name": "Diffuse",
+            "defaults": {"enabled": True, "suffix": "_diff"},
+        },
+        {"id": "gloss", "name": "Gloss", "defaults": {"suffix": "_gloss"}},
+        {"id": "tranb", "name": "Transmission", "defaults": {"suffix": "_tran"}},
+        {
+            "id": "normal",
+            "name": "Normal",
+            "defaults": {"enabled": True, "suffix": "_nor"},
+        },
+        {"id": "combine", "name": "Combine", "defaults": {"suffix": "_com"}},
+        {"id": "emi", "name": "Emission", "defaults": {"suffix": "_emi"}},
+        {
+            "id": "rough",
+            "name": "Roughness",
+            "defaults": {"enabled": True, "suffix": "_rough"},
+        },
     ],
-    'LIGHT': [
-        {'id': 'ao', 'name': 'Ambient Occlusion', 'defaults': {'suffix': '_ao'}},
-        {'id': 'shadow', 'name': 'Shadow', 'defaults': {'suffix': '_sha'}},
-        {'id': 'env', 'name': 'Environment', 'defaults': {'suffix': '_env'}},
+    "LIGHT": [
+        {"id": "ao", "name": "Ambient Occlusion", "defaults": {"suffix": "_ao"}},
+        {"id": "shadow", "name": "Shadow", "defaults": {"suffix": "_sha"}},
+        {"id": "env", "name": "Environment", "defaults": {"suffix": "_env"}},
     ],
-    'MESH': [
-        {'id': 'vertex', 'name': 'Vertex Color', 'defaults': {'suffix': '_vertex'}},
-        {'id': 'bevel', 'name': 'Bevel', 'defaults': {'suffix': '_bv'}},
-        {'id': 'curvature', 'name': 'Curvature', 'defaults': {'suffix': '_curv'}},
-        {'id': 'UV', 'name': 'UV', 'defaults': {'suffix': '_UV'}},
-        {'id': 'wireframe', 'name': 'Wireframe', 'defaults': {'suffix': '_wf'}},
-        {'id': 'bevnor', 'name': 'Bevel Normal', 'defaults': {'suffix': '_bn'}},
-        {'id': 'position', 'name': 'Position', 'defaults': {'suffix': '_pos'}},
-        {'id': 'slope', 'name': 'Slope', 'defaults': {'suffix': '_slope'}},
-        {'id': 'thickness', 'name': 'Thickness', 'defaults': {'suffix': '_thick'}},
-        {'id': 'ID_mat', 'name': 'Material ID', 'defaults': {'suffix': '_idmat'}},
-        {'id': 'ID_ele', 'name': 'Element ID', 'defaults': {'suffix': '_idele'}},
-        {'id': 'ID_UVI', 'name': 'UV ID', 'defaults': {'suffix': '_idUVI'}},
-        {'id': 'ID_seam', 'name': 'Seam ID', 'defaults': {'suffix': '_idseam'}},
-        {'id': 'select', 'name': 'Select', 'defaults': {'suffix': '_select'}},
+    "MESH": [
+        {"id": "vertex", "name": "Vertex Color", "defaults": {"suffix": "_vertex"}},
+        {"id": "bevel", "name": "Bevel", "defaults": {"suffix": "_bv"}},
+        {"id": "curvature", "name": "Curvature", "defaults": {"suffix": "_curv"}},
+        {"id": "UV", "name": "UV", "defaults": {"suffix": "_UV"}},
+        {"id": "wireframe", "name": "Wireframe", "defaults": {"suffix": "_wf"}},
+        {"id": "bevnor", "name": "Bevel Normal", "defaults": {"suffix": "_bn"}},
+        {"id": "position", "name": "Position", "defaults": {"suffix": "_pos"}},
+        {"id": "slope", "name": "Slope", "defaults": {"suffix": "_slope"}},
+        {"id": "thickness", "name": "Thickness", "defaults": {"suffix": "_thick"}},
+        {"id": "ID_mat", "name": "Material ID", "defaults": {"suffix": "_idmat"}},
+        {"id": "ID_ele", "name": "Element ID", "defaults": {"suffix": "_idele"}},
+        {"id": "ID_UVI", "name": "UV ID", "defaults": {"suffix": "_idUVI"}},
+        {"id": "ID_seam", "name": "Seam ID", "defaults": {"suffix": "_idseam"}},
+        {"id": "select", "name": "Select", "defaults": {"suffix": "_select"}},
     ],
-    'EXTENSION': [
-        {'id': 'pbr_conv_base', 'name': 'Conv: Base Color', 'defaults': {'suffix': '_base_conv'}},
-        {'id': 'pbr_conv_metal', 'name': 'Conv: Metallic', 'defaults': {'suffix': '_metal_conv'}},
-        {'id': 'node_group', 'name': 'Custom Node Group', 'defaults': {'suffix': '_custom_ng'}},
-    ]
+    "EXTENSION": [
+        {
+            "id": "pbr_conv_base",
+            "name": "Conv: Base Color",
+            "defaults": {"suffix": "_base_conv"},
+        },
+        {
+            "id": "pbr_conv_metal",
+            "name": "Conv: Metallic",
+            "defaults": {"suffix": "_metal_conv"},
+        },
+        {
+            "id": "node_group",
+            "name": "Custom Node Group",
+            "defaults": {"suffix": "_custom_ng"},
+        },
+    ],
 }
 
 # --- UI Layout Configuration (Data-Driven UI) ---
 
 CHANNEL_UI_LAYOUT = {
-    'rough': {'type': 'PROPS', 'props': [('rough_inv', 'Invert Roughness', 'ARROW_LEFTRIGHT')]},
-    'normal': {
-        'type': 'PROPS', 
-        'header': 'Normal Settings', 'icon': 'NORMALS_FACE',
-        'props': [
-            ('normal_settings.type', 'Standard', 'NONE'),
-            ('normal_settings.object_space', 'Object Space', 'NONE'),
-            ('prefix', 'Prefix', 'NONE'),
-            ('suffix', 'Suffix', 'NONE'),
-        ]
+    "rough": {
+        "type": "PROPS",
+        "props": [("rough_inv", "Invert Roughness", "ARROW_LEFTRIGHT")],
     },
-    'diff': {'type': 'TOGGLES', 'header': 'Light Paths', 'icon': 'LIGHT_SUN', 'props': [('pass_settings.use_direct', 'Dir'), ('pass_settings.use_indirect', 'Ind'), ('pass_settings.use_color', 'Col')]},
-    'gloss': {'type': 'TOGGLES', 'header': 'Light Paths', 'icon': 'LIGHT_SUN', 'props': [('pass_settings.use_direct', 'Dir'), ('pass_settings.use_indirect', 'Ind'), ('pass_settings.use_color', 'Col')]},
-    'tranb': {'type': 'TOGGLES', 'header': 'Light Paths', 'icon': 'LIGHT_SUN', 'props': [('pass_settings.use_direct', 'Dir'), ('pass_settings.use_indirect', 'Ind'), ('pass_settings.use_color', 'Col')]},
-    'combine': {
-        'type': 'TOGGLES', 
-        'header': 'Combined Passes', 'icon': 'RENDERLAYERS',
-        'props': [
-            ('combine_settings.use_direct', 'Dir'), ('combine_settings.use_indirect', 'Ind'),
-            ('combine_settings.use_diffuse', 'Diff'), ('combine_settings.use_glossy', 'Gloss'),
-            ('combine_settings.use_transmission', 'Tran'), ('combine_settings.use_emission', 'Emi')
-        ]
+    "normal": {
+        "type": "PROPS",
+        "header": "Normal Settings",
+        "icon": "NORMALS_FACE",
+        "props": [
+            ("normal_settings.type", "Standard", "NONE"),
+            ("normal_settings.object_space", "Object Space", "NONE"),
+            ("prefix", "Prefix", "NONE"),
+            ("suffix", "Suffix", "NONE"),
+        ],
     },
-    'ao': {'type': 'PROPS', 'props': [('mesh_settings.samples', 'Samples'), ('mesh_settings.distance', 'Rad/Dist'), ('mesh_settings.inside', 'Inside'), ('mesh_settings.local_only', 'Only Local')]},
-    'bevel': {'type': 'PROPS', 'props': [('mesh_settings.samples', 'Samples'), ('mesh_settings.radius', 'Rad/Dist')]},
-    'bevnor': {'type': 'PROPS', 'props': [('mesh_settings.samples', 'Samples'), ('mesh_settings.radius', 'Rad/Dist')]},
-    'curvature': {'type': 'PROPS', 'props': [('mesh_settings.samples', 'Samples'), ('mesh_settings.radius', 'Radius'), ('mesh_settings.contrast', 'Contrast')]},
-    'wireframe': {'type': 'PROPS', 'props': [('mesh_settings.distance', 'Size'), ('mesh_settings.use_pixel_size', 'Use Pixel Size')]},
-    'position': {'type': 'PROPS', 'props': [('mesh_settings.invert_g', 'Invert G')]},
-    'slope': {'type': 'PROPS', 'props': [('mesh_settings.direction', 'Direction'), ('mesh_settings.invert', 'Invert')]},
-    'thickness': {'type': 'PROPS', 'props': [('mesh_settings.distance', 'Distance'), ('mesh_settings.contrast', 'Contrast')]},
-    'ID_mat': {'type': 'PROPS', 'props': [('mesh_settings.id_count', 'ID Map Count')]},
-    'ID_ele': {'type': 'PROPS', 'props': [('mesh_settings.id_count', 'ID Map Count')]},
-    'ID_UVI': {'type': 'PROPS', 'props': [('mesh_settings.id_count', 'ID Map Count')]},
-    'ID_seam': {'type': 'PROPS', 'props': [('mesh_settings.id_count', 'ID Map Count')]},
-    'pbr_conv_base': {
-        'type': 'PROPS', 
-        'header': 'PBR Conversion', 'icon': 'NODETREE',
-        'props': [('extension_settings.threshold', 'F0 Threshold', 'INFO')]
+    "diff": {
+        "type": "TOGGLES",
+        "header": "Light Paths",
+        "icon": "LIGHT_SUN",
+        "props": [
+            ("pass_settings.use_direct", "Dir"),
+            ("pass_settings.use_indirect", "Ind"),
+            ("pass_settings.use_color", "Col"),
+        ],
     },
-    'pbr_conv_metal': {
-        'type': 'PROPS', 
-        'header': 'PBR Conversion', 'icon': 'NODETREE',
-        'props': [('extension_settings.threshold', 'F0 Threshold', 'INFO')]
+    "gloss": {
+        "type": "TOGGLES",
+        "header": "Light Paths",
+        "icon": "LIGHT_SUN",
+        "props": [
+            ("pass_settings.use_direct", "Dir"),
+            ("pass_settings.use_indirect", "Ind"),
+            ("pass_settings.use_color", "Col"),
+        ],
     },
-    'node_group': {
-        'type': 'PROPS', 
-        'header': 'Custom Node Group', 'icon': 'NODETREE',
-        'props': [
-            ('extension_settings.node_group', 'Group', 'GROUP'),
-            ('extension_settings.output_name', 'Output', 'OUTPUT')
-        ]
+    "tranb": {
+        "type": "TOGGLES",
+        "header": "Light Paths",
+        "icon": "LIGHT_SUN",
+        "props": [
+            ("pass_settings.use_direct", "Dir"),
+            ("pass_settings.use_indirect", "Ind"),
+            ("pass_settings.use_color", "Col"),
+        ],
+    },
+    "combine": {
+        "type": "TOGGLES",
+        "header": "Combined Passes",
+        "icon": "RENDERLAYERS",
+        "props": [
+            ("combine_settings.use_direct", "Dir"),
+            ("combine_settings.use_indirect", "Ind"),
+            ("combine_settings.use_diffuse", "Diff"),
+            ("combine_settings.use_glossy", "Gloss"),
+            ("combine_settings.use_transmission", "Tran"),
+            ("combine_settings.use_emission", "Emi"),
+        ],
+    },
+    "ao": {
+        "type": "PROPS",
+        "props": [
+            ("mesh_settings.samples", "Samples"),
+            ("mesh_settings.distance", "Rad/Dist"),
+            ("mesh_settings.inside", "Inside"),
+            ("mesh_settings.local_only", "Only Local"),
+        ],
+    },
+    "bevel": {
+        "type": "PROPS",
+        "props": [
+            ("mesh_settings.samples", "Samples"),
+            ("mesh_settings.radius", "Rad/Dist"),
+        ],
+    },
+    "bevnor": {
+        "type": "PROPS",
+        "props": [
+            ("mesh_settings.samples", "Samples"),
+            ("mesh_settings.radius", "Rad/Dist"),
+        ],
+    },
+    "curvature": {
+        "type": "PROPS",
+        "props": [
+            ("mesh_settings.samples", "Samples"),
+            ("mesh_settings.radius", "Radius"),
+            ("mesh_settings.contrast", "Contrast"),
+        ],
+    },
+    "wireframe": {
+        "type": "PROPS",
+        "props": [
+            ("mesh_settings.distance", "Size"),
+            ("mesh_settings.use_pixel_size", "Use Pixel Size"),
+        ],
+    },
+    "position": {"type": "PROPS", "props": [("mesh_settings.invert_g", "Invert G")]},
+    "slope": {
+        "type": "PROPS",
+        "props": [
+            ("mesh_settings.direction", "Direction"),
+            ("mesh_settings.invert", "Invert"),
+        ],
+    },
+    "thickness": {
+        "type": "PROPS",
+        "props": [
+            ("mesh_settings.distance", "Distance"),
+            ("mesh_settings.contrast", "Contrast"),
+        ],
+    },
+    "ID_mat": {"type": "PROPS", "props": [("mesh_settings.id_count", "ID Map Count")]},
+    "ID_ele": {"type": "PROPS", "props": [("mesh_settings.id_count", "ID Map Count")]},
+    "ID_UVI": {"type": "PROPS", "props": [("mesh_settings.id_count", "ID Map Count")]},
+    "ID_seam": {"type": "PROPS", "props": [("mesh_settings.id_count", "ID Map Count")]},
+    "pbr_conv_base": {
+        "type": "PROPS",
+        "header": "PBR Conversion",
+        "icon": "NODETREE",
+        "props": [("extension_settings.threshold", "F0 Threshold", "INFO")],
+    },
+    "pbr_conv_metal": {
+        "type": "PROPS",
+        "header": "PBR Conversion",
+        "icon": "NODETREE",
+        "props": [("extension_settings.threshold", "F0 Threshold", "INFO")],
+    },
+    "node_group": {
+        "type": "PROPS",
+        "header": "Custom Node Group",
+        "icon": "NODETREE",
+        "props": [
+            ("extension_settings.node_group", "Group", "GROUP"),
+            ("extension_settings.output_name", "Output", "OUTPUT"),
+        ],
     },
 }
 
 # --- Preset Serialization Configuration ---
 
-PRESET_DEFAULT_EXCLUDE = {
-    'rna_type', 'is_valid', 
-    'path_from_id', 'bl_rna'
-}
+PRESET_DEFAULT_EXCLUDE = {"rna_type", "is_valid", "path_from_id", "bl_rna"}
 
 PRESET_MIGRATION_MAP = {
-    'normal_type': 'normal_settings.type',
-    'normal_X': 'normal_settings.X',
-    'normal_Y': 'normal_settings.Y',
-    'normal_Z': 'normal_settings.Z',
-    'normal_obj': 'normal_settings.object_space',
-    'ao_sample': 'mesh_settings.samples',
-    'ao_dis': 'mesh_settings.distance',
-    'ao_inside': 'mesh_settings.inside',
-    'ao_local': 'mesh_settings.local_only',
-    'bevel_sample': 'mesh_settings.samples',
-    'bevel_rad': 'mesh_settings.radius',
-    'bevnor_sample': 'mesh_settings.samples',
-    'bevnor_rad': 'mesh_settings.radius',
-    'curvature_sample': 'mesh_settings.samples',
-    'curvature_rad': 'mesh_settings.radius',
-    'curvature_contrast': 'mesh_settings.contrast',
-    'wireframe_dis': 'mesh_settings.distance',
-    'wireframe_use_pix': 'mesh_settings.use_pixel_size',
-    'position_invg': 'mesh_settings.invert_g',
-    'slope_directions': 'mesh_settings.direction',
-    'slope_invert': 'mesh_settings.invert',
-    'thickness_distance': 'mesh_settings.distance',
-    'thickness_contrast': 'mesh_settings.contrast',
-    'ID_num': 'mesh_settings.id_count',
-    'pbr_conv_threshold': 'extension_settings.threshold',
-    'node_group': 'extension_settings.node_group',
-    'node_group_output': 'extension_settings.output_name',
+    "normal_type": "normal_settings.type",
+    "normal_X": "normal_settings.X",
+    "normal_Y": "normal_settings.Y",
+    "normal_Z": "normal_settings.Z",
+    "normal_obj": "normal_settings.object_space",
+    "ao_sample": "mesh_settings.samples",
+    "ao_dis": "mesh_settings.distance",
+    "ao_inside": "mesh_settings.inside",
+    "ao_local": "mesh_settings.local_only",
+    "bevel_sample": "mesh_settings.samples",
+    "bevel_rad": "mesh_settings.radius",
+    "bevnor_sample": "mesh_settings.samples",
+    "bevnor_rad": "mesh_settings.radius",
+    "curvature_sample": "mesh_settings.samples",
+    "curvature_rad": "mesh_settings.radius",
+    "curvature_contrast": "mesh_settings.contrast",
+    "wireframe_dis": "mesh_settings.distance",
+    "wireframe_use_pix": "mesh_settings.use_pixel_size",
+    "position_invg": "mesh_settings.invert_g",
+    "slope_directions": "mesh_settings.direction",
+    "slope_invert": "mesh_settings.invert",
+    "thickness_distance": "mesh_settings.distance",
+    "thickness_contrast": "mesh_settings.contrast",
+    "ID_num": "mesh_settings.id_count",
+    "pbr_conv_threshold": "extension_settings.threshold",
+    "node_group": "extension_settings.node_group",
+    "node_group_output": "extension_settings.output_name",
     # New standardized mappings
-    'bake_texture_apply': 'apply_to_scene',
-    'clearimage': 'use_clear_image',
-    'colorbase': 'color_base',
-    'save_out': 'use_external_save',
-    'save_path': 'external_save_path',
-    'save_format': 'external_save_format',
-    'float32': 'use_float32',
-    'save_outside': 'use_external_save',
-    
+    "bake_texture_apply": "apply_to_scene",
+    "clearimage": "use_clear_image",
+    "colorbase": "color_base",
+    "save_out": "use_external_save",
+    "save_path": "external_save_path",
+    "save_format": "external_save_format",
+    "float32": "use_float32",
+    "save_outside": "use_external_save",
     # WARNING: 下列映射存在一对多冲突。旧版每个通道有独立开关（diff_dir, gloss_dir），
     # 新版共享 pass_settings.use_direct。加载旧预设时，最后一个值将生效。
     # 这是一个已知的向后兼容限制，不影响新版预设。
     # Render Pass mappings (Job-level compatibility)
-    'diff_dir': 'use_direct', 'diff_ind': 'use_indirect', 'diff_col': 'use_color',
-    'gloss_dir': 'use_direct', 'gloss_ind': 'use_indirect', 'gloss_col': 'use_color',
-    'tranb_dir': 'use_direct', 'tranb_ind': 'use_indirect', 'tranb_col': 'use_color',
+    "diff_dir": "use_direct",
+    "diff_ind": "use_indirect",
+    "diff_col": "use_color",
+    "gloss_dir": "use_direct",
+    "gloss_ind": "use_indirect",
+    "gloss_col": "use_color",
+    "tranb_dir": "use_direct",
+    "tranb_ind": "use_indirect",
+    "tranb_col": "use_color",
     # Combine mappings
-    'com_dir': 'combine_settings.use_direct', 'com_ind': 'combine_settings.use_indirect',
-    'com_diff': 'combine_settings.use_diffuse', 'com_gloss': 'combine_settings.use_glossy',
-    'com_tran': 'combine_settings.use_transmission', 'com_emi': 'combine_settings.use_emission',
+    "com_dir": "combine_settings.use_direct",
+    "com_ind": "combine_settings.use_indirect",
+    "com_diff": "combine_settings.use_diffuse",
+    "com_gloss": "combine_settings.use_glossy",
+    "com_tran": "combine_settings.use_transmission",
+    "com_emi": "combine_settings.use_emission",
 }
 # --- Post-Bake Apply Result Mapping ---
 APPLY_RESULT_CHANNEL_MAP = {
-    'color': 'color', 'diff': 'color',
-    'metal': 'metal',
-    'rough': 'rough', 'gloss': 'rough',
-    'specular': 'specular',
-    'emi': 'emi',
-    'alpha': 'alpha',
-    'normal': 'normal', 'bevnor': 'normal',
-    'ao': 'color', 'combine': 'color',
+    "color": "color",
+    "diff": "color",
+    "metal": "metal",
+    "rough": "rough",
+    "gloss": "rough",
+    "specular": "specular",
+    "emi": "emi",
+    "alpha": "alpha",
+    "normal": "normal",
+    "bevnor": "normal",
+    "ao": "color",
+    "combine": "color",
 }
 
 # --- Data-only channels: force single sample during bake ---
-DATA_BAKE_FORCE_SINGLE_SAMPLE = frozenset({
-    'normal', 'position', 'UV', 'height', 'wireframe',
-    'ID_mat', 'ID_ele', 'ID_UVI', 'ID_seam',
-    'select', 'curvature',
-})
+DATA_BAKE_FORCE_SINGLE_SAMPLE = frozenset(
+    {
+        "normal",
+        "position",
+        "UV",
+        "height",
+        "wireframe",
+        "ID_mat",
+        "ID_ele",
+        "ID_UVI",
+        "ID_seam",
+        "select",
+        "curvature",
+    }
+)
 
 # --- Mesh Analysis Type Map ---
 CHANNEL_MESH_TYPE_MAP = {
-    'position': 'POS', 'UV': 'UV', 'wireframe': 'WF',
-    'ao': 'AO', 'bevel': 'BEVEL', 'bevnor': 'BEVEL', 'slope': 'SLOPE',
+    "position": "POS",
+    "UV": "UV",
+    "wireframe": "WF",
+    "ao": "AO",
+    "bevel": "BEVEL",
+    "bevnor": "BEVEL",
+    "slope": "SLOPE",
 }
 
 # --- UI & System Messages ---
 UI_MESSAGES = {
-    'NO_JOBS': "No enabled jobs.",
-    'PREP_FAILED': "Bake preparation failed: {}",
-    'QUICK_PREP_FAILED': "Quick Bake preparation failed (check logs).",
-    'NO_OBJECTS': "Select mesh objects to bake.",
-    'JOB_SKIPPED_NO_OBJS': "Job '{}' skipped: No objects assigned.",
-    'JOB_SKIPPED_NO_TARGET': "Job '{}' skipped: No active object target for Select-to-Active.",
-    'JOB_SKIPPED_MISSING_UV': "Job '{}' skipped: Missing UVs on {}",
-    'JOB_SKIPPED_NO_MESH': "Job '{}' skipped: No valid Mesh target.",
-    'CAGE_MISSING': "Warning: Cage object missing for selective bake.",
-    'VALIDATION_SUCCESS': "All bake settings are valid and ready.",
-    'VALIDATION_ERROR': "Validation failed: {}",
-    'B5_SYNC_NOTICE': "BakeTool v1.5.0 optimized for Blender 5.0 rendering pipeline.",
+    "NO_JOBS": "No enabled jobs.",
+    "PREP_FAILED": "Bake preparation failed: {}",
+    "QUICK_PREP_FAILED": "Quick Bake preparation failed (check logs).",
+    "NO_OBJECTS": "Select mesh objects to bake.",
+    "JOB_SKIPPED_NO_OBJS": "Job '{}' skipped: No objects assigned.",
+    "JOB_SKIPPED_NO_TARGET": "Job '{}' skipped: No active object target for Select-to-Active.",
+    "JOB_SKIPPED_MISSING_UV": "Job '{}' skipped: Missing UVs on {}",
+    "JOB_SKIPPED_NO_MESH": "Job '{}' skipped: No valid Mesh target.",
+    "CAGE_MISSING": "Warning: Cage object missing for selective bake.",
+    "VALIDATION_SUCCESS": "All bake settings are valid and ready.",
+    "VALIDATION_ERROR": "Validation failed: {}",
+    "B5_SYNC_NOTICE": "BakeTool v1.5.0 optimized for Blender 5.0 rendering pipeline.",
 }
 
 # --- API & Versioning ---
 API_VERSION = "1.5.0"
 SYSTEM_ID = "BAKETOOL_CORE"
+
+# --- Magic Numbers / Constants ---
+UDIM_DEFAULT_TILE = 1001
+UDIM_TILE_RANGE = 10
+GOLDEN_RATIO = 0.618033988749895
+MIN_THRESHOLD = 1e-5
+
+# Smart UV default angle: 66 degrees in radians (approximately)
+DEFAULT_SMART_UV_ANGLE = 1.15192
+DEFAULT_SMART_UV_MARGIN = 0.001

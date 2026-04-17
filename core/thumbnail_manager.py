@@ -51,3 +51,10 @@ def get_icon_id(name, collection="presets"):
     if name in pcoll:
         return pcoll[name].icon_id
     return 0
+
+def clear_all_previews():
+    """清理所有已注册的预览集合"""
+    global preview_collections
+    for pcoll in preview_collections.values():
+        bpy.utils.previews.remove(pcoll)
+    preview_collections.clear()

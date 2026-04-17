@@ -37,9 +37,65 @@ BAKE_MAPPING = {
     'NORMAL': 'NORMALS' # Version-aware logic moved to set_bake_type if needed
 }
 
+def get_compositor_tree(scene):
+    """
+    Version-safe compositor node tree accessor.
+    Blender 5.0 introduces scene.compositor and renames node_tree.
+    """
+    # 1. Blender 5.0+ Native Compositor Object
+    if is_blender_5() or hasattr(scene, "compositor"):
+        try:
+            comp = getattr(scene, "compositor", None)
+            if comp:
+                if not comp.use_nodes:
+                    comp.use_nodes = True
+                if hasattr(comp, "node_tree") and comp.node_tree:
+                    return comp.node_tree
+        except Exception: pass
+
+    # 2. Blender 5.0+ Renamed Property: compositing_node_group
+    if hasattr(scene, "compositing_node_group"):
+        try:
+            if hasattr(scene, "use_nodes") and not scene.use_nodes:
+                scene.use_nodes = True
+            
+            tree = getattr(scene, "compositing_node_group", None)
+            
+            # --- B5.0 Background Initialization Fix ---
+            if not tree and is_blender_5():
+                # HP-13: In B5.0, tree type 'COMPOSITING' is replaced by 'CompositorNodeTree'
+                try:
+                    tree = bpy.data.node_groups.new("BT_Compositor_Tree", 'CompositorNodeTree')
+                    scene.compositing_node_group = tree
+                except Exception as e:
+                    logger.debug(f"B5.0: Failed to create/assign new CompositorNodeTree: {e}")
+            # ------------------------------------------
+            
+            if tree: return tree
+        except Exception: pass
+            
+    # 3. Legacy / Common Fallback
+    try:
+        if hasattr(scene, "use_nodes"):
+            if not scene.use_nodes:
+                scene.use_nodes = True
+            
+            tree = getattr(scene, "node_tree", None)
+            # Safe type check: B5.0 alias might return Annotation tree
+            if tree and hasattr(tree, "type") and tree.type in {'COMPOSITING', 'CompositorNodeTree'}:
+                return tree
+            
+            if hasattr(scene, "node_tree") and scene.node_tree:
+                 return scene.node_tree
+    except Exception as e:
+        logger.debug(f"Error accessing compositor tree: {e}")
+
+    return None
+
 def set_bake_type(scene, bake_type):
     """
-    Set bake type in a version-safe way.
+    Set bake type in a version-safe way. 
+    Assumes engine is already CYCLES (handled by BakeContextManager).
     
     Args:
         scene: Blender scene
@@ -52,32 +108,17 @@ def set_bake_type(scene, bake_type):
 
     try:
         # PRIORITY: Cycles-specific bake type property (Exists in 3.6 - 5.0+)
-        has_cycles = hasattr(scene, "cycles")
-        if has_cycles:
-            # Force Cycles engine temporarily if needed to avoid "property not found" errors in B3.x
-            orig_engine = scene.render.engine
-            if orig_engine != 'CYCLES':
+        if hasattr(scene, "cycles") and hasattr(scene.cycles, "bake_type"):
+            try:
+                scene.cycles.bake_type = bake_type 
+                if bake_type not in {'NORMALS', 'DISPLACEMENT', 'VECTOR_DISPLACEMENT'}:
+                    return True
+            except Exception:
                 try: 
-                    scene.render.engine = 'CYCLES'
-                except Exception: 
-                    logger.error("BakeTool: Cannot switch to Cycles engine. Baking requires Cycles.")
-                    return False
-                
-            if hasattr(scene.cycles, "bake_type"):
-                try:
-                    scene.cycles.bake_type = bake_type # Cycles usually takes standard names
-                    if bake_type not in {'NORMALS', 'DISPLACEMENT', 'VECTOR_DISPLACEMENT'}:
-                        return True
-                except Exception:
-                    try: 
-                        scene.cycles.bake_type = target_bake_type
-                        return True
-                    except Exception: pass
-            
-            # Restore engine if we didn't return (meaning we move to fallback)
-            # Actually, standard practice in BT is to stay in CYCLES while setting up.
-            pass
-            
+                    scene.cycles.bake_type = target_bake_type
+                    return True
+                except Exception: pass
+        
         bake_settings = get_bake_settings(scene)
         if bake_settings is None: return False
 
@@ -93,7 +134,7 @@ def set_bake_type(scene, bake_type):
                         return True
                     except (TypeError, ValueError):
                         pass
-            
+        
         # Last resort fallback for B3.3 and others
         if hasattr(scene.render, "bake_type"):
             try:

@@ -4,24 +4,33 @@ import numpy as np
 import colorsys
 import logging
 import mathutils
+from typing import Dict, List, Optional, Tuple
 from mathutils.bvhtree import BVHTree
 from ..constants import SYSTEM_NAMES
 
 logger = logging.getLogger(__name__)
 
-def get_image_pixels_as_numpy(image):
+
+def get_image_pixels_as_numpy(image: bpy.types.Image) -> Optional[np.ndarray]:
+    """Efficiently retrieve image pixels as a NumPy array.
+
+    Args:
+        image: Blender image to read pixels from.
+
+    Returns:
+        NumPy array of shape (N, 4) with float32 RGBA values, or None on failure.
     """
-    Efficiently retrieve image pixels as a NumPy array (N, 4).
-    """
-    if not image: return None
+    if not image:
+        return None
     width, height = image.size
     num_pixels = width * height * 4
-    
+
     # Pre-allocate
     raw_pixels = np.empty(num_pixels, dtype=np.float32)
     image.pixels.foreach_get(raw_pixels)
-    
+
     return raw_pixels.reshape(-1, 4)
+
 
 def _get_cached_array(img, cache=None):
     """Get image pixels as a NumPy array, with optional caching to avoid redundant reads."""
@@ -32,9 +41,30 @@ def _get_cached_array(img, cache=None):
         cache[img] = arr
     return arr
 
-def process_pbr_numpy(target_img, spec_img, diff_img, map_id, threshold=0.04, array_cache=None):
-    """
-    Optimized PBR conversion (Specular -> Metallic/BaseColor) using NumPy.
+
+def process_pbr_numpy(
+    target_img: bpy.types.Image,
+    spec_img: bpy.types.Image,
+    diff_img: bpy.types.Image,
+    map_id: str,
+    threshold: float = 0.04,
+    array_cache: Optional[Dict] = None,
+) -> bool:
+    """Optimized PBR conversion using NumPy.
+
+    Converts Specular-based workflow to Metallic/BaseColor by applying
+    threshold-based metalness detection.
+
+    Args:
+        target_img: Output image to write converted data to.
+        spec_img: Source specular image.
+        diff_img: Source diffuse/albedo image.
+        map_id: Conversion type ('pbr_conv_metal' or 'pbr_conv_base').
+        threshold: Metalness threshold (0-1).
+        array_cache: Optional cache for intermediate arrays.
+
+    Returns:
+        True on success, False on failure.
     """
     try:
         # Helper to get cached array
@@ -42,100 +72,139 @@ def process_pbr_numpy(target_img, spec_img, diff_img, map_id, threshold=0.04, ar
             return _get_cached_array(img, array_cache)
 
         spec_arr = get_arr(spec_img)
-        if spec_arr is None: return False
-        
+        if spec_arr is None:
+            return False
+
         # Calculate Metalness: Spec > Threshold is Metal
         # Take max of RGB as intensity
         spec_max = np.max(spec_arr[:, :3], axis=1)
-        
+
         denom = max(1e-5, 1.0 - threshold)
         metal_mask = np.clip((spec_max - threshold) / denom, 0.0, 1.0)
-        
+
         # Prepare result (Default Alpha = 1.0)
         result_arr = np.zeros_like(spec_arr)
-        result_arr[:, 3] = 1.0 
-        
-        if map_id == 'pbr_conv_metal':
+        result_arr[:, 3] = 1.0
+
+        if map_id == "pbr_conv_metal":
             # Broadcast mask to RGB
             result_arr[:, 0] = metal_mask
             result_arr[:, 1] = metal_mask
             result_arr[:, 2] = metal_mask
-            
-        elif map_id == 'pbr_conv_base':
+
+        elif map_id == "pbr_conv_base":
             diff_arr = get_arr(diff_img)
-            if diff_arr is None: return False
-            
+            if diff_arr is None:
+                return False
+
             # BaseColor = Diffuse * (1 - Metal) + Specular * Metal
             # Expand mask dimensions for broadcasting: (N,) -> (N, 1)
             m = metal_mask[:, np.newaxis]
-            
+
             # Vectorized mix
             result_arr[:, :3] = diff_arr[:, :3] * (1.0 - m) + spec_arr[:, :3] * m
-            result_arr[:, 3] = diff_arr[:, 3] # Keep diffuse alpha
-            
+            result_arr[:, 3] = diff_arr[:, 3]  # Keep diffuse alpha
+
         # Write back to Blender image
         target_img.pixels.foreach_set(result_arr.ravel())
         return True
-        
+
     except Exception as e:
         logger.error(f"PBR Conv Failed: {e}")
         return False
 
-def pack_channels_numpy(target_img, channel_map, array_cache=None):
+
+def pack_channels_numpy(
+    target_img: bpy.types.Image,
+    channel_map: Dict[int, bpy.types.Image],
+    array_cache: Optional[Dict] = None,
+) -> bool:
+    """Pack multiple grayscale images into RGBA channels.
+
+    Args:
+        target_img: Output image with RGBA channels.
+        channel_map: Dict mapping channel index (0-3) to source image.
+        array_cache: Optional cache for intermediate arrays.
+
+    Returns:
+        True on success, False on failure.
     """
-    Highly optimized channel packing using NumPy.
-    channel_map: {channel_index(0-3): source_image}
-    """
-    if not target_img: return False
-    
+    if not target_img:
+        return False
+
     try:
         width, height = target_img.size
         num_pixels = width * height
-        
+
         # Pre-allocate RGBA buffer (initialized to 0, Alpha to 1.0)
         result_arr = np.zeros((num_pixels, 4), dtype=np.float32)
-        result_arr[:, 3] = 1.0 
-        
+        result_arr[:, 3] = 1.0
+
         def get_arr(img):
             return _get_cached_array(img, array_cache)
 
-
         any_packed = False
         for idx, src_img in channel_map.items():
-            if not src_img or idx < 0 or idx > 3: continue
-            
+            if not src_img or idx < 0 or idx > 3:
+                continue
+
             src_arr = get_arr(src_img)
-            if src_arr is None: continue
-            
+            if src_arr is None:
+                continue
+
             # If source image has different size, we skip or handle (here we assume matching sizes)
             if src_arr.shape[0] != num_pixels:
-                logger.warning(f"Packing size mismatch: {src_img.name} vs {target_img.name}")
+                logger.warning(
+                    f"Packing size mismatch: {src_img.name} vs {target_img.name}"
+                )
                 continue
-            
+
             # Take the luminance or the first channel (R) as data
             # For grayscale images, R=G=B, so src_arr[:, 0] is enough
             result_arr[:, idx] = src_arr[:, 0]
             any_packed = True
-            
+
         if any_packed:
             target_img.pixels.foreach_set(result_arr.ravel())
             return True
-            
+
         return False
     except Exception as e:
         logger.error(f"Channel Packing Failed: {e}")
         return False
 
-def generate_optimized_colors(count, start_color=(1,0,0,1), manual_start=True, seed=0) :
-    """Generate distinct colors for ID maps using vectorized NumPy operations."""
-    if count <= 0: return np.zeros((0, 4), dtype=np.float32)
-    
+
+def generate_optimized_colors(
+    count: int,
+    start_color: Tuple[float, float, float, float] = (1, 0, 0, 1),
+    manual_start: bool = True,
+    seed: int = 0,
+) -> np.ndarray:
+    """Generate visually distinct colors using golden ratio distribution.
+
+    Uses HSV color space with golden ratio hue spacing for optimal
+    color distinction in ID maps.
+
+    Args:
+        count: Number of colors to generate.
+        start_color: Starting color for manual mode.
+        manual_start: If True, use start_color; if False, use random start.
+        seed: Random seed for reproducible colors.
+
+    Returns:
+        Array of shape (count, 4) with RGBA float32 colors.
+    """
+    if count <= 0:
+        return np.zeros((0, 4), dtype=np.float32)
+
     indices = np.arange(count, dtype=np.float32)
     golden_ratio = 0.618033988749895
-    
+
     # 1. Generate Hues
     if manual_start:
-        h_start, _, _ = colorsys.rgb_to_hsv(start_color[0], start_color[1], start_color[2])
+        h_start, _, _ = colorsys.rgb_to_hsv(
+            start_color[0], start_color[1], start_color[2]
+        )
         hues = (h_start + indices * golden_ratio) % 1.0
     else:
         rng = np.random.default_rng(seed)
@@ -149,7 +218,7 @@ def generate_optimized_colors(count, start_color=(1,0,0,1), manual_start=True, s
         rng_sv = np.random.default_rng(seed)
         sats = 0.5 + rng_sv.random(count).astype(np.float32) * 0.3
         vals = 0.8 + rng_sv.random(count).astype(np.float32) * 0.2
-    
+
     # 3. Vectorized HSV to RGB
     # hsv_to_rgb(h, s, v):
     # i = floor(h*6); f = h*6-i; p = v*(1-s); q = v*(1-s*f); t = v*(1-s*(1-f))
@@ -159,73 +228,97 @@ def generate_optimized_colors(count, start_color=(1,0,0,1), manual_start=True, s
     p = vals * (1.0 - sats)
     q = vals * (1.0 - sats * f)
     t = vals * (1.0 - sats * (1.0 - f))
-    
+
     i = i % 6
     rgb = np.zeros((count, 3), dtype=np.float32)
-    
+
     # Apply conditions vectorized
-    m0 = (i == 0); rgb[m0] = np.stack([vals[m0], t[m0], p[m0]], axis=-1)
-    m1 = (i == 1); rgb[m1] = np.stack([q[m1], vals[m1], p[m1]], axis=-1)
-    m2 = (i == 2); rgb[m2] = np.stack([p[m2], vals[m2], t[m2]], axis=-1)
-    m3 = (i == 3); rgb[m3] = np.stack([p[m3], q[m3], vals[m3]], axis=-1)
-    m4 = (i == 4); rgb[m4] = np.stack([t[m4], p[m4], vals[m4]], axis=-1)
-    m5 = (i == 5); rgb[m5] = np.stack([vals[m5], p[m5], q[m5]], axis=-1)
-    
+    m0 = i == 0
+    rgb[m0] = np.stack([vals[m0], t[m0], p[m0]], axis=-1)
+    m1 = i == 1
+    rgb[m1] = np.stack([q[m1], vals[m1], p[m1]], axis=-1)
+    m2 = i == 2
+    rgb[m2] = np.stack([p[m2], vals[m2], t[m2]], axis=-1)
+    m3 = i == 3
+    rgb[m3] = np.stack([p[m3], q[m3], vals[m3]], axis=-1)
+    m4 = i == 4
+    rgb[m4] = np.stack([t[m4], p[m4], vals[m4]], axis=-1)
+    m5 = i == 5
+    rgb[m5] = np.stack([vals[m5], p[m5], q[m5]], axis=-1)
+
     colors = np.column_stack((rgb, np.ones(count, dtype=np.float32)))
-    if manual_start: colors[0] = np.array(start_color, dtype=np.float32)
-    
+    if manual_start:
+        colors[0] = np.array(start_color, dtype=np.float32)
+
     return colors
 
-def setup_mesh_attribute(obj, id_type='ELEMENT', start_color=(1,0,0,1), manual_start=True, seed=0):
+
+def setup_mesh_attribute(
+    obj, id_type="ELEMENT", start_color=(1, 0, 0, 1), manual_start=True, seed=0
+):
     """
     Generate mesh attributes (Vertex Colors) for ID Maps using BMesh or NumPy.
     """
-    if obj.type != 'MESH': return None
-    if id_type == 'ELE': id_type = 'ELEMENT'
+    if obj.type != "MESH":
+        return None
+    if id_type == "ELE":
+        id_type = "ELEMENT"
     attr_name = f"{SYSTEM_NAMES['ATTR_PREFIX']}{id_type}"
-    if attr_name in obj.data.attributes: return attr_name
+    if attr_name in obj.data.attributes:
+        return attr_name
 
     current_mode = obj.mode
-    if current_mode != 'OBJECT': 
-        bpy.ops.object.mode_set(mode='OBJECT')
-    
+    if current_mode != "OBJECT":
+        bpy.ops.object.mode_set(mode="OBJECT")
+
     try:
         # --- 快速路径：材质 ID (NumPy) ---
-        if id_type == 'MAT':
-            return _setup_material_id_numpy(obj, attr_name, start_color, manual_start, seed)
+        if id_type == "MAT":
+            return _setup_material_id_numpy(
+                obj, attr_name, start_color, manual_start, seed
+            )
 
         # --- 孤岛 ID (BMesh) ---
-        return _setup_island_id_bmesh(obj, id_type, attr_name, start_color, manual_start, seed)
+        return _setup_island_id_bmesh(
+            obj, id_type, attr_name, start_color, manual_start, seed
+        )
     finally:
         if obj.mode != current_mode:
-            try: bpy.ops.object.mode_set(mode=current_mode)
-            except Exception: pass
+            try:
+                bpy.ops.object.mode_set(mode=current_mode)
+            except Exception:
+                pass
+
 
 def _setup_material_id_numpy(obj, attr_name, start_color, manual_start, seed):
     """使用 NumPy 快速生成材质 ID 属性"""
     poly_count = len(obj.data.polygons)
-    if poly_count == 0: return None
-    
+    if poly_count == 0:
+        return None
+
     mat_indices = np.zeros(poly_count, dtype=np.int32)
     obj.data.polygons.foreach_get("material_index", mat_indices)
-    
+
     unique_mats = np.unique(mat_indices)
-    palette = generate_optimized_colors(len(unique_mats), start_color, manual_start, seed)
-    
+    palette = generate_optimized_colors(
+        len(unique_mats), start_color, manual_start, seed
+    )
+
     # 安全索引：建立完整调色板以匹配材质索引
     max_idx = np.max(mat_indices) if len(mat_indices) > 0 else 0
     full_palette = np.zeros((max_idx + 1, 4), dtype=np.float32)
     full_palette[unique_mats] = palette
-    
+
     loop_totals = np.zeros(poly_count, dtype=np.int32)
     obj.data.polygons.foreach_get("loop_total", loop_totals)
     loop_colors = np.repeat(full_palette[mat_indices], loop_totals, axis=0)
-    
+
     # 创建属性并写入数据 // Create attribute and write
-    obj.data.attributes.new(name=attr_name, type='BYTE_COLOR', domain='CORNER')
+    obj.data.attributes.new(name=attr_name, type="BYTE_COLOR", domain="CORNER")
     obj.data.attributes[attr_name].data.foreach_set("color", loop_colors.flatten())
-    
+
     return attr_name
+
 
 def _setup_island_id_bmesh(obj, id_type, attr_name, start_color, manual_start, seed):
     """基于 BMesh 拓扑分析生成孤岛 ID 属性"""
@@ -233,46 +326,54 @@ def _setup_island_id_bmesh(obj, id_type, attr_name, start_color, manual_start, s
     try:
         bm.from_mesh(obj.data)
         bm.faces.ensure_lookup_table()
-        if len(bm.faces) == 0: return None
-        
+        if len(bm.faces) == 0:
+            return None
+
         islands = _find_islands_bmesh(bm, id_type)
         island_count = len(islands)
-        palette = generate_optimized_colors(max(1, island_count), start_color, manual_start, seed)
-        
+        palette = generate_optimized_colors(
+            max(1, island_count), start_color, manual_start, seed
+        )
+
         face_to_color_idx = np.zeros(len(bm.faces), dtype=np.int32)
         for idx, island_faces in enumerate(islands):
-            for f in island_faces: face_to_color_idx[f.index] = idx
-        
+            for f in island_faces:
+                face_to_color_idx[f.index] = idx
+
         loop_totals = np.zeros(len(obj.data.polygons), dtype=np.int32)
         obj.data.polygons.foreach_get("loop_total", loop_totals)
         loop_colors = np.repeat(palette[face_to_color_idx], loop_totals, axis=0)
-        
-        obj.data.attributes.new(name=attr_name, type='BYTE_COLOR', domain='CORNER')
+
+        obj.data.attributes.new(name=attr_name, type="BYTE_COLOR", domain="CORNER")
         obj.data.attributes[attr_name].data.foreach_set("color", loop_colors.flatten())
     except Exception as e:
         logger.exception(f"孤岛 ID 映射失败 (ID Map Gen Failed): {e}")
         attr_name = None
     finally:
         bm.free()
-    
+
     return attr_name
+
 
 def _find_islands_bmesh(bm, id_type):
     """识别 BMesh 中的孤岛 (拓扑/UV/缝合线)"""
-    islands = [] 
-    for f in bm.faces: f.tag = False
+    islands = []
+    for f in bm.faces:
+        f.tag = False
     visited_tag = True
 
-    if id_type == 'ELEMENT':
+    if id_type == "ELEMENT":
         try:
             res = bmesh.ops.find_adjacent_mesh_islands(bm, faces=bm.faces[:])
-            islands = res.get('faces', res.get('regions', []))
-        except Exception: pass
-    
+            islands = res.get("faces", res.get("regions", []))
+        except Exception:
+            pass
+
     if not islands:
-        uv_lay = bm.loops.layers.uv.active if id_type == 'UVI' else None
+        uv_lay = bm.loops.layers.uv.active if id_type == "UVI" else None
         for f in bm.faces:
-            if f.tag == visited_tag: continue
+            if f.tag == visited_tag:
+                continue
             island_faces = []
             stack = [f]
             f.tag = visited_tag
@@ -280,31 +381,44 @@ def _find_islands_bmesh(bm, id_type):
                 curr = stack.pop()
                 island_faces.append(curr)
                 for edge in curr.edges:
-                    if id_type == 'SEAM' and edge.seam: continue
+                    if id_type == "SEAM" and edge.seam:
+                        continue
                     for other_f in edge.link_faces:
-                        if other_f.tag == visited_tag: continue
-                        
-                        if id_type == 'UVI' and uv_lay:
+                        if other_f.tag == visited_tag:
+                            continue
+
+                        if id_type == "UVI" and uv_lay:
                             is_continuous = True
                             for v in edge.verts:
                                 l1 = next((l for l in curr.loops if l.vert == v), None)
-                                l2 = next((l for l in other_f.loops if l.vert == v), None)
-                                if l1 and l2 and (l1[uv_lay].uv - l2[uv_lay].uv).length_squared > 1e-5:
-                                    is_continuous = False; break
-                            if not is_continuous: continue
-                            
+                                l2 = next(
+                                    (l for l in other_f.loops if l.vert == v), None
+                                )
+                                if (
+                                    l1
+                                    and l2
+                                    and (l1[uv_lay].uv - l2[uv_lay].uv).length_squared
+                                    > 1e-5
+                                ):
+                                    is_continuous = False
+                                    break
+                            if not is_continuous:
+                                continue
+
                         other_f.tag = visited_tag
                         stack.append(other_f)
             islands.append(island_faces)
     return islands
 
+
 def calculate_cage_proximity(low_poly, high_poly_list, margin=0.1):
     """
-    Analyzes proximity between low-poly and high-poly meshes to determine 
+    Analyzes proximity between low-poly and high-poly meshes to determine
     safe extrusion distances per vertex.
     """
-    if not low_poly or not high_poly_list: return None
-    
+    if not low_poly or not high_poly_list:
+        return None
+
     try:
         depsgraph = bpy.context.evaluated_depsgraph_get()
         # 1. Build BVHTrees for all high-poly objects
@@ -316,59 +430,82 @@ def calculate_cage_proximity(low_poly, high_poly_list, margin=0.1):
                 hp_data.append((hp_obj, tree))
             except Exception as e:
                 logger.warning(f"Could not build BVHTree for {hp_obj.name}: {e}")
-        
+
         if not hp_data:
             return np.full(len(low_poly.data.vertices), margin, dtype=np.float32)
 
         lp_mesh = low_poly.data
         extrusions = np.zeros(len(lp_mesh.vertices), dtype=np.float32)
-        
+
         # 2. Find nearest distance across all high-polys for each vertex
         for i, v in enumerate(lp_mesh.vertices):
             world_co = low_poly.matrix_world @ v.co
-            min_dist = float('inf')
-            
+            min_dist = float("inf")
+
             for hp_obj, hp_tree in hp_data:
                 # Transform low-poly vertex to high-poly local space
                 local_co = hp_obj.matrix_world.inverted() @ world_co
                 _, _, _, dist = hp_tree.find_nearest(local_co)
                 if dist is not None and dist < min_dist:
                     min_dist = dist
-            
-            if min_dist != float('inf'):
+
+            if min_dist != float("inf"):
                 extrusions[i] = min_dist + margin
             else:
                 extrusions[i] = margin
-                
+
         return extrusions
     except Exception as e:
         logger.error(f"Cage Proximity Analysis Failed: {e}")
         return None
 
+
 class TexelDensityCalculator:
-    """Utility for PBR texel density verification."""
+    """Utility for PBR texel density verification and comparison."""
+
     @staticmethod
-    def get_mesh_density(obj, res_x, res_y):
-        if obj.type != 'MESH' or not obj.data.uv_layers: return 0.0
-        
+    def get_mesh_density(obj: bpy.types.Object, res_x: int, res_y: int) -> float:
+        """Calculate texel density for a mesh.
+
+        Computes the ratio of texture pixels to world-space surface area.
+
+        Args:
+            obj: Mesh object to analyze.
+            res_x: Texture width in pixels.
+            res_y: Texture height in pixels.
+
+        Returns:
+            Texel density as pixels per world unit.
+        """
+        if obj.type != "MESH" or not obj.data.uv_layers:
+            return 0.0
+
         import bmesh
+
         bm = bmesh.new()
         bm.from_mesh(obj.data)
         uv_layer = bm.loops.layers.uv.active
-        
+
         total_uv_area = 0.0
         total_world_area = 0.0
-        
+
         for face in bm.faces:
             total_world_area += face.calc_area()
-            if len(face.loops) < 3: continue
+            if len(face.loops) < 3:
+                continue
             uvs = [loop[uv_layer].uv for loop in face.loops]
-            area = 0.5 * abs(sum(uvs[i].x * uvs[i-1].y - uvs[i-1].x * uvs[i].y for i in range(len(uvs))))
+            area = 0.5 * abs(
+                sum(
+                    uvs[i].x * uvs[i - 1].y - uvs[i - 1].x * uvs[i].y
+                    for i in range(len(uvs))
+                )
+            )
             total_uv_area += area
-            
+
         bm.free()
-        if total_world_area < 1e-6: return 0.0
-        
+        if total_world_area < 1e-6:
+            return 0.0
+
         avg_res = (res_x + res_y) / 2
         density = (avg_res * np.sqrt(total_uv_area)) / np.sqrt(total_world_area)
         return float(density)

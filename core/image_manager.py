@@ -2,14 +2,22 @@ import bpy
 import logging
 from pathlib import Path
 from contextlib import contextmanager
+from typing import Optional, List, Dict, Tuple, Any
 from ..constants import FORMAT_SETTINGS
 
 logger = logging.getLogger(__name__)
 
+
 @contextmanager
-def robust_image_editor_context(context, image):
-    """
-    Safely finds or hijacks an area to function as an IMAGE_EDITOR context.
+def robust_image_editor_context(context: bpy.types.Context, image: bpy.types.Image):
+    """Safely finds or hijacks an area to function as an IMAGE_EDITOR context.
+
+    Args:
+        context: Blender context.
+        image: Image to display in the editor.
+
+    Yields:
+        True if context switch was successful, False otherwise.
     """
     window = context.window
     if not window and context.window_manager.windows:
@@ -20,83 +28,194 @@ def robust_image_editor_context(context, image):
         return None
 
     screen = window.screen
-    
+
     area = None
-    if context.area and context.area.type != 'EMPTY': area = context.area
-    
+    if context.area and context.area.type != "EMPTY":
+        area = context.area
+
     if not area:
         for a in screen.areas:
-            if a.type == 'IMAGE_EDITOR': area = a; break
+            if a.type == "IMAGE_EDITOR":
+                area = a
+                break
         if not area:
             for a in screen.areas:
-                if a.type == 'VIEW_3D': area = a; break
-        if not area and screen.areas: area = screen.areas[0]
-            
+                if a.type == "VIEW_3D":
+                    area = a
+                    break
+        if not area and screen.areas:
+            area = screen.areas[0]
+
     if not area:
         yield False
     else:
         old_type = area.type
         try:
-            if old_type != 'IMAGE_EDITOR': area.type = 'IMAGE_EDITOR'
+            if old_type != "IMAGE_EDITOR":
+                area.type = "IMAGE_EDITOR"
             area.spaces.active.image = image
-            region = next((r for r in area.regions if r.type == 'WINDOW'), None)
-            
-            with context.temp_override(window=window, area=area, region=region, screen=screen, space_data=area.spaces.active):
+            region = next((r for r in area.regions if r.type == "WINDOW"), None)
+
+            with context.temp_override(
+                window=window,
+                area=area,
+                region=region,
+                screen=screen,
+                space_data=area.spaces.active,
+            ):
                 yield True
-        except Exception as e:
-            logger.error(f"上下文切换失败 (Context hijack failed): {e}")
+        except (AttributeError, RuntimeError) as e:
+            logger.error(f"Context switch failed: {e}")
             yield False
         finally:
-            if area.type != old_type: area.type = old_type
+            if area.type != old_type:
+                area.type = old_type
 
-def set_image(name, x, y, alpha=True, full=False, space='sRGB', basiccolor=(0,0,0,0), clear=True, 
-              use_udim=False, udim_tiles=None, tile_resolutions=None, context=None):
-    """获取或创建指定设置的图像，并确保其格式正确 // Get/Create image with specified settings"""
+
+def _needs_persistent_reference(setting=None):
+    """Determine if image needs persistent reference (fake user).
+
+    Only temporary/intermediate bake images should NOT use fake user,
+    allowing Blender's garbage collector to reclaim them when unreferenced.
+    """
+    if setting is None:
+        return False
+    if hasattr(setting, "apply_to_scene"):
+        return setting.apply_to_scene
+    if hasattr(setting, "use_external_save"):
+        return setting.use_external_save and hasattr(setting, "external_save_path")
+    return False
+
+
+def set_image(
+    name: str,
+    x: int,
+    y: int,
+    alpha: bool = True,
+    full: bool = False,
+    space: str = "sRGB",
+    basiccolor: tuple = (0, 0, 0, 0),
+    clear: bool = True,
+    use_udim: bool = False,
+    udim_tiles: Optional[List[int]] = None,
+    tile_resolutions: Optional[dict] = None,
+    context: Optional[bpy.types.Context] = None,
+    setting: Optional[Any] = None,
+) -> bpy.types.Image:
+    """Get or create an image with specified settings.
+
+    Args:
+        name: Image name.
+        x: Width in pixels.
+        y: Height in pixels.
+        alpha: Use alpha channel.
+        full: Use 32-bit float buffer.
+        space: Color space name.
+        basiccolor: Clear color as (r, g, b, a) tuple.
+        clear: Whether to physically clear pixel data.
+        use_udim: Use UDIM tiled images.
+        udim_tiles: List of UDIM tile numbers.
+        tile_resolutions: Dict mapping tile number to (width, height).
+        context: Optional Blender context.
+        setting: Optional settings object to determine reference persistence.
+
+    Returns:
+        The created or retrieved image.
+    """
     if context is None:
         context = bpy.context
-    image = _get_or_create_image_base(name, x, y, alpha, full, use_udim, tile_resolutions)
-    
-    image.file_format = 'PNG' 
-    image.use_fake_user = True
-    
+    image = _get_or_create_image_base(
+        name, x, y, alpha, full, use_udim, tile_resolutions
+    )
+
+    image.file_format = "PNG"
+
+    if _needs_persistent_reference(setting):
+        image.use_fake_user = True
+    else:
+        image.use_fake_user = False
+
     if not full:
-        try: image.colorspace_settings.name = space
-        except Exception: pass 
-    
-    if alpha: image.alpha_mode = 'STRAIGHT'
-    
-    # 物理清除像素数据 // Physical Clear if requested
+        try:
+            image.colorspace_settings.name = space
+        except (AttributeError, RuntimeError):
+            pass
+
+    if alpha:
+        image.alpha_mode = "STRAIGHT"
+
     if clear:
         _physical_clear_pixels(image, basiccolor)
 
-    if use_udim and image.source == 'TILED':
-        _handle_udim_tiles(image, x, y, udim_tiles, tile_resolutions, full, alpha, basiccolor, context=context)
+    if use_udim and image.source == "TILED":
+        _handle_udim_tiles(
+            image,
+            x,
+            y,
+            udim_tiles,
+            tile_resolutions,
+            full,
+            alpha,
+            basiccolor,
+            context=context,
+        )
 
-    try: image.update()
-    except Exception: pass
+    try:
+        image.update()
+    except RuntimeError:
+        pass
 
-    # Blender < 3.4 UDIM 烘焙 "Uninitialized image" 修复 // UDIM Baking fix
     from . import compat
+
     if use_udim and compat.is_blender_3():
         _touch_udim_buffer_v3(image)
 
     return image
 
-def _get_or_create_image_base(name, x, y, alpha, full, use_udim, tile_resolutions):
-    """基础图像创建逻辑"""
+
+def _get_or_create_image_base(
+    name: str,
+    x: int,
+    y: int,
+    alpha: bool,
+    full: bool,
+    use_udim: bool,
+    tile_resolutions: Optional[dict],
+) -> bpy.types.Image:
+    """Get or create base image with specified dimensions and format.
+
+    Args:
+        name: Image name.
+        x: Width in pixels.
+        y: Height in pixels.
+        alpha: Use alpha channel.
+        full: Use 32-bit float buffer.
+        use_udim: Use UDIM tiled images.
+        tile_resolutions: Optional dict mapping tile numbers to (width, height) tuples.
+
+    Returns:
+        The existing or newly created image.
+    """
     image = bpy.data.images.get(name)
-    
+
     if image:
-        if (image.source == 'TILED') != use_udim:
+        if (image.source == "TILED") != use_udim:
             bpy.data.images.remove(image)
             image = None
-    
+
     if not image:
         init_x, init_y = x, y
         if use_udim and tile_resolutions and 1001 in tile_resolutions:
             init_x, init_y = tile_resolutions[1001]
-            
-        image = bpy.data.images.new(name, width=init_x, height=init_y, alpha=alpha, float_buffer=full, tiled=use_udim)
+
+        image = bpy.data.images.new(
+            name,
+            width=init_x,
+            height=init_y,
+            alpha=alpha,
+            float_buffer=full,
+            tiled=use_udim,
+        )
         if use_udim and hasattr(image, "tiles") and len(image.tiles) == 0:
             image.tiles.new(1001)
             image.update()
@@ -104,118 +223,227 @@ def _get_or_create_image_base(name, x, y, alpha, full, use_udim, tile_resolution
         target_w, target_h = x, y
         if use_udim and tile_resolutions and 1001 in tile_resolutions:
             target_w, target_h = tile_resolutions[1001]
-            
+
         try:
-            if image.size[0] != target_w or image.size[1] != target_h: 
+            if image.size[0] != target_w or image.size[1] != target_h:
                 image.scale(target_w, target_h)
-                if image.source == 'GENERATED':
-                    image.generated_width = target_w; image.generated_height = target_h
-        except Exception: pass
+                if image.source == "GENERATED":
+                    image.generated_width = target_w
+                    image.generated_height = target_h
+        except Exception:
+            pass
     return image
 
-def _physical_clear_pixels(image, basiccolor):
-    """物理清除像素数据"""
+
+def _physical_clear_pixels(
+    image: bpy.types.Image, basiccolor: Tuple[float, float, float, float]
+) -> None:
+    """Clear image pixels with minimal memory usage.
+
+    Uses np.empty pre-allocation with broadcast assignment to avoid np.tile
+    creating huge temporary memory blocks. For 8K images (8192x8192), this
+    can save ~1GB of peak memory.
+
+    Args:
+        image: Blender image to clear.
+        basiccolor: Clear color as (r, g, b, a) tuple.
+    """
     image.generated_color = basiccolor
-    if image.source != 'TILED':
+    if image.source != "TILED":
         import numpy as np
+
         try:
             num_pixels = image.size[0] * image.size[1]
-            arr = np.tile(np.array(basiccolor, dtype=np.float32), num_pixels)
-            image.pixels.foreach_set(arr)
-        except (AttributeError, ValueError): pass
+            arr = np.empty((num_pixels, 4), dtype=np.float32)
+            arr[:] = basiccolor
+            image.pixels.foreach_set(arr.ravel())
+        except (AttributeError, ValueError, MemoryError):
+            pass
 
-def _handle_udim_tiles(image, x, y, udim_tiles, tile_resolutions, full, alpha, basiccolor, context=None):
-    """管理 UDIM 瓦片的新增与移除"""
+
+def _handle_udim_tiles(
+    image: bpy.types.Image,
+    x: int,
+    y: int,
+    udim_tiles: Optional[List[int]],
+    tile_resolutions: Optional[dict],
+    full: bool,
+    alpha: bool,
+    basiccolor: Tuple[float, float, float, float],
+    context: Optional[bpy.types.Context] = None,
+) -> None:
+    """Manage UDIM tile creation, resizing, and removal.
+
+    Args:
+        image: UDIM tiled image to modify.
+        x: Default tile width in pixels.
+        y: Default tile height in pixels.
+        udim_tiles: List of target UDIM tile numbers.
+        tile_resolutions: Dict mapping tile numbers to (width, height).
+        full: Use 32-bit float buffer.
+        alpha: Use alpha channel.
+        basiccolor: Clear color as (r, g, b, a) tuple.
+        context: Optional Blender context.
+    """
     target_tiles = set(udim_tiles) if udim_tiles else {1001}
     existing_tiles = {t.number for t in image.tiles}
-    
+
     # 1. 缩放基础瓦片 (1001) // Scale 1001
     if 1001 in existing_tiles and 1001 in target_tiles:
         t_w, t_h = x, y
-        if tile_resolutions and 1001 in tile_resolutions: t_w, t_h = tile_resolutions[1001]
+        if tile_resolutions and 1001 in tile_resolutions:
+            t_w, t_h = tile_resolutions[1001]
         try:
-            if image.size[0] != t_w or image.size[1] != t_h: image.scale(t_w, t_h)
-        except Exception: pass
+            if image.size[0] != t_w or image.size[1] != t_h:
+                image.scale(t_w, t_h)
+        except Exception:
+            pass
 
     # 2. 添加缺失瓦片 // Add missing
     missing_tiles = target_tiles - existing_tiles
     if missing_tiles:
-        if context is None: context = bpy.context
+        if context is None:
+            context = bpy.context
         with robust_image_editor_context(context, image) as valid:
             for t_idx in missing_tiles:
                 t_w, t_h = x, y
-                if tile_resolutions and t_idx in tile_resolutions: t_w, t_h = tile_resolutions[t_idx]
-                
+                if tile_resolutions and t_idx in tile_resolutions:
+                    t_w, t_h = tile_resolutions[t_idx]
+
                 op_success = False
                 if valid:
-                    try: 
+                    try:
                         bpy.ops.image.tile_add(
-                            number=t_idx, count=1, label=str(t_idx), fill=True, 
-                            width=t_w, height=t_h, float=full, alpha=alpha,
-                            generated_type='BLANK', color=basiccolor
+                            number=t_idx,
+                            count=1,
+                            label=str(t_idx),
+                            fill=True,
+                            width=t_w,
+                            height=t_h,
+                            float=full,
+                            alpha=alpha,
+                            generated_type="BLANK",
+                            color=basiccolor,
                         )
                         op_success = True
-                    except Exception: pass
-                
+                    except Exception:
+                        pass
+
                 if not op_success:
-                    try: 
+                    try:
                         image.tiles.new(tile_number=t_idx)
                         image.generated_color = basiccolor
                         image.update()
                     except Exception as e:
-                        logger.error(f"无法添加瓦片 {t_idx} (Failed to add UDIM tile): {e}")
+                        logger.error(
+                            f"无法添加瓦片 {t_idx} (Failed to add UDIM tile): {e}"
+                        )
 
     # 3. 移除多余瓦片 // Remove extra
     extra_tiles = existing_tiles - target_tiles
     for t_idx in extra_tiles:
         tile_to_remove = next((t for t in image.tiles if t.number == t_idx), None)
         if tile_to_remove:
-            try: image.tiles.remove(tile_to_remove)
-            except Exception: pass
+            try:
+                image.tiles.remove(tile_to_remove)
+            except Exception:
+                pass
 
-def _touch_udim_buffer_v3(image):
-    """Blender 3.x UDIM 缓冲区初始化修复"""
+
+def _touch_udim_buffer_v3(image: bpy.types.Image) -> bpy.types.Image:
+    """Initialize UDIM buffer for Blender 3.x compatibility.
+
+    Workaround for Blender 3.x requiring buffer initialization
+    before UDIM images can be properly used.
+
+    Args:
+        image: Image to initialize.
+
+    Returns:
+        The same image (for convenience).
+    """
     try:
         import os, tempfile
+
         if not image.filepath:
             tmp_dir = tempfile.gettempdir()
             image.filepath_raw = os.path.join(tmp_dir, f"{image.name}.<UDIM>.png")
         # Blender 4.2及更低版本不提供is_packed
         is_packed = getattr(image, "is_packed", False)
         if hasattr(image, "packed_files") and not is_packed:
-             is_packed = len(image.packed_files) > 0
-             
+            is_packed = len(image.packed_files) > 0
+
         if not is_packed:
-            try: image.pack()
-            except Exception: pass
+            try:
+                image.pack()
+            except Exception:
+                pass
         image.update()
     except (ImportError, IOError, OSError, RuntimeError) as e:
         logger.debug(f"3.3 UDIM buffer touch failed: {e}")
 
     return image
 
-def save_image(image, path='//', folder=False, folder_name='folder', file_format='PNG', motion=False, frame=0, reload=False, fillnum=4, save=True, separator="_"):
-    """Safe image saving wrapper."""
-    if not save or not image: return None
-    
+
+def save_image(
+    image: bpy.types.Image,
+    path: str = "//",
+    folder: bool = False,
+    folder_name: str = "folder",
+    file_format: str = "PNG",
+    motion: bool = False,
+    frame: int = 0,
+    reload: bool = False,
+    fillnum: int = 4,
+    save: bool = True,
+    separator: str = "_",
+) -> Optional[str]:
+    """Save image to disk with automatic directory creation.
+
+    Handles relative paths, UDIM naming, and format conversion.
+
+    Args:
+        image: Blender image to save.
+        path: Base directory path (relative '//' or absolute).
+        folder: Whether to create a subfolder.
+        folder_name: Subfolder name if folder=True.
+        file_format: Output format (PNG, JPEG, EXR, etc.).
+        motion: Whether this is part of an animation sequence.
+        frame: Frame number for motion sequences.
+        reload: Whether to reload image after saving.
+        fillnum: Zero-padding digits for frame numbers.
+        save: Whether to actually save (False returns None).
+        separator: Separator between image name and frame number.
+
+    Returns:
+        Absolute path to saved file, or None if save failed.
+    """
+    if not save or not image:
+        return None
+
     base = Path(bpy.path.abspath(path))
     # HP-6: If blend file is unsaved and path is relative/empty, use temp dir
-    if str(base) == '.' or not bpy.data.filepath: 
-        if not bpy.data.filepath and path in {'//', ''}:
+    if str(base) == "." or not bpy.data.filepath:
+        if not bpy.data.filepath and path in {"//", ""}:
             base = Path(bpy.app.tempdir)
         elif bpy.data.filepath:
-            base = Path(bpy.data.filepath).parent 
+            base = Path(bpy.data.filepath).parent
     directory = base / folder_name if folder else base
-    try: directory.mkdir(parents=True, exist_ok=True)
+    try:
+        directory.mkdir(parents=True, exist_ok=True)
     except Exception as e:
         logger.error(f"Failed to create directory '{directory}': {e}")
         return None
-    
+
     info = FORMAT_SETTINGS.get(file_format, {})
     ext = info.get("extensions", ["." + file_format.lower()])[0]
-    fname = f"{image.name}{separator}{str(frame).zfill(fillnum)}{ext}" if motion else f"{image.name}{ext}"
-    
-    if image.source == 'TILED' and "<UDIM>" not in fname:
+    fname = (
+        f"{image.name}{separator}{str(frame).zfill(fillnum)}{ext}"
+        if motion
+        else f"{image.name}{ext}"
+    )
+
+    if image.source == "TILED" and "<UDIM>" not in fname:
         stem = Path(fname).stem
         fname = f"{stem}.<UDIM>{ext}"
 
@@ -223,7 +451,7 @@ def save_image(image, path='//', folder=False, folder_name='folder', file_format
     abs_path = str(filepath.resolve())
     old_path = image.filepath_raw
     old_fmt = image.file_format
-    
+
     try:
         image.filepath_raw = abs_path
         image.file_format = file_format
@@ -233,10 +461,12 @@ def save_image(image, path='//', folder=False, folder_name='folder', file_format
         image.filepath_raw = old_path
         image.file_format = old_fmt
         return None
-        
+
     if not motion and reload:
-        try: 
-            image.source = 'FILE'; image.reload()
-        except Exception: pass
-        
+        try:
+            image.source = "FILE"
+            image.reload()
+        except Exception:
+            pass
+
     return abs_path

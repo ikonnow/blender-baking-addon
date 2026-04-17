@@ -137,5 +137,8 @@ cython_debug/
 doc/
 logs/
 reports/
+test_output/
+*.json
+*.txt
 code_review.txt
 # code_review.md - now tracked in version control
