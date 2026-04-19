@@ -1,3 +1,9 @@
+"""Operator definitions for BakeTool.
+
+This module contains all Blender Operators used by the BakeTool add-on,
+handling UI interactions, baking orchestration, and data management.
+"""
+
 import bpy
 from bpy import props
 import logging
@@ -5,7 +11,7 @@ import os
 import traceback
 import json
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional, List, Set, Any, Dict
 
 from .core.common import (
     apply_baked_result,
@@ -38,7 +44,14 @@ logger = logging.getLogger(__name__)
 
 
 class _DummyEvent:
-    """Mock event object for script-based operator invocations."""
+    """Mock event object for script-based operator invocations.
+
+    Attributes:
+        event_type (str): Type of event.
+        event_value (str): Value of event (e.g., 'PRESS').
+        mouse_x (int): X coordinate of mouse.
+        mouse_y (int): Y coordinate of mouse.
+    """
 
     event_type: str = "NONE"
     event_value: str = "PRESS"
@@ -54,12 +67,24 @@ class _DummyEvent:
 
 
 class BAKETOOL_OT_RunDevTests(bpy.types.Operator):
-    """Run all internal test suites and report results to UI"""
+    """Run all internal test suites and report results to UI.
+
+    Iterates through all registered test suites and executes them using
+    unittest, providing feedback to the user via the sidebar.
+    """
 
     bl_idname = "bake.run_dev_tests"
     bl_label = "Run Development Tests"
 
-    def execute(self, context):
+    def execute(self, context: bpy.types.Context) -> Set[str]:
+        """Execute the full test suite.
+
+        Args:
+            context: Blender context.
+
+        Returns:
+            Set[str]: {'FINISHED'}.
+        """
         import unittest
         import io
         from .test_cases import (
@@ -68,6 +93,18 @@ class BAKETOOL_OT_RunDevTests(bpy.types.Operator):
             suite_negative,
             suite_memory,
             suite_export,
+            suite_api,
+            suite_cleanup,
+            suite_code_review,
+            suite_compat,
+            suite_context_lifecycle,
+            suite_denoise,
+            suite_parameter_matrix,
+            suite_preset,
+            suite_production_workflow,
+            suite_udim_advanced,
+            suite_ui_logic,
+            suite_verification,
         )
 
         loader = unittest.TestLoader()
@@ -78,7 +115,34 @@ class BAKETOOL_OT_RunDevTests(bpy.types.Operator):
             loader.loadTestsFromTestCase(suite_memory.SuiteMemory),
             loader.loadTestsFromTestCase(suite_memory.SuiteMemoryIntegration),
             loader.loadTestsFromTestCase(suite_export.SuiteExport),
+            loader.loadTestsFromTestCase(suite_code_review.SuiteCodeReviewFixes),
+            loader.loadTestsFromTestCase(suite_verification.SuiteVerification),
+            loader.loadTestsFromTestCase(suite_compat.SuiteCompat),
+            loader.loadTestsFromTestCase(suite_context_lifecycle.SuiteContextLifecycle),
+            loader.loadTestsFromTestCase(suite_denoise.SuiteDenoise),
+            loader.loadTestsFromTestCase(suite_preset.SuitePreset),
+            loader.loadTestsFromTestCase(
+                suite_production_workflow.SuiteProductionWorkflow
+            ),
+            loader.loadTestsFromTestCase(suite_udim_advanced.SuiteUDIMAdvanced),
+            loader.loadTestsFromTestCase(suite_ui_logic.SuiteUILogic),
         ]
+
+        try:
+            suites.append(loader.loadTestsFromTestCase(suite_api.SuiteAPI))
+        except (AttributeError, ImportError):
+            pass
+        try:
+            suites.append(loader.loadTestsFromTestCase(suite_cleanup.SuiteCleanup))
+        except (AttributeError, ImportError):
+            pass
+        try:
+            suites.append(
+                loader.loadTestsFromTestCase(suite_parameter_matrix.SuiteParameterMatrix)
+            )
+        except (AttributeError, ImportError):
+            pass
+
         consolidated = unittest.TestSuite(suites)
 
         stream = io.StringIO()
@@ -98,18 +162,42 @@ class BAKETOOL_OT_RunDevTests(bpy.types.Operator):
 
 
 class BAKETOOL_OT_BakeOperator(bpy.types.Operator, BakeModalOperator):
+    """Executes the texture baking process for selected objects.
+
+    This operator handles the complete baking pipeline including
+    validation, UV preparation, task building, and result saving.
+    Uses modal execution for progress tracking and crash recovery.
+    """
+
     bl_label = "Bake"
     bl_idname = "bake.bake_operator"
 
     is_resume: props.BoolProperty(default=False)
 
     @classmethod
-    def poll(cls, context):
+    def poll(cls, context: bpy.types.Context) -> bool:
+        """Ensure no other bake process is running.
+
+        Returns:
+            bool: True if baking can start.
+        """
         return not context.scene.is_baking
 
-    def invoke(self, context, event):
+    def invoke(self, context: bpy.types.Context, event: bpy.types.Event) -> Set[str]:
+        """Initialize the bake queue and start modal execution.
+
+        Args:
+            context: Blender context.
+            event: Event that triggered the invocation.
+
+        Returns:
+            Set[str]: {'RUNNING_MODAL'} or {'CANCELLED'}.
+        """
         if context.object and context.object.mode != "OBJECT":
-            bpy.ops.object.mode_set(mode="OBJECT")
+            try:
+                bpy.ops.object.mode_set(mode="OBJECT")
+            except (RuntimeError, AttributeError):
+                pass
         try:
             enabled_jobs = [j for j in context.scene.BakeJobs.jobs if j.enabled]
             if not enabled_jobs:
@@ -130,7 +218,7 @@ class BAKETOOL_OT_BakeOperator(bpy.types.Operator, BakeModalOperator):
                     if data:
                         start_idx = data.get("current_queue_idx", 0)
 
-        except Exception as e:
+        except (RuntimeError, ValueError) as e:
             err_msg = UI_MESSAGES.get(
                 "PREP_FAILED", "Bake preparation failed: {0}"
             ).format(str(e))
@@ -142,26 +230,45 @@ class BAKETOOL_OT_BakeOperator(bpy.types.Operator, BakeModalOperator):
 
 
 class BAKETOOL_OT_QuickBake(bpy.types.Operator, BakeModalOperator):
-    """Bake current selection using active job settings immediately"""
+    """Bake current selection using active job settings immediately.
+
+    This operator provides quick baking for the current object selection
+    using the active job as a template, without requiring full job setup.
+    """
 
     bl_idname = "bake.quick_bake"
     bl_label = "Quick Bake Selected"
 
-    def execute(self, context):
-        # 支持脚本调用，需创建虚拟 event // Support script calls via dummy event
+    def execute(self, context: bpy.types.Context) -> Set[str]:
+        """Support non-interactive execution.
+
+        Args:
+            context: Blender context.
+
+        Returns:
+            Set[str]: Result of invocation.
+        """
         return self.invoke(context, _DummyEvent())
 
-    def invoke(self, context, event):
+    def invoke(self, context: bpy.types.Context, event: bpy.types.Event) -> Set[str]:
+        """Prepare quick bake queue and start modal.
+
+        Args:
+            context: Blender context.
+            event: Triggering event.
+
+        Returns:
+            Set[str]: Modal result.
+        """
         if not hasattr(context.scene, "BakeJobs"):
-            self.report({"ERROR"}, "BakeTool properties not initialized in this scene.")
+            self.report({"ERROR"}, "BakeTool properties not initialized.")
             return {"CANCELLED"}
 
         bj = context.scene.BakeJobs
         if not bj.jobs:
-            self.report({"WARNING"}, "No Job settings available to use as template.")
+            self.report({"WARNING"}, "No Job settings available as template.")
             return {"CANCELLED"}
 
-        # Ensure job_index is within bounds
         if bj.job_index < 0 or bj.job_index >= len(bj.jobs):
             bj.job_index = 0
 
@@ -186,7 +293,7 @@ class BAKETOOL_OT_QuickBake(bpy.types.Operator, BakeModalOperator):
                 self.report({"WARNING"}, UI_MESSAGES["QUICK_PREP_FAILED"])
                 return {"CANCELLED"}
 
-        except Exception as e:
+        except (RuntimeError, ValueError) as e:
             err_msg = f"Quick Bake preparation failed: {str(e)}"
             self.report({"ERROR"}, err_msg)
             log_error(context, err_msg, include_traceback=True)
@@ -201,7 +308,15 @@ class BAKETOOL_OT_ResetChannels(bpy.types.Operator):
     bl_idname = "bake.reset_channels"
     bl_label = "Reset"
 
-    def execute(self, context):
+    def execute(self, context: bpy.types.Context) -> Set[str]:
+        """Sync channels for the active job.
+
+        Args:
+            context: Blender context.
+
+        Returns:
+            Set[str]: {'FINISHED'}.
+        """
         bj = context.scene.BakeJobs
         if not bj.jobs:
             return {"CANCELLED"}
@@ -219,19 +334,28 @@ class BAKETOOL_OT_GenericChannelOperator(bpy.types.Operator):
 
     bl_idname = "bake.generic_channel_op"
     bl_label = "Op"
+
     action_type: props.EnumProperty(
         name="Action",
         items=[
-            ("ADD", "Add", "Add a new custom channel to the list"),
-            ("DELETE", "Delete", "Remove the currently selected custom channel"),
-            ("UP", "Up", "Move current channel up in execution order"),
-            ("DOWN", "Down", "Move current channel down in execution order"),
-            ("CLEAR", "Clear", "Remove all custom channels"),
+            ("ADD", "Add", "Add a new custom channel"),
+            ("DELETE", "Delete", "Remove the selected item"),
+            ("UP", "Up", "Move current item up"),
+            ("DOWN", "Down", "Move current item down"),
+            ("CLEAR", "Clear", "Remove all items"),
         ],
     )
     target: props.StringProperty()
 
-    def execute(self, context):
+    def execute(self, context: bpy.types.Context) -> Set[str]:
+        """Delegate channel management to logic helper.
+
+        Args:
+            context: Blender context.
+
+        Returns:
+            Set[str]: {'FINISHED'} or {'CANCELLED'}.
+        """
         from .core.common import manage_channels_logic
 
         success, err = manage_channels_logic(
@@ -250,7 +374,15 @@ class BAKETOOL_OT_SetSaveLocal(bpy.types.Operator):
     bl_label = "Local"
     save_location: props.IntProperty(default=0)
 
-    def execute(self, context):
+    def execute(self, context: bpy.types.Context) -> Set[str]:
+        """Resolve current file path and apply to settings.
+
+        Args:
+            context: Blender context.
+
+        Returns:
+            Set[str]: {'FINISHED'} or {'CANCELLED'}.
+        """
         if not bpy.data.filepath:
             self.report({"WARNING"}, "Save your file first to use relative paths.")
             return {"CANCELLED"}
@@ -258,17 +390,16 @@ class BAKETOOL_OT_SetSaveLocal(bpy.types.Operator):
         path = str(Path(bpy.data.filepath).parent) + os.sep
         bj = context.scene.BakeJobs
 
-        # C-04: Bounds Check & Handle all locations
         if self.save_location == 0:
             if bj.job_index >= 0 and bj.job_index < len(bj.jobs):
                 bj.jobs[bj.job_index].setting.external_save_path = path
             else:
-                self.report({"WARNING"}, "Select a job first to set its path.")
+                self.report({"WARNING"}, "Select a job first.")
                 return {"CANCELLED"}
         elif self.save_location == 2:
             bj.node_bake_settings.external_save_path = path
         else:
-            self.report({"WARNING"}, "Invalid save location target.")
+            self.report({"WARNING"}, "Invalid save target.")
             return {"CANCELLED"}
 
         return {"FINISHED"}
@@ -280,16 +411,24 @@ class BAKETOOL_OT_RefreshUDIM(bpy.types.Operator):
     bl_idname = "bake.refresh_udim_locations"
     bl_label = "Refresh / Repack UDIMs"
 
-    def execute(self, context):
+    def execute(self, context: bpy.types.Context) -> Set[str]:
+        """Detect or repack UDIM tiles for objects in the active job.
+
+        Args:
+            context: Blender context.
+
+        Returns:
+            Set[str]: {'FINISHED'} or {'CANCELLED'}.
+        """
         bj = context.scene.BakeJobs
         if not (bj.jobs and bj.job_index >= 0 and bj.job_index < len(bj.jobs)):
-            self.report({"WARNING"}, "No active job selected for UDIM refresh.")
+            self.report({"WARNING"}, "No active job selected.")
             return {"CANCELLED"}
 
         s = bj.jobs[bj.job_index].setting
         objs = [o.bakeobject for o in s.bake_objects if o.bakeobject]
         if not objs:
-            self.report({"WARNING"}, "No objects assigned to this job.")
+            self.report({"WARNING"}, "No objects assigned.")
             return {"CANCELLED"}
         from .core.engine import UDIMPacker
 
@@ -312,20 +451,24 @@ class BAKETOOL_OT_ManageObjects(bpy.types.Operator):
     action: props.EnumProperty(
         name="Action",
         items=[
-            ("SET", "Set", "Replace entire object list with current selection"),
-            ("ADD", "Add", "Add selected objects to the job"),
-            ("REMOVE", "Remove", "Remove selected objects from the job"),
-            ("CLEAR", "Clear", "Remove all objects from this job"),
-            ("SET_ACTIVE", "Set Active", "Set the active object as the bake target"),
-            (
-                "SMART_SET",
-                "Smart Set",
-                "Auto-assign objects based on naming conventions (_high/_low)",
-            ),
+            ("SET", "Set", "Replace list with selection"),
+            ("ADD", "Add", "Add selection"),
+            ("REMOVE", "Remove", "Remove selection"),
+            ("CLEAR", "Clear", "Remove all"),
+            ("SET_ACTIVE", "Set Active", "Set active object as target"),
+            ("SMART_SET", "Smart Set", "Auto-assign by naming"),
         ],
     )
 
-    def execute(self, context):
+    def execute(self, context: bpy.types.Context) -> Set[str]:
+        """Handle object list modification.
+
+        Args:
+            context: Blender context.
+
+        Returns:
+            Set[str]: {'FINISHED'} or {'CANCELLED'}.
+        """
         bj = context.scene.BakeJobs
         if not bj.jobs:
             self.report({"WARNING"}, "No jobs available.")
@@ -354,26 +497,47 @@ class BAKETOOL_OT_SaveSetting(bpy.types.Operator):
     bl_label = "Save Preset"
     filepath: props.StringProperty(subtype="FILE_PATH")
 
-    def invoke(self, context, event):
+    def invoke(self, context: bpy.types.Context, event: bpy.types.Event) -> Set[str]:
+        """Open file browser.
+
+        Args:
+            context: Blender context.
+            event: Triggering event.
+
+        Returns:
+            Set[str]: {'RUNNING_MODAL'}.
+        """
         context.window_manager.fileselect_add(self)
         return {"RUNNING_MODAL"}
 
-    def execute(self, context):
+    def execute(self, context: bpy.types.Context) -> Set[str]:
+        """Serialize and write settings to disk.
+
+        Args:
+            context: Blender context.
+
+        Returns:
+            Set[str]: {'FINISHED'} or {'CANCELLED'}.
+        """
         bj = context.scene.BakeJobs
         if not (bj.jobs and bj.job_index >= 0 and bj.job_index < len(bj.jobs)):
             self.report({"WARNING"}, "No active job to save")
             return {"CANCELLED"}
 
-        data = preset_handler.PropertyIO(
-            exclude_props={"active_channel_index"}
-        ).to_dict(bj)
+        data = preset_handler.PropertyIO(exclude_props={"active_channel_index"}).to_dict(
+            bj
+        )
         path = (
             self.filepath
             if self.filepath.endswith(".json")
             else self.filepath + ".json"
         )
-        with open(path, "w") as f:
-            json.dump(data, f, indent=4)
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=4, ensure_ascii=False)
+        except (OSError, IOError) as e:
+            self.report({"ERROR"}, f"Failed to save preset: {e}")
+            return {"CANCELLED"}
         return {"FINISHED"}
 
 
@@ -384,24 +548,53 @@ class BAKETOOL_OT_LoadSetting(bpy.types.Operator):
     bl_label = "Load Preset"
     filepath: props.StringProperty(subtype="FILE_PATH")
 
-    def invoke(self, context, event):
+    def invoke(self, context: bpy.types.Context, event: bpy.types.Event) -> Set[str]:
+        """Open file selector.
+
+        Args:
+            context: Blender context.
+            event: Triggering event.
+
+        Returns:
+            Set[str]: {'RUNNING_MODAL'}.
+        """
         context.window_manager.fileselect_add(self)
         return {"RUNNING_MODAL"}
 
-    def execute(self, context):
-        with open(self.filepath, "r") as f:
-            data = json.load(f)
-        preset_handler.PropertyIO().from_dict(context.scene.BakeJobs, data)
+    def execute(self, context: bpy.types.Context) -> Set[str]:
+        """Read and apply settings from disk.
+
+        Args:
+            context: Blender context.
+
+        Returns:
+            Set[str]: {'FINISHED'} or {'CANCELLED'}.
+        """
+        try:
+            with open(self.filepath, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            preset_handler.PropertyIO().from_dict(context.scene.BakeJobs, data)
+        except (OSError, IOError, json.JSONDecodeError) as e:
+            self.report({"ERROR"}, f"Failed to load preset: {e}")
+            return {"CANCELLED"}
         return {"FINISHED"}
 
 
 class BAKETOOL_OT_RefreshPresets(bpy.types.Operator):
-    """Scan library path and load thumbnails"""
+    """Scan library path and load thumbnails."""
 
     bl_idname = "bake.refresh_presets"
     bl_label = "Refresh Preset Library"
 
-    def execute(self, context):
+    def execute(self, context: bpy.types.Context) -> Set[str]:
+        """Trigger thumbnail scanning and loading.
+
+        Args:
+            context: Blender context.
+
+        Returns:
+            Set[str]: {'FINISHED'}.
+        """
         from .core import thumbnail_manager
 
         prefs = context.preferences.addons[__package__].preferences
@@ -409,15 +602,25 @@ class BAKETOOL_OT_RefreshPresets(bpy.types.Operator):
             thumbnail_manager.load_preset_thumbnails(prefs.library_path)
             self.report({"INFO"}, f"Library refreshed from: {prefs.library_path}")
         else:
-            self.report({"WARNING"}, "Library path not set in Addon Preferences.")
+            self.report({"WARNING"}, "Library path not set.")
         return {"FINISHED"}
 
 
 class BAKETOOL_OT_BakeSelectedNode(bpy.types.Operator):
+    """Bake the active shader node to an image."""
+
     bl_label = "Bake Node"
     bl_idname = "bake.selected_node_bake"
 
-    def execute(self, context):
+    def execute(self, context: bpy.types.Context) -> Set[str]:
+        """Bake the selected node to image.
+
+        Args:
+            context: Blender context.
+
+        Returns:
+            Set[str]: {'FINISHED'} or {'CANCELLED'}.
+        """
         from .core.node_manager import bake_node_to_image
 
         nbs = context.scene.BakeJobs.node_bake_settings
@@ -429,10 +632,10 @@ class BAKETOOL_OT_BakeSelectedNode(bpy.types.Operator):
         node = getattr(context, "active_node", None)
 
         if not mat:
-            self.report({"WARNING"}, "Active object has no material")
+            self.report({"WARNING"}, "No material found")
             return {"CANCELLED"}
         if not node:
-            self.report({"WARNING"}, "No node selected in the Shader Editor")
+            self.report({"WARNING"}, "No node selected")
             return {"CANCELLED"}
 
         img = bake_node_to_image(context, mat, node, nbs)
@@ -451,25 +654,30 @@ class BAKETOOL_OT_DeleteResult(bpy.types.Operator):
     bl_idname = "baketool.delete_result"
     bl_label = "Delete"
 
-    def execute(self, context):
+    def execute(self, context: bpy.types.Context) -> Set[str]:
+        """Remove result item and its image datablock.
+
+        Args:
+            context: Blender context.
+
+        Returns:
+            Set[str]: {'FINISHED'}.
+        """
         results = context.scene.baked_image_results
         idx = context.scene.baked_image_results_index
-        if idx >= 0 and idx < len(results):
+        if 0 <= idx < len(results):
             r = results[idx]
-            if r.image:
-                img = r.image
-                results.remove(idx)
-                context.scene.baked_image_results_index = max(0, idx - 1)
-                if img.users <= 1:
+            img = r.image
+            results.remove(idx)
+            context.scene.baked_image_results_index = max(0, idx - 1)
+            if img:
+                if img.users == 0:
                     try:
                         bpy.data.images.remove(img, do_unlink=True)
                     except (ReferenceError, RuntimeError) as e:
-                        logger.debug(f"Failed to remove image datablock: {e}")
+                        logger.debug(f"Failed to remove image: {e}")
                 else:
-                    results.remove(idx)
-            else:
-                results.remove(idx)
-            context.scene.baked_image_results_index = max(0, idx - 1)
+                    img.use_fake_user = False
         return {"FINISHED"}
 
 
@@ -479,20 +687,28 @@ class BAKETOOL_OT_DeleteAllResults(bpy.types.Operator):
     bl_idname = "baketool.delete_all_results"
     bl_label = "Delete All"
 
-    def execute(self, context):
+    def execute(self, context: bpy.types.Context) -> Set[str]:
+        """Clear the results collection and remove orphan images.
+
+        Args:
+            context: Blender context.
+
+        Returns:
+            Set[str]: {'FINISHED'}.
+        """
         results = context.scene.baked_image_results
-        images_to_remove = []
-        for r in results:
-            if r.image and r.image.users <= 1:
-                images_to_remove.append(r.image)
+        images = [r.image for r in results if r.image]
 
         results.clear()
 
-        for img in images_to_remove:
-            try:
-                bpy.data.images.remove(img, do_unlink=True)
-            except (ReferenceError, RuntimeError) as e:
-                logger.debug(f"Failed to remove image datablock: {e}")
+        for img in images:
+            if img.users == 0:
+                try:
+                    bpy.data.images.remove(img, do_unlink=True)
+                except (ReferenceError, RuntimeError):
+                    pass
+            else:
+                img.use_fake_user = False
 
         return {"FINISHED"}
 
@@ -504,36 +720,44 @@ class BAKETOOL_OT_ExportResult(bpy.types.Operator):
     bl_label = "Export"
     filepath: props.StringProperty(subtype="FILE_PATH")
 
-    def invoke(self, context, event):
+    def invoke(self, context: bpy.types.Context, event: bpy.types.Event) -> Set[str]:
+        """Select export location.
+
+        Args:
+            context: Blender context.
+            event: Triggering event.
+
+        Returns:
+            Set[str]: {'RUNNING_MODAL'}.
+        """
         context.window_manager.fileselect_add(self)
         return {"RUNNING_MODAL"}
 
-    def execute(self, context):
+    def execute(self, context: bpy.types.Context) -> Set[str]:
+        """Save image to the selected path.
+
+        Args:
+            context: Blender context.
+
+        Returns:
+            Set[str]: {'FINISHED'} or {'CANCELLED'}.
+        """
         results = context.scene.baked_image_results
         idx = context.scene.baked_image_results_index
-        # C-06: Bounds check
         if 0 <= idx < len(results):
             r = results[idx]
             if r.image:
-                # Ensure directory exists or use default
                 export_dir = os.path.dirname(self.filepath)
                 if not os.path.exists(export_dir):
                     try:
                         os.makedirs(export_dir)
-                    except OSError as e:
-                        self.report(
-                            {"ERROR"},
-                            f"Could not create export directory: {export_dir}",
-                        )
+                    except OSError:
+                        self.report({"ERROR"}, "Could not create directory")
                         return {"CANCELLED"}
                 save_image(r.image, export_dir)
-                self.report({"INFO"}, f"Exported {r.image.name} to {export_dir}")
+                self.report({"INFO"}, f"Exported {r.image.name}")
             else:
-                self.report({"WARNING"}, "Selected result has no valid image data.")
                 return {"CANCELLED"}
-        else:
-            self.report({"WARNING"}, "Select a valid result from the list to export.")
-            return {"CANCELLED"}
         return {"FINISHED"}
 
 
@@ -544,11 +768,28 @@ class BAKETOOL_OT_ExportAllResults(bpy.types.Operator):
     bl_label = "Export All"
     directory: props.StringProperty(subtype="DIR_PATH")
 
-    def invoke(self, context, event):
+    def invoke(self, context: bpy.types.Context, event: bpy.types.Event) -> Set[str]:
+        """Select target directory.
+
+        Args:
+            context: Blender context.
+            event: Triggering event.
+
+        Returns:
+            Set[str]: {'RUNNING_MODAL'}.
+        """
         context.window_manager.fileselect_add(self)
         return {"RUNNING_MODAL"}
 
-    def execute(self, context):
+    def execute(self, context: bpy.types.Context) -> Set[str]:
+        """Iterate and save all images.
+
+        Args:
+            context: Blender context.
+
+        Returns:
+            Set[str]: {'FINISHED'}.
+        """
         for r in context.scene.baked_image_results:
             if r.image:
                 save_image(r.image, self.directory)
@@ -561,21 +802,37 @@ class BAKETOOL_OT_ClearCrashLog(bpy.types.Operator):
     bl_idname = "bake.clear_crash_log"
     bl_label = "Dismiss Warning"
 
-    def execute(self, context):
+    def execute(self, context: bpy.types.Context) -> Set[str]:
+        """Remove persistent crash record.
+
+        Args:
+            context: Blender context.
+
+        Returns:
+            Set[str]: {'FINISHED'}.
+        """
         try:
             BakeStateManager().finish_session(context)
-        except Exception as e:
-            logger.error(f"Failed to clear crash log: {e}")
+        except (OSError, RuntimeError) as e:
+            logger.error(f"Failed to clear log: {e}")
         return {"FINISHED"}
 
 
 class BAKETOOL_OT_TogglePreview(bpy.types.Operator):
-    """Toggle interactive packing preview in the viewport"""
+    """Toggle interactive packing preview in the viewport."""
 
     bl_idname = "bake.toggle_preview"
     bl_label = "Toggle Preview"
 
-    def execute(self, context):
+    def execute(self, context: bpy.types.Context) -> Set[str]:
+        """Apply or remove viewport preview material.
+
+        Args:
+            context: Blender context.
+
+        Returns:
+            Set[str]: {'FINISHED'} or {'CANCELLED'}.
+        """
         bj = context.scene.BakeJobs
         if not bj.jobs:
             return {"CANCELLED"}
@@ -584,16 +841,11 @@ class BAKETOOL_OT_TogglePreview(bpy.types.Operator):
 
         from .core import shading
 
-        # Toggle state
         s.use_preview = not s.use_preview
-
-        # Apply to all objects in the job
         objs = [o.bakeobject for o in s.bake_objects if o.bakeobject]
 
         if not objs:
-            self.report(
-                {"WARNING"}, UI_MESSAGES["JOB_SKIPPED_NO_OBJS"].format(job.name)
-            )
+            self.report({"WARNING"}, "No objects to preview")
             s.use_preview = False
             return {"CANCELLED"}
 
@@ -603,7 +855,6 @@ class BAKETOOL_OT_TogglePreview(bpy.types.Operator):
             else:
                 shading.remove_preview(obj)
 
-        # Force redraw to see changes
         for area in context.screen.areas:
             if area.type == "VIEW_3D":
                 area.tag_redraw()
@@ -612,22 +863,31 @@ class BAKETOOL_OT_TogglePreview(bpy.types.Operator):
 
 
 class BAKETOOL_OT_AnalyzeCage(bpy.types.Operator):
-    """Analyze cage overlap by raycasting high-poly onto low-poly.
-
-    Helps identify areas where the cage may intersect with the source mesh,
-    causing baking artifacts.
-    """
+    """Analyze cage overlap by raycasting high-poly onto low-poly."""
 
     bl_idname = "bake.analyze_cage"
     bl_label = "Analyze Cage Overlap"
 
     @classmethod
-    def poll(cls, context):
+    def poll(cls, context: bpy.types.Context) -> bool:
+        """Ensure active object is a mesh.
+
+        Returns:
+            bool: True if analysis is possible.
+        """
         if not context.active_object:
             return False
         return context.active_object.type == "MESH"
 
-    def execute(self, context):
+    def execute(self, context: bpy.types.Context) -> Set[str]:
+        """Execute BVH-based raycast analysis.
+
+        Args:
+            context: Blender context.
+
+        Returns:
+            Set[str]: {'FINISHED'} or {'CANCELLED'}.
+        """
         if not hasattr(context.scene, "BakeJobs"):
             return {"CANCELLED"}
         bj = context.scene.BakeJobs
@@ -647,16 +907,11 @@ class BAKETOOL_OT_AnalyzeCage(bpy.types.Operator):
             low = act_obj
             highs = [o for o in sel_objs if o != low]
         else:
-            self.report(
-                {"WARNING"}, "Cage analysis requires 'Selected to Active' mode."
-            )
+            self.report({"WARNING"}, "Requires 'Selected to Active' mode.")
             return {"CANCELLED"}
 
         if not highs:
-            self.report(
-                {"WARNING"},
-                "Select high poly objects first, then shift-select the low poly.",
-            )
+            self.report({"WARNING"}, "Select high poly objects first.")
             return {"CANCELLED"}
 
         from .core.cage_analyzer import CageAnalyzer
@@ -668,40 +923,57 @@ class BAKETOOL_OT_AnalyzeCage(bpy.types.Operator):
             extrusion=s.extrusion,
             auto_switch_vp=s.auto_switch_vertex_paint,
         )
-
+        self.report({"INFO"}, msg)
         return {"FINISHED"}
 
 
 class BAKETOOL_OT_OneClickPBR(bpy.types.Operator):
-    """Setup standard PBR channels (Color, Roughness, Normal) for the current job"""
+    """Setup standard PBR channels (Color, Roughness, Normal) for the job.
+
+    Args:
+        context: Blender context.
+
+    Returns:
+        Set[str]: {'FINISHED'} on success.
+    """
 
     bl_idname = "bake.one_click_pbr"
     bl_label = "One-Click PBR Setup"
     bl_options = {"REGISTER", "UNDO"}
 
     @classmethod
-    def poll(cls, context):
+    def poll(cls, context: bpy.types.Context) -> bool:
+        """Ensure a job exists.
+
+        Returns:
+            bool: True if job is available.
+        """
         if not hasattr(context.scene, "BakeJobs"):
             return False
         bj = context.scene.BakeJobs
         return len(bj.jobs) > 0
 
-    def execute(self, context):
+    def execute(self, context: bpy.types.Context) -> Set[str]:
+        """Enable standard PBR channels.
+
+        Args:
+            context: Blender context.
+
+        Returns:
+            Set[str]: {'FINISHED'} or {'CANCELLED'}.
+        """
         bj = context.scene.BakeJobs
         if bj.job_index < 0 or bj.job_index >= len(bj.jobs):
             return {"CANCELLED"}
         job = bj.jobs[bj.job_index]
         s = job.setting
 
-        # Enable specific standard ones
         standards = {"color", "rough", "normal"}
         for c in s.channels:
             if c.id in standards:
                 c.enabled = True
 
-        self.report(
-            {"INFO"}, "Standard PBR channels (Color, Roughness, Normal) enabled."
-        )
+        self.report({"INFO"}, "Standard PBR channels enabled.")
         return {"FINISHED"}
 
 
@@ -711,7 +983,14 @@ class BAKETOOL_OT_OpenAddonPrefs(bpy.types.Operator):
     bl_idname = "bake.open_addon_prefs"
     bl_label = "Addon Prefs"
 
-    def execute(self, context):
+    def execute(self, context: bpy.types.Context) -> Set[str]:
+        """Open user preferences.
+
+        Args:
+            context: Blender context.
+
+        Returns:
+            Set[str]: {'FINISHED'}.
+        """
         bpy.ops.screen.userpref_show("INVOKE_DEFAULT")
-        # Use simple search instead of complex section mapping for better reliability
         return {"FINISHED"}

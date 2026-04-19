@@ -94,10 +94,11 @@ class SuiteMemory(unittest.TestCase):
     def test_batch_bake_no_image_accumulation(self):
         """Verify batch operations don't cause image accumulation."""
         initial_count = len(bpy.data.images)
+        scene = bpy.context.scene
 
         for i in range(5):
             img = image_manager.set_image(f"BatchTest_{i}", 64, 64)
-            scene = bpy.context.scene
+            scene.baked_image_results_index = len(scene.baked_image_results)
             res = scene.baked_image_results.add()
             res.image = img
             bpy.ops.baketool.delete_result()
@@ -134,10 +135,12 @@ class SuiteMemory(unittest.TestCase):
 
     def test_image_cleanup_with_external_save_only(self):
         """Verify images are properly managed when using external save only."""
+        scene = bpy.context.scene
         img = image_manager.set_image("ExternalSaveTest", 128, 128)
         img_name = img.name
 
-        res = bpy.context.scene.baked_image_results.add()
+        scene.baked_image_results_index = len(scene.baked_image_results)
+        res = scene.baked_image_results.add()
         res.image = img
         res.filepath = "/tmp/test_bake.png"
 
@@ -223,17 +226,18 @@ class SuiteMemoryIntegration(unittest.TestCase):
         builder.enable_channel("color")
         job = builder.build()
 
-        scene = bpy.context.scene
+        context = bpy.context
+        scene = context.scene
         initial_images = len(bpy.data.images)
 
         from ..core.engine import JobPreparer
 
-        queue = JobPreparer.prepare_execution_queue(scene, [job])
+        queue = JobPreparer.prepare_execution_queue(context, [job])
 
         if len(queue) > 0:
             from ..core.engine import BakeStepRunner
 
-            runner = BakeStepRunner(scene)
+            runner = BakeStepRunner(context)
 
             for step in queue[:2]:
                 try:

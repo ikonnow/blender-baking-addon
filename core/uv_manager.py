@@ -51,7 +51,7 @@ def detect_object_udim_tile(obj: bpy.types.Object) -> int:
         tiles = 1001 + u_indices[valid] + (v_indices[valid] * 10)
         vals, counts = np.unique(tiles, return_counts=True)
         return int(vals[np.argmax(counts)])
-    except Exception as e:
+    except (ValueError, AttributeError, IndexError) as e:
         logger.warning(f"UV Detect Failed for {obj.name}: {e}")
         return 1001
 
@@ -135,6 +135,8 @@ class UVLayoutManager:
             objects: List of mesh objects to manage UV layers for.
             settings: BakeJob setting object with UV/bake mode configuration.
         """
+        self.objects = objects
+        self.settings = settings
         self.original_states = {}
         self.temp_layer_name = SYSTEM_NAMES["TEMP_UV"]
         self.created_layers = []
@@ -251,7 +253,7 @@ class UVLayoutManager:
                         o.select_set(True)
                 if prev_act and prev_act.name in bpy.data.objects:
                     bpy.context.view_layer.objects.active = prev_act
-            except Exception as e:
+            except (AttributeError, RuntimeError, ReferenceError) as e:
                 logger.debug(
                     f"BakeTool: Failed to restore selection in UV manager: {e}"
                 )
@@ -261,7 +263,7 @@ class UVLayoutManager:
             try:
                 if obj and layer and layer.name in obj.data.uv_layers:
                     obj.data.uv_layers.remove(layer)
-            except Exception:
+            except (KeyError, ReferenceError, AttributeError):
                 pass
 
         for obj_name, state in self.original_states.items():
@@ -273,5 +275,5 @@ class UVLayoutManager:
                     obj.data.uv_layers.active_index = state["active"]
                 if state["render"] < len(obj.data.uv_layers):
                     obj.data.uv_layers[state["render"]].active_render = True
-            except Exception:
+            except (IndexError, KeyError, AttributeError):
                 pass

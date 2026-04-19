@@ -1,46 +1,76 @@
+"""Blender Version Compatibility Layer.
+
+Centralizes all version-specific API differences to improve maintainability
+and ensure robust operation across Blender 3.6 to 5.0+.
 """
-Blender Version Compatibility Layer
-Centralizes all version-specific API differences to improve maintainability.
-Supports Blender 3.6 - 5.0+
-"""
+
 import bpy
 import logging
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
-# Version Detection
-def is_blender_5():
+BAKE_MAPPING = {
+    "EMIT": "EMISSION",
+    "DIFFUSE": "DIFFUSE",
+    "NORMAL": "NORMALS",  # Version-aware logic handled in set_bake_type
+}
+
+
+def is_blender_5() -> bool:
+    """Check if the current Blender version is 5.0 or newer.
+
+    Returns:
+        bool: True if Blender version >= 5.0.0.
+    """
     return bpy.app.version >= (5, 0, 0)
 
-def is_blender_4():
-    return bpy.app.version >= (4, 0, 0) and bpy.app.version < (5, 0, 0)
 
-def is_blender_3():
-    return bpy.app.version >= (3, 0, 0) and bpy.app.version < (4, 0, 0)
+def is_blender_4() -> bool:
+    """Check if the current Blender version is in the 4.x series.
 
-def get_bake_settings(scene):
+    Returns:
+        bool: True if 4.0.0 <= Blender version < 5.0.0.
     """
-    Get bake settings object in a version-safe way.
-    
-    Blender 4.0+ moved/added bake settings in scene.render.bake
-    Returns: The bake settings object or None if not available
+    return (4, 0, 0) <= bpy.app.version < (5, 0, 0)
+
+
+def is_blender_3() -> bool:
+    """Check if the current Blender version is in the 3.x series.
+
+    Returns:
+        bool: True if 3.0.0 <= Blender version < 4.0.0.
+    """
+    return (3, 0, 0) <= bpy.app.version < (4, 0, 0)
+
+
+def get_bake_settings(scene: bpy.types.Scene) -> Optional[Any]:
+    """Get the bake settings object in a version-safe way.
+
+    Blender 4.0+ moved/added bake settings into scene.render.bake.
+
+    Args:
+        scene: The target Blender scene.
+
+    Returns:
+        The bake settings object or None if not available.
     """
     if hasattr(scene.render, "bake"):
         return scene.render.bake
-    # Legacy: settings are directly on scene.render
     return scene.render
 
 
-BAKE_MAPPING = {
-    'EMIT': 'EMISSION',
-    'DIFFUSE': 'DIFFUSE',
-    'NORMAL': 'NORMALS' # Version-aware logic moved to set_bake_type if needed
-}
+def get_compositor_tree(scene: bpy.types.Scene) -> Optional[bpy.types.NodeTree]:
+    """Retrieve the compositor node tree for a scene in a version-safe way.
 
-def get_compositor_tree(scene):
-    """
-    Version-safe compositor node tree accessor.
-    Blender 5.0 introduces scene.compositor and renames node_tree.
+    Blender 5.0 introduced scene.compositor and renamed node_tree to
+    compositing_node_group.
+
+    Args:
+        scene: The Blender scene to query.
+
+    Returns:
+        The compositor node tree if found or created, else None.
     """
     # 1. Blender 5.0+ Native Compositor Object
     if is_blender_5() or hasattr(scene, "compositor"):
@@ -51,109 +81,123 @@ def get_compositor_tree(scene):
                     comp.use_nodes = True
                 if hasattr(comp, "node_tree") and comp.node_tree:
                     return comp.node_tree
-        except Exception: pass
+        except (AttributeError, RuntimeError):
+            pass
 
-    # 2. Blender 5.0+ Renamed Property: compositing_node_group
+    # 2. Blender 5.0+ Renamed Property
     if hasattr(scene, "compositing_node_group"):
         try:
             if hasattr(scene, "use_nodes") and not scene.use_nodes:
                 scene.use_nodes = True
-            
+
             tree = getattr(scene, "compositing_node_group", None)
-            
-            # --- B5.0 Background Initialization Fix ---
+
+            # Background Initialization Fix for B5.0
             if not tree and is_blender_5():
-                # HP-13: In B5.0, tree type 'COMPOSITING' is replaced by 'CompositorNodeTree'
                 try:
-                    tree = bpy.data.node_groups.new("BT_Compositor_Tree", 'CompositorNodeTree')
+                    tree = bpy.data.node_groups.new(
+                        "BT_Compositor_Tree", "CompositorNodeTree"
+                    )
                     scene.compositing_node_group = tree
-                except Exception as e:
-                    logger.debug(f"B5.0: Failed to create/assign new CompositorNodeTree: {e}")
-            # ------------------------------------------
-            
-            if tree: return tree
-        except Exception: pass
-            
+                except (AttributeError, RuntimeError, TypeError) as e:
+                    logger.debug(f"B5.0: Failed to create CompositorNodeTree: {e}")
+
+            if tree:
+                return tree
+        except (AttributeError, RuntimeError):
+            pass
+
     # 3. Legacy / Common Fallback
     try:
         if hasattr(scene, "use_nodes"):
             if not scene.use_nodes:
                 scene.use_nodes = True
-            
+
             tree = getattr(scene, "node_tree", None)
             # Safe type check: B5.0 alias might return Annotation tree
-            if tree and hasattr(tree, "type") and tree.type in {'COMPOSITING', 'CompositorNodeTree'}:
+            if tree and hasattr(tree, "type") and tree.type in {"COMPOSITING", "CompositorNodeTree"}:
                 return tree
-            
+
             if hasattr(scene, "node_tree") and scene.node_tree:
-                 return scene.node_tree
-    except Exception as e:
+                return scene.node_tree
+    except (AttributeError, RuntimeError) as e:
         logger.debug(f"Error accessing compositor tree: {e}")
 
     return None
 
-def set_bake_type(scene, bake_type):
-    """
-    Set bake type in a version-safe way. 
-    Assumes engine is already CYCLES (handled by BakeContextManager).
-    
+
+def set_bake_type(scene: bpy.types.Scene, bake_type: str) -> bool:
+    """Set the active bake pass type for the Cycles engine.
+
+    Handles differences in naming and attribute location across versions.
+
     Args:
-        scene: Blender scene
-        bake_type: String like 'EMIT', 'COMBINED', 'NORMAL', etc.
+        scene: Blender scene.
+        bake_type: Internal pass type string (e.g., 'EMIT', 'NORMAL').
+
+    Returns:
+        bool: True if the bake type was successfully applied.
     """
-    # Dynamic mapping adjust for Normal pass in modern Blender
     target_bake_type = BAKE_MAPPING.get(bake_type, bake_type)
-    if bake_type == 'NORMAL' and (is_blender_4() or is_blender_5()):
-        target_bake_type = 'NORMALS'
+    if bake_type == "NORMAL" and (is_blender_4() or is_blender_5()):
+        target_bake_type = "NORMALS"
 
     try:
         # PRIORITY: Cycles-specific bake type property (Exists in 3.6 - 5.0+)
         if hasattr(scene, "cycles") and hasattr(scene.cycles, "bake_type"):
             try:
-                scene.cycles.bake_type = bake_type 
-                if bake_type not in {'NORMALS', 'DISPLACEMENT', 'VECTOR_DISPLACEMENT'}:
+                scene.cycles.bake_type = bake_type
+                # NORMALS and DISPLACEMENT often need special handling in older builds
+                if bake_type not in {"NORMALS", "DISPLACEMENT", "VECTOR_DISPLACEMENT"}:
                     return True
-            except Exception:
-                try: 
+            except (AttributeError, TypeError, ValueError):
+                try:
                     scene.cycles.bake_type = target_bake_type
                     return True
-                except Exception: pass
-        
+                except (AttributeError, TypeError, ValueError):
+                    pass
+
         bake_settings = get_bake_settings(scene)
-        if bake_settings is None: return False
+        if bake_settings is None:
+            return False
 
         # Attempt to set on BakeSettings struct
-        for attr in ["type", "bake_type"]: # Try both
+        for attr in ["type", "bake_type"]:
             if hasattr(bake_settings, attr):
                 try:
                     setattr(bake_settings, attr, bake_type)
                     return True
-                except (TypeError, ValueError):
+                except (AttributeError, TypeError, ValueError):
                     try:
                         setattr(bake_settings, attr, target_bake_type)
                         return True
-                    except (TypeError, ValueError):
+                    except (AttributeError, TypeError, ValueError):
                         pass
-        
+
         # Last resort fallback for B3.3 and others
         if hasattr(scene.render, "bake_type"):
             try:
                 scene.render.bake_type = bake_type
                 return True
-            except Exception:
+            except (AttributeError, TypeError, ValueError):
                 try:
                     scene.render.bake_type = target_bake_type
                     return True
-                except Exception: pass
-            
-        logger.warning(f"Could not conclusively set bake type to {bake_type} on {bake_settings}")
+                except (AttributeError, TypeError, ValueError):
+                    pass
+
+        logger.warning(f"Failed to set bake type to {bake_type} on {bake_settings}")
         return False
-    except Exception as e:
-        logger.warning(f"Could not set bake type to {bake_type}: {e}")
+    except (AttributeError, RuntimeError) as e:
+        logger.warning(f"Unexpected error setting bake type: {e}")
         return False
 
 
-def get_version_string():
-    """Get a human-readable version string."""
+def get_version_string() -> str:
+    """Get a human-readable Blender version string.
+
+    Returns:
+        str: Formatted version (e.g., '4.2.1').
+    """
     v = bpy.app.version
     return f"{v[0]}.{v[1]}.{v[2]}"

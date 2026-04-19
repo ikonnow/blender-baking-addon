@@ -2,19 +2,22 @@ bl_info = {
     "name": "BakeTool",
     "description": "Professional Texture Baking Suite for Blender",
     "author": "BakeTool Team",
-    "version": (1, 5, 1),
+    "version": (1, 0, 0),
     "blender": (3, 3, 0),
     "location": "View3D > Sidebar > Baking",
-    "warning": "",
+    "warning": "Beta version - Testing in progress",
     "doc_url": "https://example.com/baketool",
     "tracker_url": "https://example.com/baketool/issues",
     "category": "Render",
 }
 
+# Standard library
 import logging
 
+# Third-party (Blender)
 import bpy
-from bpy import props, types
+from bpy import props
+from bpy import types
 from bpy.app.handlers import persistent
 from bpy.props import (
     IntProperty,
@@ -24,6 +27,7 @@ from bpy.props import (
 )
 from bpy.types import AddonPreferences
 
+# Local application
 from .core import cleanup
 from . import ops
 from . import preset_handler
@@ -108,12 +112,6 @@ def get_classes():
 
     # Auto-discover other modules (Operators, UI lists, etc.)
     other_modules = [ops, ui]
-    try:
-        from . import test_cases
-
-        other_modules.append(test_cases)
-    except ImportError:
-        pass
     other_modules.append(cleanup)
 
     # Filter to avoid duplicates and ensure they are modules
@@ -176,7 +174,7 @@ def register():
         description="Currently selected index in the baked image results list",
     )
 
-    # 进度与状态反馈 / Progress and Status
+    # 进度与状态反�?/ Progress and Status
     bpy.types.Scene.is_baking = props.BoolProperty(name="Is Baking", default=False)
     bpy.types.Scene.bake_progress = props.FloatProperty(
         name="Progress", default=0.0, min=0.0, max=100.0, subtype="PERCENTAGE"

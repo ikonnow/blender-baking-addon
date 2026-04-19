@@ -7,9 +7,17 @@ logger = logging.getLogger(__name__)
 PREVIEW_MAT_NAME = "BT_Packing_Preview"
 
 def create_preview_material(obj, s):
-    """
-    Creates or updates a temporary preview material for the object.
-    Maps PBR sockets to the packing logic (RGBA).
+    """Creates or updates a temporary preview material for the object.
+
+    Maps PBR sockets to the packing logic (RGBA) to allow real-time
+    viewport visualization of the final channel packing.
+
+    Args:
+        obj: The object to apply the preview to.
+        s: BakeJobSetting with packing configuration.
+
+    Returns:
+        bpy.types.Material: The created or updated preview material.
     """
     if not obj or obj.type != 'MESH':
         return None

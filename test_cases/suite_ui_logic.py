@@ -2,14 +2,30 @@ import unittest
 import bpy
 from .helpers import cleanup_scene, create_test_object
 from ..ui import BAKE_PT_BakePanel
-from ..constants import UI_MESSAGES
+from ..constants import UI_MESSAGES, FORMAT_SETTINGS
+
+try:
+    from ..ui import (
+        draw_header,
+        draw_file_path,
+        draw_template_list_ops,
+        draw_image_format_options,
+        draw_crash_report,
+    )
+except ImportError:
+    draw_header = None
+    draw_file_path = None
+    draw_template_list_ops = None
+    draw_image_format_options = None
+    draw_crash_report = None
+
 
 class SuiteUILogic(unittest.TestCase):
     """
     Tests for UI Poll functions and display logic.
     Uses mock context where necessary.
     """
-    
+
     def setUp(self):
         cleanup_scene()
         self.obj = create_test_object("UIObj")
@@ -38,9 +54,9 @@ class SuiteUILogic(unittest.TestCase):
         ]
         for attr in expected_attrs:
             self.assertTrue(hasattr(res, attr), f"BakedImageResult missing attribute: {attr}")
-        
+
         # Cleanup the test result
-        scene.baked_image_results.remove(len(scene.baked_image_results)-1)
+        scene.baked_image_results.remove(len(scene.baked_image_results) - 1)
 
     def test_bake_operator_poll_blocks_while_baking(self):
         """Verify that the Bake Operator poll fails if a bake is already in progress."""
@@ -48,7 +64,7 @@ class SuiteUILogic(unittest.TestCase):
         scene = bpy.context.scene
         scene.is_baking = False
         self.assertTrue(BAKETOOL_OT_BakeOperator.poll(bpy.context))
-        
+
         scene.is_baking = True
         self.assertFalse(BAKETOOL_OT_BakeOperator.poll(bpy.context))
         scene.is_baking = False
@@ -59,19 +75,79 @@ class SuiteUILogic(unittest.TestCase):
         scene.BakeJobs.jobs.add()
         job = scene.BakeJobs.jobs[0]
         s = job.setting
-        
+
         target = create_test_object("TargetObj")
         low = self.obj
-        
+
         from ..core.common import manage_objects_logic
         manage_objects_logic(s, 'SMART_SET', [target, low], low)
-        
+
         self.assertEqual(s.active_object, low)
         self.assertEqual(len(s.bake_objects), 1)
         self.assertEqual(s.bake_objects[0].bakeobject, target)
-        
+
         # Cleanup
         bpy.data.objects.remove(target)
+
+    def test_draw_header_no_nameerror(self):
+        """Verify draw_header doesn't raise NameError for undefined row."""
+        if draw_header is None:
+            self.skipTest("UI draw functions not importable")
+        from unittest.mock import MagicMock
+
+        mock_layout = MagicMock()
+        draw_header(mock_layout, "Test Header", "NONE")
+        mock_layout.row.assert_called_once()
+
+    def test_draw_file_path_no_nameerror(self):
+        """Verify draw_file_path doesn't raise NameError for undefined row."""
+        if draw_file_path is None:
+            self.skipTest("UI draw functions not importable")
+        from unittest.mock import MagicMock
+
+        mock_layout = MagicMock()
+        mock_setting = MagicMock()
+        mock_setting.external_save_path = "/test/path"
+        draw_file_path(mock_layout, mock_setting, "external_save_path", 0)
+        mock_layout.row.assert_called_once()
+
+    def test_draw_template_list_ops_no_nameerror(self):
+        """Verify draw_template_list_ops doesn't raise NameError for undefined col."""
+        if draw_template_list_ops is None:
+            self.skipTest("UI draw functions not importable")
+        from unittest.mock import MagicMock
+
+        mock_layout = MagicMock()
+        draw_template_list_ops(mock_layout, "channels")
+        mock_layout.column.assert_called_once()
+
+    def test_draw_image_format_options_uses_f_p(self):
+        """Verify draw_image_format_options uses correct variable name."""
+        if draw_image_format_options is None:
+            self.skipTest("UI draw functions not importable")
+        from unittest.mock import MagicMock
+
+        mock_layout = MagicMock()
+        mock_setting = MagicMock()
+        mock_setting.external_save_format = "PNG"
+        draw_image_format_options(mock_layout, mock_setting, "")
+        mock_layout.row.assert_called()
+
+    def test_draw_crash_report_instantiates_mgr(self):
+        """Verify draw_crash_report instantiates BakeStateManager."""
+        if draw_crash_report is None:
+            self.skipTest("UI draw functions not importable")
+        from unittest.mock import MagicMock, patch
+
+        with patch("baketool.ui.BakeStateManager") as MockMgr:
+            mock_instance = MagicMock()
+            mock_instance.has_crash_record.return_value = False
+            MockMgr.return_value = mock_instance
+
+            mock_layout = MagicMock()
+            draw_crash_report(mock_layout)
+            MockMgr.assert_called_once()
+
 
 if __name__ == '__main__':
     unittest.main()

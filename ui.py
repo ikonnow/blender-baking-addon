@@ -1,5 +1,12 @@
+"""UI Panel and List definitions for BakeTool.
+
+This module handles all visual elements of the BakeTool sidebar, including
+job management, target selection, channel configuration, and result inspection.
+"""
+
 import bpy
 import os
+from typing import Any, Tuple, Optional, Set
 from .constants import (
     FORMAT_SETTINGS,
     CAT_MESH,
@@ -21,6 +28,7 @@ def draw_header(layout: bpy.types.UILayout, text: str, icon: str = "NONE") -> No
         text: Header text.
         icon: Optional Blender icon name.
     """
+    row = layout.row()
     row.alignment = "LEFT"
     row.label(text=text, icon=icon)
 
@@ -36,6 +44,7 @@ def draw_file_path(
         path_prop: Name of the path property.
         location: Location index for the home button (0=job, 2=node).
     """
+    row = layout.row(align=True)
     row.prop(setting, path_prop, text="", icon="FILE_FOLDER")
     op = row.operator("bake.set_save_local", text="", icon="HOME")
     op.save_location = location
@@ -48,6 +57,7 @@ def draw_template_list_ops(layout: bpy.types.UILayout, basic_name: str) -> None:
         layout: UI layout to draw in.
         basic_name: Target name for the generic channel operator.
     """
+    col = layout.column(align=True)
     icons = {
         "ADD": "ADD",
         "DELETE": "REMOVE",
@@ -75,6 +85,7 @@ def draw_image_format_options(
     e_p = f"{prefix}exr_code"
     t_p = f"{prefix}tiff_codec"
     d_p = f"{prefix}color_depth"
+    f_p = f"{prefix}external_save_format"
 
     fmt = getattr(setting, f_p)
     fs = FORMAT_SETTINGS.get(fmt, {})
@@ -102,6 +113,9 @@ def draw_active_channel_properties(
 ) -> None:
     """Draw properties for the currently selected bake channel.
 
+    Handles naming, overrides, and pass-specific logic using a
+    data-driven approach.
+
     Args:
         layout: UI layout to draw in.
         channel: Selected channel object.
@@ -112,7 +126,7 @@ def draw_active_channel_properties(
     row = box.row()
     row.label(text=f"{channel.name} Settings", icon="PREFERENCES")
 
-    # 极简绘制公共属性 / Minimal public properties
+    # Minimal public properties
     col = box.column(align=True)
     row = col.split(factor=0.3)
     row.label(text="Naming:")
@@ -129,7 +143,7 @@ def draw_active_channel_properties(
 
     box.separator()
 
-    # 数据驱动绘制逻辑 / Data-driven drawing logic
+    # Data-driven drawing logic
     config = CHANNEL_UI_LAYOUT.get(channel.id)
     if not config:
         return
@@ -175,6 +189,9 @@ def _get_nested_attr(obj: Any, path: str) -> Tuple[Any, str]:
 def draw_results(scene: bpy.types.Scene, layout: bpy.types.UILayout, bj: Any) -> None:
     """Draw the baked results list with metadata inspector.
 
+    Provides a comprehensive overview of already baked images with
+    performance metrics and export options.
+
     Args:
         scene: Current scene.
         layout: UI layout to draw in.
@@ -199,12 +216,11 @@ def draw_results(scene: bpy.types.Scene, layout: bpy.types.UILayout, bj: Any) ->
     col.operator("baketool.export_result", text="", icon="EXPORT")
     col.operator("baketool.export_all_results", text="", icon="FILE_FOLDER")
 
-    # --- Detailed Metadata Inspector ---
+    # Detailed Metadata Inspector
     if scene.baked_image_results and scene.baked_image_results_index >= 0:
         res = scene.baked_image_results[scene.baked_image_results_index]
         box = layout.box()
 
-        # Header with Channel and Object info
         row = box.row()
         row.label(text=f"Detail: {res.channel_type}", icon="INFO")
         row.label(text=f"Obj: {res.object_name}", icon="OBJECT_DATA")
@@ -214,7 +230,7 @@ def draw_results(scene: bpy.types.Scene, layout: bpy.types.UILayout, bj: Any) ->
         # Row 1: File Info
         r = inner.row(align=True)
         r.label(text=res.file_size, icon="DISK_DRIVE")
-        r.prop(res, "filepath", text="")  # Read-only view
+        r.prop(res, "filepath", text="")
 
         # Row 2: Performance & Quality
         split = inner.split(factor=0.4)
@@ -249,6 +265,7 @@ def draw_crash_report(layout: bpy.types.UILayout) -> None:
     Args:
         layout: UI layout to draw in.
     """
+    mgr = BakeStateManager()
     if mgr.has_crash_record():
         data = mgr.read_log()
         if not data:
@@ -286,6 +303,8 @@ def draw_crash_report(layout: bpy.types.UILayout) -> None:
 
 
 class UI_UL_ObjectList(bpy.types.UIList):
+    """Custom UI list for displaying and managing bake target objects."""
+
     def draw_item(
         self, context, layout, data, item, icon, active_data, active_propname, index
     ):
@@ -320,6 +339,8 @@ class UI_UL_ObjectList(bpy.types.UIList):
 
 
 class BAKETOOL_UL_ChannelList(bpy.types.UIList):
+    """Custom UI list for displaying and selecting bake channels."""
+
     def filter_items(self, context, data, propname):
         channels = getattr(data, propname)
         flt_flags = []
@@ -338,7 +359,6 @@ class BAKETOOL_UL_ChannelList(bpy.types.UIList):
     ):
         info = CHANNEL_BAKE_INFO.get(item.id, {})
         cat = info.get("cat", "DATA")
-        # Optimized mapping: Use RENDERLAYERS for passes/lighting results to avoid confusion with light objects
         icon_map = {
             CAT_MESH: "MESH_DATA",
             CAT_LIGHT: "RENDERLAYERS",
@@ -353,6 +373,8 @@ class BAKETOOL_UL_ChannelList(bpy.types.UIList):
 
 
 class LIST_UL_JobsList(bpy.types.UIList):
+    """Custom UI list for managing multiple bake jobs."""
+
     def draw_item(
         self, context, layout, data, item, icon, active_data, active_propname, index
     ):
@@ -362,6 +384,8 @@ class LIST_UL_JobsList(bpy.types.UIList):
 
 
 class LIST_UL_CustomBakeChannelList(bpy.types.UIList):
+    """Custom UI list for user-defined channel map logic."""
+
     def draw_item(
         self, context, layout, data, item, icon, active_data, active_propname, index
     ):
@@ -369,15 +393,15 @@ class LIST_UL_CustomBakeChannelList(bpy.types.UIList):
 
 
 class BAKETOOL_UL_BakedImageResults(bpy.types.UIList):
+    """Custom UI list for inspecting and exporting baked results."""
+
     def draw_item(
         self, context, layout, data, item, icon, active_data, active_propname
     ):
         row = layout.row(align=True)
-        # Use split to align resolution to the right or show it subtly
         row.prop(item, "image", text="", emboss=False, icon="IMAGE_DATA")
         row.label(text=item.channel_type)
 
-        # Display resolution subtly on the right
         if item.res_x > 0:
             row.label(text=f"{item.res_x}x{item.res_y}", icon="NONE")
 
@@ -426,6 +450,8 @@ def draw_env_status(layout: bpy.types.UILayout, setting: Any) -> None:
 
 
 class BAKE_PT_NodePanel(bpy.types.Panel):
+    """Bake panel for the Shader Node Editor."""
+
     bl_label = "Node Bake"
     bl_idname = "BAKE_PT_NodePanel"
     bl_space_type = "NODE_EDITOR"
@@ -433,13 +459,15 @@ class BAKE_PT_NodePanel(bpy.types.Panel):
     bl_category = "Baking"
 
     @classmethod
-    def poll(cls, context):
+    def poll(cls, context: bpy.types.Context) -> bool:
+        """Only show in shader editor with a valid tree."""
         space = getattr(context, "space_data", None)
         if space is None:
             return False
         return getattr(space, "tree_type", None) == "ShaderNodeTree"
 
-    def draw(self, context):
+    def draw(self, context: bpy.types.Context) -> None:
+        """Draw the node-specific bake options."""
         l = self.layout
         bj = context.scene.BakeJobs
         nbs = bj.node_bake_settings
@@ -460,13 +488,16 @@ class BAKE_PT_NodePanel(bpy.types.Panel):
 
 
 class BAKE_PT_BakePanel(bpy.types.Panel):
+    """Main BakeTool control panel in the 3D Viewport sidebar."""
+
     bl_label = "Baking Tool"
     bl_idname = "BAKE_PT_BakePanel"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "Baking"
 
-    def draw(self, context):
+    def draw(self, context: bpy.types.Context) -> None:
+        """Draw the main UI dashboard."""
         layout = self.layout
         scene = context.scene
         bj = scene.BakeJobs
@@ -555,7 +586,8 @@ class BAKE_PT_BakePanel(bpy.types.Panel):
             row.scale_y = 2.0
             row.operator("bake.bake_operator", text="START BAKE PIPELINE", icon="PLAY")
 
-    def draw_inputs(self, context, l, bj, s):
+    def draw_inputs(self, context: bpy.types.Context, l: bpy.types.UILayout, bj: Any, s: Any) -> None:
+        """Draw Setup & Targets section."""
         row = l.row(align=True)
         row.prop(
             bj,
@@ -627,7 +659,8 @@ class BAKE_PT_BakePanel(bpy.types.Panel):
                 icon="PIVOT_ACTIVE",
             ).action = "SMART_SET"
 
-    def draw_channels(self, context, l, bj, s):
+    def draw_channels(self, context: bpy.types.Context, l: bpy.types.UILayout, bj: Any, s: Any) -> None:
+        """Draw Bake Channels section."""
         row = l.row(align=True)
         row.prop(
             bj,
@@ -663,7 +696,8 @@ class BAKE_PT_BakePanel(bpy.types.Panel):
         r.prop(s, "use_mesh_map", text="Mesh", toggle=True)
         r.prop(s, "use_extension_map", text="PBR", toggle=True)
 
-    def draw_saves(self, context, l, bj, s):
+    def draw_saves(self, context: bpy.types.Context, l: bpy.types.UILayout, bj: Any, s: Any) -> None:
+        """Draw Output & Export section."""
         row = l.row(align=True)
         row.prop(
             bj,
@@ -727,7 +761,8 @@ class BAKE_PT_BakePanel(bpy.types.Panel):
 
         sub.operator("bake.analyze_cage", text="Analyze Overlap", icon="MOD_PHYSICS")
 
-    def draw_others(self, context, l, bj, s):
+    def draw_others(self, context: bpy.types.Context, l: bpy.types.UILayout, bj: Any, s: Any) -> None:
+        """Draw Custom Maps section."""
         row = l.row(align=True)
         row.prop(
             bj,
@@ -803,6 +838,8 @@ class BAKE_PT_BakePanel(bpy.types.Panel):
 
 
 class BAKETOOL_PT_BakedResults(bpy.types.Panel):
+    """Dashboard for inspecting baked textures in 3D Viewport."""
+
     bl_label = "Baked Results"
     bl_idname = "BAKETOOL_PT_baked_results"
     bl_space_type = "VIEW_3D"
@@ -811,16 +848,20 @@ class BAKETOOL_PT_BakedResults(bpy.types.Panel):
     bl_parent_id = "BAKE_PT_BakePanel"
     bl_order = 2
 
-    def draw(self, context):
+    def draw(self, context: bpy.types.Context) -> None:
+        """Forward to shared results drawer."""
         draw_results(context.scene, self.layout, context.scene.BakeJobs)
 
 
 class BAKETOOL_PT_ImageEditorResults(bpy.types.Panel):
+    """Dashboard for inspecting baked textures in Image Editor."""
+
     bl_label = "Baked Results"
     bl_idname = "BAKE_PT_ImageEditorResults"
     bl_space_type = "IMAGE_EDITOR"
     bl_region_type = "UI"
     bl_category = "Baking"
 
-    def draw(self, context):
+    def draw(self, context: bpy.types.Context) -> None:
+        """Forward to shared results drawer."""
         draw_results(context.scene, self.layout, context.scene.BakeJobs)

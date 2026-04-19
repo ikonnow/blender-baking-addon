@@ -131,8 +131,8 @@ class SuiteUnit(unittest.TestCase):
 
         arr = np.empty(8 * 8 * 4, dtype=np.float32)
         target.pixels.foreach_get(arr)
-        # metal = (0.5 - 0.04) / (1.0 - 0.04) = 0.46 / 0.96 â‰ˆ 0.479
-        # Precision: 8-bit color rounding (128/255 â‰ˆ 0.5019)
+        # metal = (0.5 - 0.04) / (1.0 - 0.04) = 0.46 / 0.96 â‰?0.479
+        # Precision: 8-bit color rounding (128/255 â‰?0.5019)
         self.assertAlmostEqual(arr[0], 0.4791666, places=2)
 
     def test_process_pbr_numpy_specular_threshold(self):
@@ -500,6 +500,37 @@ class SuiteUnit(unittest.TestCase):
         self.assertEqual(colors.shape, (20, 4))
         self.assertTrue(np.all(colors >= 0.0) and np.all(colors <= 1.0))
         self.assertFalse(np.any(np.isnan(colors)))
+
+    def test_scene_settings_context_stores_params(self):
+        """Verify SceneSettingsContext stores constructor parameters."""
+        from ..core.common import SceneSettingsContext
+
+        scene = bpy.context.scene
+        ctx = SceneSettingsContext("scene", {"samples": 128}, scene)
+        self.assertEqual(ctx.category, "scene")
+        self.assertEqual(ctx.settings, {"samples": 128})
+        self.assertEqual(ctx.scene, scene)
+
+    def test_node_graph_handler_stores_materials(self):
+        """Verify NodeGraphHandler stores and filters materials."""
+        if not bpy.data.materials:
+            mat = bpy.data.materials.new("TestMat")
+            mat.use_nodes = True
+        else:
+            mat = bpy.data.materials[0]
+            mat.use_nodes = True
+
+        with NodeGraphHandler([mat]) as h:
+            self.assertTrue(hasattr(h, "materials"))
+            self.assertIn(mat, h.materials)
+
+    def test_uv_layout_manager_stores_params(self):
+        """Verify UVLayoutManager stores constructor parameters."""
+        obj = create_test_object("UVStoreTest")
+        ms = MockSetting(use_auto_uv=False)
+        with uv_manager.UVLayoutManager([obj], ms) as m:
+            self.assertEqual(m.objects, [obj])
+            self.assertEqual(m.settings, ms)
 
 
 if __name__ == "__main__":

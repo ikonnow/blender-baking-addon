@@ -109,7 +109,7 @@ def process_pbr_numpy(
         target_img.pixels.foreach_set(result_arr.ravel())
         return True
 
-    except Exception as e:
+    except (ValueError, AttributeError, RuntimeError) as e:
         logger.error(f"PBR Conv Failed: {e}")
         return False
 
@@ -169,7 +169,7 @@ def pack_channels_numpy(
             return True
 
         return False
-    except Exception as e:
+    except (ValueError, AttributeError, RuntimeError) as e:
         logger.error(f"Channel Packing Failed: {e}")
         return False
 
@@ -286,12 +286,12 @@ def setup_mesh_attribute(
         if obj.mode != current_mode:
             try:
                 bpy.ops.object.mode_set(mode=current_mode)
-            except Exception:
+            except (RuntimeError, AttributeError):
                 pass
 
 
 def _setup_material_id_numpy(obj, attr_name, start_color, manual_start, seed):
-    """使用 NumPy 快速生成材质 ID 属性"""
+    """使用 NumPy 快速生成材�?ID 属�?""
     poly_count = len(obj.data.polygons)
     if poly_count == 0:
         return None
@@ -304,8 +304,7 @@ def _setup_material_id_numpy(obj, attr_name, start_color, manual_start, seed):
         len(unique_mats), start_color, manual_start, seed
     )
 
-    # 安全索引：建立完整调色板以匹配材质索引
-    max_idx = np.max(mat_indices) if len(mat_indices) > 0 else 0
+    # 安全索引：建立完整调色板以匹配材质索�?    max_idx = np.max(mat_indices) if len(mat_indices) > 0 else 0
     full_palette = np.zeros((max_idx + 1, 4), dtype=np.float32)
     full_palette[unique_mats] = palette
 
@@ -321,7 +320,7 @@ def _setup_material_id_numpy(obj, attr_name, start_color, manual_start, seed):
 
 
 def _setup_island_id_bmesh(obj, id_type, attr_name, start_color, manual_start, seed):
-    """基于 BMesh 拓扑分析生成孤岛 ID 属性"""
+    """基于 BMesh 拓扑分析生成孤岛 ID 属�?""
     bm = bmesh.new()
     try:
         bm.from_mesh(obj.data)
@@ -346,7 +345,7 @@ def _setup_island_id_bmesh(obj, id_type, attr_name, start_color, manual_start, s
 
         obj.data.attributes.new(name=attr_name, type="BYTE_COLOR", domain="CORNER")
         obj.data.attributes[attr_name].data.foreach_set("color", loop_colors.flatten())
-    except Exception as e:
+    except (AttributeError, ValueError, RuntimeError) as e:
         logger.exception(f"孤岛 ID 映射失败 (ID Map Gen Failed): {e}")
         attr_name = None
     finally:
@@ -356,7 +355,7 @@ def _setup_island_id_bmesh(obj, id_type, attr_name, start_color, manual_start, s
 
 
 def _find_islands_bmesh(bm, id_type):
-    """识别 BMesh 中的孤岛 (拓扑/UV/缝合线)"""
+    """识别 BMesh 中的孤岛 (拓扑/UV/缝合�?"""
     islands = []
     for f in bm.faces:
         f.tag = False
@@ -366,7 +365,7 @@ def _find_islands_bmesh(bm, id_type):
         try:
             res = bmesh.ops.find_adjacent_mesh_islands(bm, faces=bm.faces[:])
             islands = res.get("faces", res.get("regions", []))
-        except Exception:
+        except (AttributeError, KeyError):
             pass
 
     if not islands:
@@ -428,7 +427,7 @@ def calculate_cage_proximity(low_poly, high_poly_list, margin=0.1):
             try:
                 tree = BVHTree.FromObject(hp_obj, depsgraph)
                 hp_data.append((hp_obj, tree))
-            except Exception as e:
+            except (AttributeError, RuntimeError) as e:
                 logger.warning(f"Could not build BVHTree for {hp_obj.name}: {e}")
 
         if not hp_data:
@@ -455,7 +454,7 @@ def calculate_cage_proximity(low_poly, high_poly_list, margin=0.1):
                 extrusions[i] = margin
 
         return extrusions
-    except Exception as e:
+    except (ValueError, AttributeError, RuntimeError) as e:
         logger.error(f"Cage Proximity Analysis Failed: {e}")
         return None
 

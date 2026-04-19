@@ -3,7 +3,7 @@ import logging
 import traceback
 import time
 from collections import namedtuple
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple, Union
 from pathlib import Path
 
 from .common import (
@@ -103,7 +103,11 @@ class RuntimeJobProxy:
 
 
 class BakePostProcessor:
-    """Post-processing operations for baked images."""
+    """Post-processing operations for baked images.
+
+    Handles high-level image manipulation after the core Blender bake process
+    is complete, such as denoising using the Cycles compositor.
+    """
 
     @staticmethod
     def apply_denoise(
@@ -111,16 +115,12 @@ class BakePostProcessor:
     ) -> None:
         """Apply denoising to a baked image using Cycles compositor.
 
+        Optimized image denoising. Reuses scene if provided to avoid high overhead
+        of scene creation/deletion.
+
         Args:
             image: Baked image to denoise.
             reuse_scene: Optional existing temp scene to reuse (avoids overhead).
-        """
-
-    @staticmethod
-    def apply_denoise(image, reuse_scene=None):
-        """
-        BakePostProcessor.apply_denoise: Optimized image denoising.
-        Reuses scene if provided to avoid high overhead of scene creation/deletion.
         """
         if not image:
             return
@@ -137,13 +137,13 @@ class BakePostProcessor:
                 logger.error(
                     "BakeTool: Could not find or create compositor node tree for denoising."
                 )
-                return False
+                return
 
             nodes = tree.nodes
             links = tree.links
             nodes.clear()
 
-            # 2. 构建合成树 // Setup nodes
+            # 2. 构建合成�?// Setup nodes
             n_img = nodes.new("CompositorNodeImage")
             n_img.image = image
 
@@ -162,7 +162,7 @@ class BakePostProcessor:
             n_viewer = nodes.new("CompositorNodeViewer")
             links.new(n_denoise.outputs[0], n_viewer.inputs[0])
 
-            # 3. 执行单帧“合成” // Execute "render" to process pixels
+            # 3. 执行单帧“合成�?// Execute "render" to process pixels
             with bpy.context.temp_override(scene=tmp_scene):
                 bpy.ops.render.render()
 
@@ -175,7 +175,7 @@ class BakePostProcessor:
                 )
 
             if viewer_img:
-                # 兼容性修复: 避免删除 IMViewer 节点导致的用户残留错误 (Prevent user residue errors)
+                # 兼容性修�? 避免删除 IMViewer 节点导致的用户残留错�?(Prevent user residue errors)
                 if (
                     viewer_img.size[0] == image.size[0]
                     and viewer_img.size[1] == image.size[1]
@@ -194,18 +194,18 @@ class BakePostProcessor:
         finally:
             # Important: Only remove if we created it locally
             if is_temp:
-                # 强力清理所有 BT_Denoise_Temp 前缀的辅助场景 (Aggressive cleanup of all helper scenes)
+                # 强力清理所�?BT_Denoise_Temp 前缀的辅助场�?(Aggressive cleanup of all helper scenes)
                 for s in list(bpy.data.scenes):
                     if s.name.startswith("BT_Denoise_Temp"):
                         try:
-                            # 1. 解除节点引用的像素数据 (Release node-held image/scene data)
+                            # 1. 解除节点引用的像素数�?(Release node-held image/scene data)
                             if s.use_nodes:
                                 for attr in ["node_tree", "compositing_node_group"]:
                                     tree = getattr(s, attr, None)
                                     if tree and hasattr(tree, "nodes"):
                                         tree.nodes.clear()
 
-                            # 2. B5.0 环境下解除场景用户 (Clear scene users for B5.0)
+                            # 2. B5.0 环境下解除场景用�?(Clear scene users for B5.0)
                             if hasattr(s, "user_clear"):
                                 s.user_clear()
 
@@ -213,14 +213,14 @@ class BakePostProcessor:
                             bpy.data.scenes.remove(s, do_unlink=True)
                         except (ReferenceError, RuntimeError) as e:
                             logger.debug(f"Failed to remove temp scene '{s.name}': {e}")
-                tmp_scene = None
 
 
 class BakeStepRunner:
     """Executes a single bake step with full context management.
 
     Handles context switching, UV layout setup, node graph manipulation,
-    bake execution, result saving, and channel packing.
+    bake execution, result saving, and channel packing. Orchestrates the
+    entire lifecycle of a single channel bake.
     """
 
     def __init__(
@@ -234,11 +234,19 @@ class BakeStepRunner:
             context: Blender context. Uses bpy.context if None.
             scene: Target scene. Uses context.scene if None.
         """
+        self.context = context if context else bpy.context
+        self.scene = scene if scene else self.context.scene
 
-    def run(self, step: BakeStep, state_mgr=None, queue_idx=0) -> List[Dict]:
-        """
-        Execute a single Step and return the generated results.
-        Returns: List of dicts {'image': bpy.types.Image, 'type': str, 'path': str, 'obj': str}
+    def run(self, step: BakeStep, state_mgr: Any = None, queue_idx: int = 0) -> List[Dict]:
+        """Execute a single Step and return the generated results.
+
+        Args:
+            step: The bake step configuration.
+            state_mgr: Optional state manager for progress tracking.
+            queue_idx: Index of the step in the execution queue.
+
+        Returns:
+            List of dicts containing image data and metadata.
         """
         job, task, channels, f_info = (
             step.job,
@@ -354,41 +362,22 @@ class BakeStepRunner:
                     results.append(packed_res)
 
         # --- Post-Bake Logic: Apply & Export ---
-        if not f_info:  # Static bake
-            res_obj = None
-            if job.setting.apply_to_scene or job.setting.export_model:
-                scene.bake_status = f"Preparing Material... - {task.base_name}"
-                res_obj = apply_baked_result(
-                    self.context,
-                    task.active_obj,
-                    baked_images,
-                    job.setting,
-                    task.base_name,
-                )
-
-            if res_obj and job.setting.export_model and job.setting.use_external_save:
-                scene.bake_status = f"Exporting Model... - {task.base_name}"
-                ModelExporter.export(
-                    self.context,
-                    res_obj,
-                    job.setting,
-                    folder_name=task.folder_name,
-                    file_name=task.base_name,
-                )
-
-            if res_obj and not job.setting.apply_to_scene:
-                # Cleanup the temporary proxy object since we only needed it for export
-                try:
-                    for mat_slot in res_obj.material_slots:
-                        if mat_slot.material:
-                            bpy.data.materials.remove(mat_slot.material)
-                    bpy.data.objects.remove(res_obj, do_unlink=True)
-                except (ReferenceError, RuntimeError) as e:
-                    logger.error(f"Failed to cleanup temp export object: {e}")
+        self._handle_post_bake(job, task, baked_images, f_info)
 
         return results
 
-    def _handle_save(self, s, task, img, f_info):
+    def _handle_save(self, s: Any, task: BakeTask, img: bpy.types.Image, f_info: Optional[Dict]) -> str:
+        """Internal helper to save a baked image.
+
+        Args:
+            s: BakeJobSetting object.
+            task: Current bake task.
+            img: Image to save.
+            f_info: Animation frame info if applicable.
+
+        Returns:
+            String path to the saved file.
+        """
         path = ""
         if s.use_external_save:
             path = save_image(
@@ -407,7 +396,22 @@ class BakeStepRunner:
             img.pack()
         return path
 
-    def _handle_channel_packing(self, s, task, baked_images, f_info, array_cache):
+    def _handle_channel_packing(
+        self, s: Any, task: BakeTask, baked_images: Dict[str, bpy.types.Image], 
+        f_info: Optional[Dict], array_cache: Dict
+    ) -> Optional[Dict]:
+        """Internal helper to pack multiple channels into one image.
+
+        Args:
+            s: BakeJobSetting object.
+            task: Current bake task.
+            baked_images: Collection of already baked channel images.
+            f_info: Animation frame info.
+            array_cache: Cache for NumPy arrays to avoid redundant conversions.
+
+        Returns:
+            Result dict for the packed image or None.
+        """
         pack_map = {}
         for idx, attr in enumerate(["pack_r", "pack_g", "pack_b", "pack_a"]):
             src_id = getattr(s, attr)
@@ -449,6 +453,48 @@ class BakeStepRunner:
             }
         return None
 
+    def _handle_post_bake(self, job: Any, task: BakeTask, baked_images: Dict, f_info: Optional[Dict]) -> None:
+        """Handle apply to scene and export model after baking is done.
+
+        Args:
+            job: The bake job object.
+            task: The completed bake task.
+            baked_images: Collection of generated images.
+            f_info: Animation frame info (post-bake only for static).
+        """
+        if f_info:
+            return
+
+        res_obj = None
+        if job.setting.apply_to_scene or job.setting.export_model:
+            self.scene.bake_status = f"Preparing Material... - {task.base_name}"
+            res_obj = apply_baked_result(
+                self.context,
+                task.active_obj,
+                baked_images,
+                job.setting,
+                task.base_name,
+            )
+
+        if res_obj and job.setting.export_model and job.setting.use_external_save:
+            self.scene.bake_status = f"Exporting Model... - {task.base_name}"
+            ModelExporter.export(
+                self.context,
+                res_obj,
+                job.setting,
+                folder_name=task.folder_name,
+                file_name=task.base_name,
+            )
+
+        if res_obj and not job.setting.apply_to_scene:
+            try:
+                for mat_slot in res_obj.material_slots:
+                    if mat_slot.material:
+                        bpy.data.materials.remove(mat_slot.material)
+                bpy.data.objects.remove(res_obj, do_unlink=True)
+            except (ReferenceError, RuntimeError) as e:
+                logger.error(f"Failed to cleanup temp export object: {e}")
+
 
 class TaskBuilder:
     """Builds bake tasks from settings and object lists.
@@ -464,6 +510,17 @@ class TaskBuilder:
         objects: List[bpy.types.Object],
         active_obj: bpy.types.Object,
     ) -> List[BakeTask]:
+        """Construct task objects for a job.
+
+        Args:
+            context: Blender context.
+            setting: BakeJobSetting object.
+            objects: List of objects to bake.
+            active_obj: Primary target object.
+
+        Returns:
+            List of constructed BakeTask objects.
+        """
         mode = setting.bake_mode
         tasks = []
 
@@ -493,7 +550,7 @@ class TaskBuilder:
                     log_error(
                         context, f"Object '{obj.name}' skipped: No materials assigned."
                     )
-                    continue  # Skip objects with no materials
+                    continue
                 name = get_safe_base_name(
                     setting, obj, mat=(mats[0] if mats else None), is_batch=is_batch
                 )
@@ -554,6 +611,15 @@ class JobPreparer:
     def prepare_execution_queue(
         context: bpy.types.Context, jobs: List[Any]
     ) -> List[BakeStep]:
+        """Create a list of bake steps to be executed.
+
+        Args:
+            context: Blender context.
+            jobs: List of BakeJob objects to process.
+
+        Returns:
+            Flattened list of BakeStep objects.
+        """
         queue = []
         scene = context.scene
 
@@ -567,7 +633,6 @@ class JobPreparer:
             s = job.setting
             objs = [o.bakeobject for o in s.bake_objects if o.bakeobject]
 
-            # HP-4: Protect against empty objs list
             if not objs:
                 logger.warning(f"Job {job.name} has no valid objects. Skipping.")
                 continue
@@ -592,8 +657,16 @@ class JobPreparer:
         return queue
 
     @staticmethod
-    def validate_job(job, scene) -> "ValidationResult":
-        """Standalone validation logic for CLI and UI usage."""
+    def validate_job(job: Any, scene: bpy.types.Scene) -> "ValidationResult":
+        """Standalone validation logic for CLI and UI usage.
+
+        Args:
+            job: BakeJob to validate.
+            scene: Target scene for properties check.
+
+        Returns:
+            ValidationResult with success flag and message.
+        """
         from .common import ValidationResult
 
         s = job.setting
@@ -646,16 +719,23 @@ class JobPreparer:
         selected_objects: List[bpy.types.Object],
         active_object: Optional[bpy.types.Object],
     ) -> List[BakeStep]:
-        """
-        Dynamically construct a temporary execution queue based on current selection.
-        Uses the provided reference_job as a template for settings, using Runtime Proxies
-        to avoid modifying the actual scene data.
+        """Construct a temporary execution queue for current selection.
+
+        Uses the provided reference_job as a template for settings.
+
+        Args:
+            context: Blender context.
+            reference_job: Template job.
+            selected_objects: Active viewport selection.
+            active_object: Active object in viewport.
+
+        Returns:
+            Execution queue.
         """
         if not reference_job:
             return []
 
         # Create Runtime Proxies
-        # Filter selected objects to remove active if mode is SELECT_ACTIVE (as it is the target)
         bake_objs = []
         for o in selected_objects:
             if (
@@ -674,7 +754,7 @@ class JobPreparer:
         tasks = TaskBuilder.build(context, runtime_setting, bake_objs, active_object)
         channels = JobPreparer._collect_channels(
             reference_job
-        )  # Channels are same as ref
+        )
 
         queue = []
         frames = JobPreparer._build_frame_list(runtime_setting, context.scene)
@@ -686,8 +766,8 @@ class JobPreparer:
         return queue
 
     @staticmethod
-    def _build_frame_list(setting, scene) -> List[Optional[Dict]]:
-        """Build animation frame info list. Returns [None] for static (non-animated) bakes."""
+    def _build_frame_list(setting: Any, scene: bpy.types.Scene) -> List[Optional[Dict]]:
+        """Build animation frame info list. Returns [None] for static bakes."""
         if not (setting.bake_motion and setting.use_external_save):
             return [None]
         start = int(
@@ -713,7 +793,8 @@ class JobPreparer:
         ]
 
     @staticmethod
-    def _collect_channels(job) -> List[Dict]:
+    def _collect_channels(job: Any) -> List[Dict]:
+        """Collect and sort enabled channels for a job."""
         s = job.setting
         chans = []
         for c in s.channels:
@@ -763,7 +844,13 @@ class BakeContextManager:
     settings around bake operations.
     """
 
-    def __init__(self, context, setting):
+    def __init__(self, context: bpy.types.Context, setting: Any):
+        """Initialize context manager with job settings.
+
+        Args:
+            context: Blender context.
+            setting: BakeJobSetting object.
+        """
         from contextlib import ExitStack
 
         self.stack = ExitStack()
@@ -815,16 +902,30 @@ class BakePassExecutor:
     @classmethod
     def execute(
         cls,
-        context,
-        setting,
-        task,
-        c_config,
-        handler,
-        current_results,
-        udim_tiles=None,
-        array_cache=None,
-    ):
-        """主入口：编排单通道烘焙流"""
+        context: bpy.types.Context,
+        setting: Any,
+        task: BakeTask,
+        c_config: Dict,
+        handler: NodeGraphHandler,
+        current_results: Dict,
+        udim_tiles: Optional[List[int]] = None,
+        array_cache: Optional[Dict] = None,
+    ) -> Optional[bpy.types.Image]:
+        """Main entry point for single channel baking execution.
+
+        Args:
+            context: Blender context.
+            setting: Job settings.
+            task: Current bake task.
+            c_config: Channel configuration.
+            handler: Node graph handler for the current materials.
+            current_results: Map of already baked channel images.
+            udim_tiles: List of UDIM tiles if in UDIM mode.
+            array_cache: Cache for NumPy arrays.
+
+        Returns:
+            The generated Blender image or None.
+        """
         chan_id = c_config["id"]
         prop = c_config["prop"]
 
@@ -876,8 +977,6 @@ class BakePassExecutor:
         mesh_type = cls._get_mesh_type(chan_id)
         attr_name = cls._ensure_attributes(task, setting, handler, chan_id)
 
-        from ..constants import DATA_BAKE_FORCE_SINGLE_SAMPLE
-
         is_data_pass = chan_id in DATA_BAKE_FORCE_SINGLE_SAMPLE
         orig_samples = context.scene.cycles.samples
 
@@ -906,14 +1005,10 @@ class BakePassExecutor:
     ):
         scene = context.scene
         try:
-            # 1. Resolve Bake Type
             is_special = (mesh_type is not None) or (chan_id == "CUSTOM")
             bake_type = "EMIT" if is_special else bake_pass
-            # NOTE: compat.set_bake_type syncs Cycles internal state (scene.cycles.bake_type)
-            # This is separate from the operator kwarg 'type' which tells bpy.ops.object.bake what pass to run
             compat.set_bake_type(scene, bake_type)
 
-            # 2. Build Parameters
             params = {
                 "type": bake_type,
                 "margin": setting.margin,
@@ -939,18 +1034,15 @@ class BakePassExecutor:
                     }
                 )
 
-            # NOTE: engine 已由 BakeContextManager 设置为 CYCLES
             bpy.ops.object.bake(**params)
             return True
         except Exception as e:
             from .common import log_error
-
             log_error(bpy.context, f"Bake Error {chan_id}: {e}", include_traceback=True)
             return False
 
     @staticmethod
     def _resolve_cage_extrusion(task, setting):
-        """根据 Auto-Cage 模式解析挤出距离"""
         if setting.auto_cage_mode == "PROXIMITY" and not setting.cage_object:
             from .math_utils import calculate_cage_proximity
 
@@ -1033,23 +1125,32 @@ class ModelExporter:
     """Safe model export with visibility handling and format support.
 
     Handles hidden object visibility, temporary copies for non-destructive
-    export, and FBX/GLB/USD format export.
+    export, and FBX/GLB/USD format export. Ensures that the scene state
+    is restored after the export process.
     """
 
     @staticmethod
-    def export(context, obj, setting, folder_name="", file_name=""):
+    def export(
+        context: bpy.types.Context,
+        obj: bpy.types.Object,
+        setting: Any,
+        folder_name: str = "",
+        file_name: str = ""
+    ) -> None:
+        """Main export entry point with state management.
+
+        Args:
+            context: Blender context.
+            obj: Target object to export.
+            setting: Export configuration settings.
+            folder_name: Subfolder name for export.
+            file_name: Base filename.
+        """
         if not obj or not setting.external_save_path:
             return
 
-        base_path = Path(bpy.path.abspath(setting.external_save_path))
-        target_dir = base_path
-        if folder_name and setting.create_new_folder:
-            target_dir = base_path / bpy.path.clean_name(folder_name)
-
-        try:
-            target_dir.mkdir(parents=True, exist_ok=True)
-        except OSError as e:
-            logger.error(f"Failed to create export directory {target_dir}: {e}")
+        target_dir = ModelExporter._prepare_dir(setting, folder_name)
+        if not target_dir:
             return
 
         final_file_name = bpy.path.clean_name(file_name if file_name else obj.name)
@@ -1067,47 +1168,63 @@ class ModelExporter:
             try:
                 obj.hide_set(False)
                 obj.hide_viewport = False
-                if hasattr(obj, "hide_select"):
-                    obj.hide_select = False
-            except (ReferenceError, AttributeError) as e:
-                logger.warning(f"Failed to unhide object for export: {e}")
+            except (ReferenceError, AttributeError):
+                pass
 
-            bpy.ops.object.select_all(action="DESELECT")
-            obj.select_set(True)
-            context.view_layer.objects.active = obj
-
-            fmt = setting.export_format
-            abs_filepath = str(file_path_base.resolve())
-
-            # HP-10: Ensure export is non-destructive to the input object
-            export_obj = obj
-            is_temp_copy = False
-
-            use_tex = getattr(setting, "export_textures_with_model", True)
-            if not use_tex:
-                # C-07: Create temporary copy to clear materials safely without affecting original
-                export_obj = obj.copy()
-                export_obj.data = obj.data.copy()
-                is_temp_copy = True
-                for slot in export_obj.material_slots:
-                    slot.material = None
-                # Must link to scene to be selectable
-                context.collection.objects.link(export_obj)
-
+            export_obj, is_temp = ModelExporter._prepare_export_obj(context, obj, setting)
+            
             bpy.ops.object.select_all(action="DESELECT")
             export_obj.select_set(True)
             context.view_layer.objects.active = export_obj
 
-            if fmt == "FBX":
-                # HP-8: Check for io_scene_fbx addon
-                if not hasattr(bpy.ops.export_scene, "fbx"):
-                    logger.error("FBX Export failed: Addon 'io_scene_fbx' not enabled.")
-                    if is_temp_copy:
-                        data_to_del = export_obj.data
-                        bpy.data.objects.remove(export_obj, do_unlink=True)
-                        bpy.data.meshes.remove(data_to_del, do_unlink=True)
-                    return
-                # Force packing textures into FBX if requested
+            abs_filepath = str(file_path_base.resolve())
+            ModelExporter._execute_format_export(abs_filepath, setting)
+
+            if is_temp:
+                data_to_del = export_obj.data
+                bpy.data.objects.remove(export_obj, do_unlink=True)
+                if data_to_del and data_to_del.users == 0:
+                    bpy.data.meshes.remove(data_to_del, do_unlink=True)
+
+            logger.info(f"Exported: {setting.export_format} -> {abs_filepath}")
+        except (RuntimeError, IOError) as e:
+            logger.exception(f"Export Error: {e}")
+        finally:
+            ModelExporter._restore_state(context, prev_sel, prev_act, orig_hide_states)
+
+    @staticmethod
+    def _prepare_dir(setting: Any, folder_name: str) -> Optional[Path]:
+        base_path = Path(bpy.path.abspath(setting.external_save_path))
+        target_dir = base_path
+        if folder_name and setting.create_new_folder:
+            target_dir = base_path / bpy.path.clean_name(folder_name)
+
+        try:
+            target_dir.mkdir(parents=True, exist_ok=True)
+            return target_dir
+        except OSError as e:
+            logger.error(f"Failed to create export directory {target_dir}: {e}")
+            return None
+
+    @staticmethod
+    def _prepare_export_obj(context: bpy.types.Context, obj: bpy.types.Object, setting: Any) -> Tuple[bpy.types.Object, bool]:
+        use_tex = getattr(setting, "export_textures_with_model", True)
+        if not use_tex:
+            export_obj = obj.copy()
+            export_obj.data = obj.data.copy()
+            for slot in export_obj.material_slots:
+                slot.material = None
+            context.collection.objects.link(export_obj)
+            return export_obj, True
+        return obj, False
+
+    @staticmethod
+    def _execute_format_export(abs_filepath: str, setting: Any) -> None:
+        fmt = setting.export_format
+        use_tex = getattr(setting, "export_textures_with_model", True)
+        
+        if fmt == "FBX":
+            if hasattr(bpy.ops.export_scene, "fbx"):
                 path_mode = "COPY" if use_tex else "AUTO"
                 bpy.ops.export_scene.fbx(
                     filepath=f"{abs_filepath}.fbx",
@@ -1116,34 +1233,15 @@ class ModelExporter:
                     embed_textures=use_tex,
                     mesh_smooth_type="FACE",
                 )
-            elif fmt == "GLB":
-                # HP-8: Check for io_scene_gltf2 addon
-                if not hasattr(bpy.ops.export_scene, "gltf"):
-                    logger.error(
-                        "GLB/glTF Export failed: Addon 'io_scene_gltf2' not enabled."
-                    )
-                    if is_temp_copy:
-                        data_to_del = export_obj.data
-                        bpy.data.objects.remove(export_obj, do_unlink=True)
-                        bpy.data.meshes.remove(data_to_del, do_unlink=True)
-                    return
-                # GLB standardly embeds all active Principled BSDF images automatically
+        elif fmt == "GLB":
+            if hasattr(bpy.ops.export_scene, "gltf"):
                 bpy.ops.export_scene.gltf(
                     filepath=f"{abs_filepath}.glb",
                     use_selection=True,
                     export_format="GLB",
                 )
-            elif fmt == "USD":
-                # HP-8: Check for USD support (ops.wm.usd_export)
-                if not hasattr(bpy.ops.wm, "usd_export"):
-                    logger.error(
-                        "USD Export failed: USD not supported in this Blender build."
-                    )
-                    if is_temp_copy:
-                        data_to_del = export_obj.data
-                        bpy.data.objects.remove(export_obj, do_unlink=True)
-                        bpy.data.meshes.remove(data_to_del, do_unlink=True)
-                    return
+        elif fmt == "USD":
+            if hasattr(bpy.ops.wm, "usd_export"):
                 bpy.ops.wm.usd_export(
                     filepath=f"{abs_filepath}.usd",
                     selected_objects_only=True,
@@ -1151,39 +1249,21 @@ class ModelExporter:
                     export_textures=use_tex,
                 )
 
-            # Cleanup temp copy
-            if is_temp_copy:
-                data_to_del = export_obj.data
-                bpy.data.objects.remove(export_obj, do_unlink=True)
-                # Only remove mesh data if it has no other users
-                if data_to_del and data_to_del.users == 0:
-                    bpy.data.meshes.remove(data_to_del, do_unlink=True)
-
-            logger.info(f"Exported: {fmt} -> {abs_filepath}")
-        except (RuntimeError, IOError) as e:
-            logger.exception(f"Export Error: {e}")
-        finally:
-            try:
-                bpy.ops.object.select_all(action="DESELECT")
-                for o in prev_sel:
-                    try:
-                        if o and o.name in bpy.data.objects:
-                            o.select_set(True)
-                    except (ReferenceError, AttributeError):
-                        pass
-
-                if prev_act and prev_act.name in bpy.data.objects:
-                    try:
-                        context.view_layer.objects.active = prev_act
-                    except (AttributeError, RuntimeError):
-                        pass
-
-                for name, was_hidden in orig_hide_states.items():
-                    try:
-                        obj_by_name = bpy.data.objects.get(name)
-                        if obj_by_name:
-                            obj_by_name.hide_set(was_hidden)
-                    except (ReferenceError, AttributeError):
-                        pass
-            except (ReferenceError, AttributeError):
-                pass
+    @staticmethod
+    def _restore_state(context, prev_sel, prev_act, hide_states):
+        try:
+            bpy.ops.object.select_all(action="DESELECT")
+            for o in prev_sel:
+                try:
+                    if o and o.name in bpy.data.objects:
+                        o.select_set(True)
+                except (ReferenceError, AttributeError): pass
+            if prev_act and prev_act.name in bpy.data.objects:
+                try: context.view_layer.objects.active = prev_act
+                except (AttributeError, RuntimeError): pass
+            for name, was_hidden in hide_states.items():
+                try:
+                    obj_by_name = bpy.data.objects.get(name)
+                    if obj_by_name: obj_by_name.hide_set(was_hidden)
+                except (ReferenceError, AttributeError): pass
+        except (ReferenceError, AttributeError): pass

@@ -7,7 +7,7 @@ def ensure_object_mode():
         if hasattr(bpy.context, "active_object") and bpy.context.active_object:
             if bpy.context.active_object.mode != "OBJECT":
                 bpy.ops.object.mode_set(mode="OBJECT")
-    except Exception:
+    except (RuntimeError, AttributeError):
         pass
 
 
@@ -17,7 +17,7 @@ def ensure_cycles():
         import addon_utils
 
         addon_utils.enable("cycles")
-    except Exception:
+    except (ImportError, KeyError):
         pass
 
 
@@ -35,8 +35,11 @@ def cleanup_scene():
     for mat in list(bpy.data.materials):
         bpy.data.materials.remove(mat, do_unlink=True)
 
+    # Remove images that are not persistent (use_fake_user=False)
+    # Preserve images with use_fake_user=True to maintain user data
     for img in list(bpy.data.images):
-        bpy.data.images.remove(img, do_unlink=True)
+        if not img.use_fake_user:
+            bpy.data.images.remove(img, do_unlink=True)
 
     for col in list(bpy.data.collections):
         bpy.data.collections.remove(col, do_unlink=True)
@@ -44,7 +47,7 @@ def cleanup_scene():
     for ng in list(bpy.data.node_groups):
         try:
             bpy.data.node_groups.remove(ng, do_unlink=True)
-        except Exception:
+        except (ReferenceError, RuntimeError):
             pass
 
     # Purge any leaked BT_ scenes
@@ -53,7 +56,7 @@ def cleanup_scene():
             try:
                 if s != bpy.context.scene:  # Do not remove current context scene
                     bpy.data.scenes.remove(s)
-            except Exception:
+            except (ReferenceError, RuntimeError):
                 pass
 
 
@@ -276,21 +279,21 @@ def selective_cleanup(keep_images=None):
         if img.name.startswith("BT_"):
             try:
                 bpy.data.images.remove(img, do_unlink=True)
-            except Exception:
+            except (ReferenceError, RuntimeError):
                 pass
 
     for s in list(bpy.data.scenes):
         if s.name.startswith("BT_"):
             try:
                 bpy.data.scenes.remove(s, do_unlink=True)
-            except Exception:
+            except (ReferenceError, RuntimeError):
                 pass
 
     for ng in list(bpy.data.node_groups):
         if ng.name.startswith("BT_"):
             try:
                 bpy.data.node_groups.remove(ng, do_unlink=True)
-            except Exception:
+            except (ReferenceError, RuntimeError):
                 pass
 
 

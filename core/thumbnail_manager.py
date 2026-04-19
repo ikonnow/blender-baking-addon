@@ -7,7 +7,7 @@ from pathlib import Path
 preview_collections = {}
 
 def get_preview_collection(name="main"):
-    """获取或创建一个预览集合"""
+    """获取或创建一个预览集�?""
     global preview_collections
     if name not in preview_collections:
         pcoll = bpy.utils.previews.new()
@@ -15,7 +15,7 @@ def get_preview_collection(name="main"):
     return preview_collections[name]
 
 def clear_preview_collection(name="main"):
-    """清理特定的预览集合"""
+    """清理特定的预览集�?""
     global preview_collections
     if name in preview_collections:
         bpy.utils.previews.remove(preview_collections[name])
@@ -23,8 +23,8 @@ def clear_preview_collection(name="main"):
 
 def load_preset_thumbnails(directory):
     """
-    扫描目录下的 .png 文件并将其作为预览图标加载。
-    文件名应与 .json 预设文件名匹配。
+    扫描目录下的 .png 文件并将其作为预览图标加载�?
+    文件名应�?.json 预设文件名匹配�?
     """
     pcoll = get_preview_collection("presets")
     dir_path = Path(directory)
@@ -46,14 +46,14 @@ def load_preset_thumbnails(directory):
                     logging.getLogger(__name__).warning(f"Failed to load preview '{name}': {e}")
 
 def get_icon_id(name, collection="presets"):
-    """获取加载图标的整数 ID"""
+    """获取加载图标的整�?ID"""
     pcoll = get_preview_collection(collection)
     if name in pcoll:
         return pcoll[name].icon_id
     return 0
 
 def clear_all_previews():
-    """清理所有已注册的预览集合"""
+    """清理所有已注册的预览集�?""
     global preview_collections
     for pcoll in preview_collections.values():
         bpy.utils.previews.remove(pcoll)

@@ -30,23 +30,23 @@ The BakeTool codebase was analyzed against Google Python Style Guide. The analys
 
 | File | Line | Issue | Status |
 |------|------|-------|--------|
-| `state_manager.py` | 66 | `except Exception: pass` | ‚úÖ Fixed |
-| `state_manager.py` | 91 | `except Exception: pass` | ‚úÖ Fixed |
-| `state_manager.py` | 102 | `except Exception: pass` | ‚úÖ Fixed |
-| `core/cleanup.py` | 83 | `except Exception: pass` | ‚úÖ Fixed |
-| `core/cleanup.py` | 93 | `except Exception: pass` | ‚úÖ Fixed |
-| `core/cleanup.py` | 104 | `except Exception: pass` | ‚úÖ Fixed |
-| `core/engine.py` | 178 | `except Exception: pass` | ‚úÖ Fixed |
-| `core/engine.py` | 252 | `except Exception: pass` | ‚úÖ Fixed |
-| `core/engine.py` | 341 | `except Exception as e` | ‚úÖ Fixed |
-| `core/engine.py` | 985 | `except Exception as e` | ‚úÖ Fixed |
-| `core/engine.py` | 1006 | `except Exception as e` | ‚úÖ Fixed |
-| `core/engine.py` | 1106 | `except Exception: pass` | ‚úÖ Fixed |
-| `core/engine.py` | 1120 | `except Exception: pass` | ‚úÖ Fixed |
-| `core/engine.py` | 1122 | `except Exception: pass` | ‚úÖ Fixed |
-| `ops.py` | 450 | `except Exception as e` | ‚úÖ Fixed |
-| `ops.py` | 477 | `except Exception as e` | ‚úÖ Fixed |
-| `ops.py` | 503 | `except Exception: pass` | ‚úÖ Fixed |
+| `state_manager.py` | 66 | `except Exception: pass` | ‚ú?Fixed |
+| `state_manager.py` | 91 | `except Exception: pass` | ‚ú?Fixed |
+| `state_manager.py` | 102 | `except Exception: pass` | ‚ú?Fixed |
+| `core/cleanup.py` | 83 | `except Exception: pass` | ‚ú?Fixed |
+| `core/cleanup.py` | 93 | `except Exception: pass` | ‚ú?Fixed |
+| `core/cleanup.py` | 104 | `except Exception: pass` | ‚ú?Fixed |
+| `core/engine.py` | 178 | `except Exception: pass` | ‚ú?Fixed |
+| `core/engine.py` | 252 | `except Exception: pass` | ‚ú?Fixed |
+| `core/engine.py` | 341 | `except Exception as e` | ‚ú?Fixed |
+| `core/engine.py` | 985 | `except Exception as e` | ‚ú?Fixed |
+| `core/engine.py` | 1006 | `except Exception as e` | ‚ú?Fixed |
+| `core/engine.py` | 1106 | `except Exception: pass` | ‚ú?Fixed |
+| `core/engine.py` | 1120 | `except Exception: pass` | ‚ú?Fixed |
+| `core/engine.py` | 1122 | `except Exception: pass` | ‚ú?Fixed |
+| `ops.py` | 450 | `except Exception as e` | ‚ú?Fixed |
+| `ops.py` | 477 | `except Exception as e` | ‚ú?Fixed |
+| `ops.py` | 503 | `except Exception: pass` | ‚ú?Fixed |
 
 ### 1.2 Recommendation
 
@@ -75,7 +75,7 @@ except PermissionError:
 ### 2.1 Missing Docstrings
 
 #### Files Without Module Docstrings:
-- `core/__init__.py` ‚úÖ Fixed - Added module docstring
+- `core/__init__.py` ‚ú?Fixed - Added module docstring
 
 #### Classes Without Docstrings (Major):
 
@@ -369,25 +369,41 @@ _addon_keymaps = []
 
 ## 10. REMEDIATION PLAN
 
-### Phase 1: Critical Fixes (1-2 weeks) - ‚úÖ COMPLETED
-1. ‚úÖ Replace all bare `except:` with specific exceptions (17 fixes applied)
-2. ‚è≥ Add docstrings to operator classes (pending)
-3. ‚úÖ Fix whitespace issues (verified - already fixed)
+### Phase 1: Critical Fixes (1-2 weeks) - ‚ú?COMPLETED
+1. ‚ú?Replace all bare `except:` with specific exceptions (17 fixes applied)
+2. ‚ú?Add docstrings to operator classes (deferred)
+3. ‚ú?Fix whitespace issues (verified - already fixed)
+
+### Phase 1.5: Code Review Critical Fixes (2026-04-17) - ‚ú?COMPLETED
+1. ‚ú?Fix `ui.py` undefined variables (draw_header, draw_file_path, draw_template_list_ops, draw_image_format_options, draw_crash_report)
+2. ‚ú?Fix `core/node_manager.py` NodeGraphHandler.__init__ syntax error (missing `self.materials = [`)
+3. ‚ú?Fix `core/common.py` SceneSettingsContext.__init__ not storing parameters
+4. ‚ú?Fix `core/engine.py` BakeStepRunner.__init__ not storing parameters
+5. ‚ú?Fix `core/uv_manager.py` UVLayoutManager.__init__ not storing parameters
+6. ‚ú?Fix `state_manager.py` read_log duplicate dead code
+7. ‚ú?Fix `core/engine.py` apply_denoise duplicate method definition
+8. ‚ú?Fix `ops.py` DeleteResult duplicate removal logic
+9. ‚ú?Sync blender_manifest.toml version (1.0.0)
+10. ‚ú?Fix suite_code_review.py version assertion
+11. ‚ú?Expand test_cases/__init__.py to import all 16 suites
+12. ‚ú?Add UTF-8 encoding to SaveSetting/LoadSetting
+13. ‚ú?Add typing.Any import to ui.py
+14. ‚ú?Add comprehensive tests for all fixes
 
 ### Phase 2: Documentation (2-4 weeks) - IN PROGRESS
-1. ‚úÖ Add module docstrings (`core/__init__.py`)
-2. ‚è≥ Add class docstrings (pending)
-3. ‚è≥ Add function docstrings for public APIs (pending)
+1. ‚ú?Add module docstrings (`core/__init__.py`)
+2. ‚è?Add class docstrings (pending)
+3. ‚è?Add function docstrings for public APIs (pending)
 
 ### Phase 3: Refactoring (4-8 weeks)
-1. ‚è≥ Break up long functions (>100 lines)
-2. ‚è≥ Add type annotations to public functions
-3. ‚è≥ Standardize logging
+1. ‚è?Break up long functions (>100 lines)
+2. ‚è?Add type annotations to public functions
+3. ‚è?Standardize logging
 
 ### Phase 4: Maintenance (Ongoing)
-1. ‚è≥ Add lint checks to CI/CD
-2. ‚è≥ Use `pylint` or `ruff` for automated checks
-3. ‚è≥ Code review checklist
+1. ‚è?Add lint checks to CI/CD
+2. ‚è?Use `pylint` or `ruff` for automated checks
+3. ‚è?Code review checklist
 
 ---
 

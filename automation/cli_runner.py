@@ -5,12 +5,6 @@ import bpy
 import os
 from pathlib import Path
 
-try:
-    from env_setup import setup_environment
-except ImportError:
-    sys.path.append(os.path.dirname(__file__))
-    from env_setup import setup_environment
-
 AVAILABLE_SUITES = [
     "unit",
     "shading",
@@ -27,7 +21,32 @@ AVAILABLE_SUITES = [
     "udim_advanced",
     "ui_logic",
     "code_review",
+    "verification",
 ]
+
+
+def setup_environment():
+    """Inline environment setup for BakeTool tests."""
+    # Find addon root relative to this script
+    current_dir = Path(__file__).resolve().parent
+    addon_root = current_dir.parent
+    addon_name = "baketool"
+
+    parent_dir = str(addon_root.parent)
+
+    # Ensure parent dir is in path so 'import baketool' works
+    if parent_dir not in sys.path:
+        sys.path.insert(0, parent_dir)
+
+    # Clear modules to force reload
+    for mod in list(sys.modules.keys()):
+        if mod == addon_name or mod.startswith(f"{addon_name}."):
+            del sys.modules[mod]
+
+    print(f"\n>>> Environment Setup: Blender {bpy.app.version_string}")
+    print(f">>> Addon Root: {addon_root}")
+    
+    return addon_name, addon_root
 
 
 def main():
@@ -137,14 +156,15 @@ def main():
                     "total": result.testsRun,
                     "passed": result.testsRun
                     - len(result.failures)
-                    - len(result.errors),
+                    - len(result.errors)
+                    - len(result.skipped),
                     "failures": len(result.failures),
                     "errors": len(result.errors),
                     "skipped": len(result.skipped),
                 },
                 "details": {
-                    "failures": [str(f[0]) + ": " + str(f[1]) for f in result.failures],
-                    "errors": [str(e[0]) + ": " + str(e[1]) for e in result.errors],
+                    "failures": [str(f[0]) + ": " + str(f[1])[:200] for f in result.failures],
+                    "errors": [str(e[0]) + ": " + str(e[1])[:200] for e in result.errors],
                 },
             }
             json_path = Path(args.json)
@@ -153,12 +173,15 @@ def main():
                 json.dump(report, f, indent=4)
             print(f">>> JSON Report saved to: {args.json}")
 
-        if result.wasSuccessful():
+        if result.wasSuccessful() and result.testsRun > 0:
             print("\n>>> CONSOLIDATED SUITES PASSED")
             print(">>> ALL TESTS PASSED")
             sys.exit(0)
         else:
             print("\n>>> TESTS FAILED")
+            print(f">>> Failures: {len(result.failures)}, Errors: {len(result.errors)}")
+            if result.testsRun == 0:
+                print(">>> WARNING: No tests were run! (Check discovery pattern)")
             sys.exit(1)
 
     except Exception as e:
@@ -171,11 +194,12 @@ def main():
 def _load_category(category, loader):
     """Load test suites by category."""
     suite = unittest.TestSuite()
-    test_dir = str(Path(__file__).parent.parent / "test_cases")
-    parent_dir = str(Path(__file__).parent.parent.parent)
+    addon_root = Path(__file__).resolve().parent.parent
+    test_dir = str(addon_root / "test_cases")
+    parent_dir = str(addon_root.parent)
 
     category_map = {
-        "core": ["suite_unit.py", "suite_negative.py", "suite_api.py"],
+        "core": ["suite_unit.py", "suite_negative.py", "suite_api.py", "suite_verification.py"],
         "memory": ["suite_memory.py"],
         "export": ["suite_export.py"],
         "ui": ["suite_ui_logic.py"],

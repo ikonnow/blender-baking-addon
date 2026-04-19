@@ -24,7 +24,6 @@ if not BLENDER_PATHS:
 
 current_dir = str(Path(__file__).resolve().parent)
 runner_script = str(Path(current_dir) / "cli_runner.py")
-verification_script = str(Path(current_dir) / "comprehensive_verification.py")
 
 
 def get_blender_version(path):
@@ -39,12 +38,12 @@ def get_blender_version(path):
 
 def run_tests_on_blender(blender_path, suite="all", category=None, verification=False):
     """Run tests on a specific Blender version."""
-    cmd = [blender_path, "--background", "--factory-startup"]
+    # All tests now run through cli_runner.py
+    cmd = [blender_path, "--background", "--factory-startup", "--python", runner_script]
 
     if verification:
-        cmd.extend(["--python", verification_script])
+        cmd.extend(["--", "--suite", "verification"])
     else:
-        cmd.extend(["--python", runner_script])
         if suite != "all":
             cmd.extend(["--", "--suite", suite])
         if category:
@@ -61,9 +60,10 @@ def run_tests_on_blender(blender_path, suite="all", category=None, verification=
         stdout = process.stdout.decode("utf-8", errors="replace")
         stderr = process.stderr.decode("utf-8", errors="replace")
 
+        # Success is determined by cli_runner.py output
         success = (
             "CONSOLIDATED SUITES PASSED" in stdout
-            or "ALL VERIFICATIONS PASSED" in stdout
+            or "ALL TESTS PASSED" in stdout
         )
         return {
             "success": success,
@@ -94,7 +94,7 @@ def main():
     parser.add_argument(
         "--verification",
         action="store_true",
-        help="Run comprehensive verification instead of unit tests",
+        help="Run comprehensive verification suite",
     )
     parser.add_argument(
         "--json", type=str, default=None, help="Save detailed results as JSON"
@@ -106,7 +106,7 @@ def main():
     args, unknown = parser.parse_known_args()
 
     print("\n" + "=" * 80)
-    print("      BAKETOOL v1.5.1 CROSS-VERSION TEST SUITE")
+    print("      BAKETOOL v1.0.0 CROSS-VERSION TEST SUITE")
     print("=" * 80)
     print(f"  Test Mode: {'Verification' if args.verification else 'Unit Tests'}")
     if args.suite != "all":
@@ -139,7 +139,7 @@ def main():
         return
 
     print(f"\n>>> Testing {len(valid_paths)} Blender versions...\n")
-    print(f"{'Blender Version':<40} | {'Status':<10} | {'Tests':<10} | {'Time'}")
+    print(f"{'Blender Version':<40} | {'Status':<10}")
     print("-" * 80)
 
     total_pass = 0
@@ -168,7 +168,11 @@ def main():
         print(f"{ver_short:<40} | {status_color}{status:<10}\033[0m")
 
         if not result["success"]:
-            print(f"    | Stderr: {result['stderr'][:100]}...")
+            # Print a snippet of stderr for debugging
+            if result["stderr"]:
+                print(f"    | Stderr Snippet: {result['stderr'][:200]}...")
+            elif result["stdout"]:
+                print(f"    | Last Output: {result['stdout'].splitlines()[-5:]}")
 
         results.append(
             {
@@ -192,7 +196,7 @@ def main():
     json_path = report_dir / f"cross_version_report_{timestamp}.json"
 
     with open(report_path, "w", encoding="utf-8") as f:
-        f.write("BAKETOOL v1.5.1 CROSS-VERSION TEST REPORT\n")
+        f.write("BAKETOOL v1.0.0 CROSS-VERSION TEST REPORT\n")
         f.write("=" * 60 + "\n")
         f.write(f"Generated: {datetime.now().isoformat()}\n")
         f.write(f"Test Mode: {'Verification' if args.verification else 'Unit Tests'}\n")
@@ -202,7 +206,7 @@ def main():
             f.write(f"\n[{r['status']}] {r['version']}\n")
             f.write(f"  Path: {r['path']}\n")
             if r["stderr"]:
-                f.write(f"  Error: {r['stderr'][:200]}\n")
+                f.write(f"  Error: {r['stderr'][:500]}\n")
         f.write("\n" + "=" * 60 + "\n")
         f.write(f"SUMMARY: {total_pass} PASS | {total_fail} FAIL\n")
 

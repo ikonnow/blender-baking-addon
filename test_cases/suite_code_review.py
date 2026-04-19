@@ -31,7 +31,7 @@ class SuiteCodeReviewFixes(unittest.TestCase):
         from baketool import bl_info
 
         self.assertEqual(bl_info["name"], "BakeTool")
-        self.assertEqual(bl_info["version"], (1, 5, 0))
+        self.assertEqual(bl_info["version"], (1, 0, 0))
         self.assertEqual(bl_info["blender"], (3, 3, 0))
         self.assertEqual(bl_info["author"], "BakeTool Team")
 
@@ -39,8 +39,8 @@ class SuiteCodeReviewFixes(unittest.TestCase):
         """Verify UI_MESSAGES uses .get() for safe key access."""
         from baketool.constants import UI_MESSAGES
 
-        result = UI_MESSAGES.get("PREP_FAILED", "Bake preparation failed: {0}")
-        self.assertIn("{0}", result)
+        result = UI_MESSAGES.get("PREP_FAILED", "Bake preparation failed: {}")
+        self.assertIn("{}", result)
 
         result_missing = UI_MESSAGES.get("NON_EXISTENT_KEY", "Default fallback")
         self.assertEqual(result_missing, "Default fallback")
@@ -81,9 +81,9 @@ class SuiteCodeReviewFixes(unittest.TestCase):
         self.assertEqual(result[0][2], "No enabled channels available")
 
     def test_engine_export_log_no_duplicate(self):
-        """Verify export logging doesn't duplicate."""
+        """Verify export logging doesn't produce duplicate warnings."""
         import logging
-        from baketool.core.engine import ModelExporter
+        import io
 
         class FakeContext:
             pass
@@ -113,8 +113,85 @@ class SuiteCodeReviewFixes(unittest.TestCase):
             "ViewLayer", (), {"objects": type("Objects", (), {"active": None})()}
         )()
 
-        with self.assertLogs("baketool.core.engine", level="WARNING"):
+        log_capture = io.StringIO()
+        handler = logging.StreamHandler(log_capture)
+        handler.setLevel(logging.WARNING)
+        logger = logging.getLogger("baketool.core.engine")
+        original_level = logger.level
+        logger.setLevel(logging.WARNING)
+        logger.addHandler(handler)
+
+        try:
+            from baketool.core.engine import ModelExporter
+            ModelExporter.export(ctx, FakeObj(), FakeSetting(), "TestExport")
+        except Exception:
             pass
+        finally:
+            logger.removeHandler(handler)
+            logger.setLevel(original_level)
+
+        log_content = log_capture.getvalue()
+        warning_lines = [l for l in log_content.strip().split('\n') if l]
+        unique_warnings = set(warning_lines)
+        self.assertEqual(
+            len(warning_lines), len(unique_warnings),
+            f"Found duplicate warnings: {warning_lines}"
+        )
+
+    def test_manifest_version_matches_bl_info(self):
+        """Verify blender_manifest.toml version matches bl_info version."""
+        import os
+        from pathlib import Path
+
+        test_file = Path(__file__).resolve()
+        possible_roots = [test_file.parent.parent]
+
+        if hasattr(bpy.utils, "script_path_user"):
+            user_path = bpy.utils.script_path_user()
+            if user_path:
+                possible_roots.append(Path(user_path).parent / "addons")
+
+        if hasattr(bpy.utils, "script_paths"):
+            for p in bpy.utils.script_paths():
+                possible_roots.append(Path(p).parent / "addons")
+
+        manifest_path = None
+        for root in possible_roots:
+            if root is None:
+                continue
+            candidate = root / "baketool" / "blender_manifest.toml"
+            if candidate.exists():
+                manifest_path = candidate
+                break
+
+        if manifest_path is None:
+            self.skipTest("blender_manifest.toml not found in any known location")
+
+        with open(manifest_path, "r") as f:
+            content = f.read()
+
+        import re
+        match = re.search(r'version\s*=\s*"(\d+)\.(\d+)\.(\d+)"', content)
+        self.assertIsNotNone(match, "Version not found in manifest")
+        manifest_version = tuple(int(x) for x in match.groups())
+
+        from baketool import bl_info
+        self.assertEqual(bl_info["version"], manifest_version, "bl_info version doesn't match manifest")
+
+    def test_all_test_suites_importable(self):
+        """Verify all test suites can be imported without errors."""
+        import importlib
+
+        suites = [
+            "suite_unit", "suite_shading", "suite_negative", "suite_memory",
+            "suite_export", "suite_api", "suite_cleanup", "suite_code_review",
+            "suite_compat", "suite_context_lifecycle", "suite_denoise",
+            "suite_parameter_matrix", "suite_preset", "suite_production_workflow",
+            "suite_udim_advanced", "suite_ui_logic"
+        ]
+        for name in suites:
+            mod = importlib.import_module(f"baketool.test_cases.{name}")
+            self.assertIsNotNone(mod, f"Failed to import {name}")
 
 
 if __name__ == "__main__":

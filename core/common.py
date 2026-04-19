@@ -3,7 +3,7 @@ import logging
 import traceback
 from collections import namedtuple
 from contextlib import contextmanager
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 from ..constants import (
     BAKE_CHANNEL_INFO,
     BSDF_COMPATIBILITY_MAP,
@@ -157,7 +157,10 @@ def reset_channels_logic(setting: Any) -> None:
 
 
 def manage_objects_logic(
-    s: Any, action: str, sel: List[bpy.types.Object], act: Optional[bpy.types.Object]
+    s: Any,
+    action: str,
+    sel: List[bpy.types.Object],
+    act: Optional[bpy.types.Object] = None,
 ) -> None:
     """Manage bake object list with various actions.
 
@@ -165,7 +168,7 @@ def manage_objects_logic(
         s: BakeJobSetting with bake_objects collection.
         action: Operation to perform (SET, ADD, REMOVE, CLEAR, SET_ACTIVE, SMART_SET).
         sel: Selected objects for the operation.
-        act: Active object (for SELECT_ACTIVE mode).
+        act: Active object (for SELECT_ACTIVE mode). Defaults to None.
     """
 
     def add(o):
@@ -208,7 +211,9 @@ def manage_objects_logic(
                 add(o)
 
 
-def manage_channels_logic(target: str, action_type: str, bj: Any) -> Tuple[bool, str]:
+def manage_channels_logic(
+    target: str, action_type: str, bj: Any
+) -> Tuple[bool, str]:
     """Manage generic collection items (jobs, channels, objects).
 
     Args:
@@ -217,7 +222,7 @@ def manage_channels_logic(target: str, action_type: str, bj: Any) -> Tuple[bool,
         bj: BakeJobs manager object.
 
     Returns:
-        Tuple of (success, error_message).
+        Tuple of (success: bool, error_message: str).
     """
     job = bj.jobs[bj.job_index] if bj.jobs else None
 
@@ -361,6 +366,11 @@ class SceneSettingsContext:
             settings: Dict of property names to values.
             scene: Target scene. Uses bpy.context.scene if None.
         """
+        import bpy
+
+        self.category = category
+        self.settings = settings
+        self.scene = scene
         self.original = {}
         self.attr_map = {
             "scene": {
@@ -371,7 +381,11 @@ class SceneSettingsContext:
         }
 
     def _get_target(self):
+        import bpy
+
         scene = self.scene
+        if not scene:
+            scene = bpy.context.scene
         if not scene:
             return None
         if self.category == "scene":
@@ -424,7 +438,7 @@ class SceneSettingsContext:
 def apply_baked_result(
     context: bpy.types.Context,
     original_obj: bpy.types.Object,
-    task_images: Dict[str, Any],
+    task_images: Dict[str, bpy.types.Image],
     setting: Any,
     task_base_name: str,
 ) -> Optional[bpy.types.Object]:

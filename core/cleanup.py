@@ -1,3 +1,9 @@
+"""Emergency cleanup operations for BakeTool.
+
+Provides functionality to remove temporary data (images, nodes, UV layers)
+left behind after interrupted bake sessions or crashes.
+"""
+
 import bpy
 import logging
 from datetime import datetime
@@ -7,8 +13,12 @@ from ..constants import SYSTEM_NAMES
 logger = logging.getLogger(__name__)
 
 
-def log_cleanup_detail(message):
-    """Log details to a persistent file in the system temp directory."""
+def log_cleanup_detail(message: str) -> None:
+    """Log details to a persistent file in the system temp directory.
+
+    Args:
+        message: The status message or detailed report to log.
+    """
     try:
         log_dir = Path(bpy.app.tempdir) / "baketool_logs"
         log_dir.mkdir(parents=True, exist_ok=True)
@@ -20,7 +30,7 @@ def log_cleanup_detail(message):
                 f.write(f"\n--- Cleanup Session: {timestamp} ---\n{message}\n")
             else:
                 f.write(f"[{timestamp}] {message}\n")
-    except Exception as e:
+    except (OSError, IOError, PermissionError) as e:
         logger.error(f"Failed to write cleanup log: {e}")
 
 
@@ -31,7 +41,18 @@ class BAKETOOL_OT_EmergencyCleanup(bpy.types.Operator):
     bl_label = "Clean Up Bake Junk"
     bl_options = {"REGISTER", "UNDO"}
 
-    def execute(self, context):
+    def execute(self, context: bpy.types.Context) -> set[str]:
+        """Execute the emergency cleanup process.
+
+        Scans the current blend file for known temporary objects, UV layers,
+        images, and nodes used by BakeTool and removes them.
+
+        Args:
+            context: Blender context.
+
+        Returns:
+            set[str]: {'FINISHED'}.
+        """
         count_layers = 0
         count_images = 0
         count_nodes = 0
@@ -46,11 +67,14 @@ class BAKETOOL_OT_EmergencyCleanup(bpy.types.Operator):
                     uv = obj.data.uv_layers[i]
                     if uv.name == SYSTEM_NAMES["TEMP_UV"]:
                         name = obj.name
-                        obj.data.uv_layers.remove(uv)
-                        count_layers += 1
-                        details.append(
-                            f"Removed UV Layer '{SYSTEM_NAMES['TEMP_UV']}' from Object '{name}'"
-                        )
+                        try:
+                            obj.data.uv_layers.remove(uv)
+                            count_layers += 1
+                            details.append(
+                                f"Removed UV Layer '{SYSTEM_NAMES['TEMP_UV']}' from Object '{name}'"
+                            )
+                        except (RuntimeError, ReferenceError) as e:
+                            logger.debug(f"Failed to remove UV layer from {name}: {e}")
 
         # 2. Clean up protection nodes in materials
         protection_img = bpy.data.images.get(SYSTEM_NAMES["DUMMY_IMG"])
@@ -72,13 +96,11 @@ class BAKETOOL_OT_EmergencyCleanup(bpy.types.Operator):
                     elif img_name.startswith(SYSTEM_NAMES["TEMP_IMG_PREFIX"]):
                         has_prot_img = True
 
-                # 3. Check by Name/Label (Fallback if image is already gone or legacy)
+                # 3. Check by Name/Label
                 has_prot_name = (
                     n.name == SYSTEM_NAMES["PROTECTION_NODE"]
                     or n.label == SYSTEM_NAMES["PROTECTION_LABEL"]
                 )
-
-                # 4. Heuristic for session nodes: Orphaned Emission nodes with no label but specific structure
 
                 if is_tagged or has_prot_img or has_prot_name:
                     nodes_to_remove.append(n)

@@ -1,3 +1,10 @@
+"""Shader node graph manipulation and node-based baking for BakeTool.
+
+This module provides tools to dynamically modify material node trees during
+the baking process, such as inserting temporary emission nodes, managing
+links, and providing protection for non-active materials.
+"""
+
 import bpy
 import logging
 from typing import Any, Dict, List, Optional, Tuple
@@ -8,18 +15,25 @@ from . import compat
 logger = logging.getLogger(__name__)
 
 
-def bake_node_to_image(context, material, node, settings):
-    """
-    Bake a specific node output to an image.
+def bake_node_to_image(
+    context: bpy.types.Context,
+    material: bpy.types.Material,
+    node: bpy.types.Node,
+    settings: Any,
+) -> Optional[bpy.types.Image]:
+    """Bake a specific shader node output to an image datablock.
+
+    Temporarily routes the node's output through an Emission shader and
+    triggers a standard Blender bake.
 
     Args:
-        context: Blender context
-        material: Material containing the node
-        node: Node to bake
-        settings: BakeNodeSettings with resolution, margin, etc.
+        context: Blender context.
+        material: Material containing the target node.
+        node: The specific node to bake.
+        settings: Configuration object with resolution and margin.
 
     Returns:
-        bpy.types.Image: The baked image, or None on failure
+        bpy.types.Image: The resulting baked image, or None if failed.
     """
     from .image_manager import set_image, save_image
     from .common import safe_context_override
@@ -76,8 +90,11 @@ def bake_node_to_image(context, material, node, settings):
                         img.pack()
 
         return img
-    except Exception as e:
+    except (AttributeError, KeyError, ReferenceError) as e:
         logger.exception(f"Node baking failed: {e}")
+        return None
+    except RuntimeError as e:
+        logger.error(f"Bake operation failed: {e}")
         return None
     finally:
         context.scene.render.engine = orig_engine
@@ -95,6 +112,13 @@ class NodeGraphHandler:
             handler.setup_for_pass("EMIT", "color", image)
             # Baking happens here
         # All temporary nodes and links are restored automatically
+
+    Attributes:
+        materials (List[bpy.types.Material]): Active materials being managed.
+        session_nodes (Dict): Temporary texture and emission nodes per material.
+        temp_logic_nodes (Dict): List of other temporary logic nodes per material.
+        temp_attributes (List): Temporary vertex attributes created for ID maps.
+        original_links (Dict): Snapshot of node links before modification.
     """
 
     def __init__(self, materials: List[bpy.types.Material]):
@@ -103,6 +127,7 @@ class NodeGraphHandler:
         Args:
             materials: List of materials to manage during baking.
         """
+        self.materials = [
             m for m in materials if m and hasattr(m, "use_nodes") and m.use_nodes
         ]
         self.session_nodes = {}
@@ -115,8 +140,6 @@ class NodeGraphHandler:
             tree = mat.node_tree
             links_data = []  # List of (from_socket, to_socket) pairs
             for l in tree.links:
-                # Store references to sockets.
-                # Note: If nodes are deleted, these references become invalid, but we guard for that in cleanup.
                 links_data.append((l.from_socket, l.to_socket))
             self.original_links[mat] = links_data
 
@@ -128,6 +151,7 @@ class NodeGraphHandler:
         return False
 
     def _prepare_session_nodes(self):
+        """Create base texture and emission nodes used for most bake passes."""
         for mat in self.materials:
             tree = mat.node_tree
             tex_n = tree.nodes.new("ShaderNodeTexImage")
@@ -140,30 +164,28 @@ class NodeGraphHandler:
             self.session_nodes[mat]["emi"].location = (600, 0)
             self.temp_logic_nodes[mat] = []
 
-    def cleanup(self):
-        # 1. Clean up all materials that had nodes added (including protected ones)
+    def cleanup(self) -> None:
+        """Physically remove all temporary nodes and restore original links."""
+        # 1. Clean up all materials that had nodes added
         for mat in list(self.temp_logic_nodes.keys()):
             if not mat or not hasattr(mat, "node_tree") or not mat.node_tree:
                 continue
             tree = mat.node_tree
 
-            # Remove session nodes if this material was one of the active ones
             if mat in self.session_nodes:
                 for n in self.session_nodes[mat].values():
                     try:
                         tree.nodes.remove(n)
-                    except Exception:
+                    except (ReferenceError, KeyError):
                         pass
 
-            # Remove all temp logic nodes securely
             if mat in self.temp_logic_nodes:
-                # Iterate backwards to avoid index shift issues
                 nodes = self.temp_logic_nodes[mat]
                 for n in reversed(nodes):
                     try:
                         if n.name in tree.nodes:
                             tree.nodes.remove(n)
-                    except Exception:
+                    except (ReferenceError, KeyError):
                         pass
                 self.temp_logic_nodes[mat] = []
 
@@ -173,14 +195,11 @@ class NodeGraphHandler:
                 continue
             tree = mat.node_tree
 
-            # HP-5: Clear current links to remove any temporary bypasses/logic nodes
-            # This ensures clean state before restoring original connections
             try:
                 tree.links.clear()
-            except Exception:
+            except (ReferenceError, RuntimeError):
                 pass
 
-            # Restore original connections if nodes still exist
             for from_sock, to_sock in links_data:
                 try:
                     if (
@@ -192,7 +211,7 @@ class NodeGraphHandler:
                         and to_sock.node.name in tree.nodes
                     ):
                         tree.links.new(from_sock, to_sock)
-                except Exception:
+                except (ReferenceError, KeyError, AttributeError):
                     pass
 
         # 3. Clean up temp attributes
@@ -200,24 +219,31 @@ class NodeGraphHandler:
             try:
                 if attr in obj.data.attributes:
                     obj.data.attributes.remove(obj.data.attributes[attr])
-            except Exception:
+            except (KeyError, AttributeError, ReferenceError):
                 pass
 
-        # 4. Explicitly remove the protection dummy image if it has no users left
+        # 4. Explicitly remove the protection dummy image
         d = bpy.data.images.get(SYSTEM_NAMES["DUMMY_IMG"])
         if d and d.users == 0:
             try:
                 bpy.data.images.remove(d)
-            except Exception:
+            except (ReferenceError, RuntimeError):
                 pass
 
-    def setup_protection(self, objects=None, active_materials=None):
+    def setup_protection(
+        self,
+        objects: Optional[List[bpy.types.Object]] = None,
+        active_materials: Optional[List[bpy.types.Material]] = None,
+    ) -> None:
+        """Ensure non-active materials have an active texture node.
+
+        Prevents Blender's baker from using nodes in materials not intended
+        for the current bake pass.
+
+        Args:
+            objects: List of objects to protect.
+            active_materials: Materials that should NOT be protected.
         """
-        Ensure non-active materials on objects have an active texture node
-        to prevent Blender's baker from potentially using wrong nodes.
-        Uses a temporary dummy image that shouldn't be saved.
-        """
-        # Fallback to instance materials if not provided
         if not objects:
             return
         if active_materials is None:
@@ -227,7 +253,6 @@ class NodeGraphHandler:
         d = bpy.data.images.get(SYSTEM_NAMES["DUMMY_IMG"]) or bpy.data.images.new(
             SYSTEM_NAMES["DUMMY_IMG"], 32, 32, alpha=True
         )
-        # Ensure it doesn't persist after nodes are gone
         d.use_fake_user = False
 
         for obj in objects:
@@ -235,14 +260,9 @@ class NodeGraphHandler:
                 continue
             for s in obj.material_slots:
                 m = s.material
-                # Skip linked (read-only) materials OR materials already in our active bake set
                 if m and m.use_nodes and m not in active_set:
                     if m.library:
-                        logger.debug(
-                            f"Skipping protection for library material: {m.name}"
-                        )
                         continue
-                    # Add protection node
                     self._add_node(
                         m,
                         "ShaderNodeTexImage",
@@ -253,13 +273,23 @@ class NodeGraphHandler:
 
     def setup_for_pass(
         self,
-        bake_pass,
-        socket_name,
-        image,
-        mesh_type=None,
-        attr_name=None,
-        channel_settings=None,
-    ):
+        bake_pass: str,
+        socket_name: str,
+        image: bpy.types.Image,
+        mesh_type: Optional[str] = None,
+        attr_name: Optional[str] = None,
+        channel_settings: Any = None,
+    ) -> None:
+        """Configure node trees for a specific bake pass.
+
+        Args:
+            bake_pass: pass type (EMIT, DIFFUSE, etc.).
+            socket_name: channel identifier.
+            image: target image datablock.
+            mesh_type: mesh map category if applicable.
+            attr_name: attribute name for ID maps.
+            channel_settings: configuration for the current channel.
+        """
         for mat in self.materials:
             tree = mat.node_tree
             out_n = self._find_output(tree)
@@ -269,7 +299,7 @@ class NodeGraphHandler:
             for n in self.temp_logic_nodes[mat]:
                 try:
                     tree.nodes.remove(n)
-                except Exception:
+                except (ReferenceError, KeyError):
                     pass
             self.temp_logic_nodes[mat] = []
 
@@ -305,7 +335,7 @@ class NodeGraphHandler:
                 if src:
                     tree.links.new(src, emi_n.inputs[0])
 
-    def _create_node_group_logic(self, mat, s):
+    def _create_node_group_logic(self, mat: bpy.types.Material, s: Any) -> Optional[bpy.types.NodeSocket]:
         es = getattr(s, "extension_settings", None)
         if not es or not es.node_group:
             return None
@@ -344,7 +374,8 @@ class NodeGraphHandler:
         self.temp_logic_nodes[mat].append(n)
         return n
 
-    def _find_output(self, tree):
+    def _find_output(self, tree: bpy.types.NodeTree) -> Optional[bpy.types.Node]:
+        """Find the active material output node."""
         for n in tree.nodes:
             if n.bl_idname == "ShaderNodeOutputMaterial" and n.is_active_output:
                 return n
@@ -352,9 +383,11 @@ class NodeGraphHandler:
             (n for n in tree.nodes if n.bl_idname == "ShaderNodeOutputMaterial"), None
         )
 
-    def _find_socket_source(self, mat, socket_name, settings):
+    def _find_socket_source(
+        self, mat: bpy.types.Material, socket_name: str, settings: Any
+    ) -> Optional[bpy.types.NodeSocket]:
+        """Find the node socket that serves as the source for a PBR channel."""
         tree = mat.node_tree
-        # 1. Try to find Principled BSDF
         bsdf = next(
             (n for n in tree.nodes if n.bl_idname == "ShaderNodeBsdfPrincipled"), None
         )
@@ -365,7 +398,6 @@ class NodeGraphHandler:
                     found = bsdf.inputs[cand]
                     break
 
-        # 2. Fallback: If no BSDF but baking Color/Emit, look for Emission node
         if not found and socket_name in {"color", "emi"}:
             emi = next(
                 (n for n in tree.nodes if n.bl_idname == "ShaderNodeEmission"), None
@@ -391,7 +423,6 @@ class NodeGraphHandler:
             rgb.outputs[0].default_value = v
             src = rgb.outputs[0]
 
-        # Roughness inversion logic
         if settings and socket_name == "rough" and settings.rough_inv:
             inv = self._add_node(mat, "ShaderNodeInvert")
             inv.inputs[0].default_value = 1.0
@@ -399,7 +430,10 @@ class NodeGraphHandler:
             src = inv.outputs[0]
         return src
 
-    def _create_mesh_map_logic(self, mat, mtype, attr, s):
+    def _create_mesh_map_logic(
+        self, mat: bpy.types.Material, mtype: str, attr: Optional[str], s: Any
+    ) -> Optional[bpy.types.NodeSocket]:
+        """Inject shader nodes to generate mesh analysis maps."""
         ms = getattr(s, "mesh_settings", None)
         if mtype == "ID":
             return self._add_node(
@@ -427,7 +461,10 @@ class NodeGraphHandler:
             return n.outputs[0]
         return None
 
-    def _create_extension_logic(self, mat, socket_name, settings):
+    def _create_extension_logic(
+        self, mat: bpy.types.Material, socket_name: str, settings: Any
+    ) -> Optional[bpy.types.NodeSocket]:
+        """Inject math nodes for custom PBR conversion logic."""
         es = getattr(settings, "extension_settings", None)
         threshold = es.threshold if es else 0.04
         tree = mat.node_tree
@@ -449,21 +486,15 @@ class NodeGraphHandler:
         clamp = self._add_node(mat, "ShaderNodeClamp")
         tree.links.new(div.outputs[0], clamp.inputs[0])
         metallic_out = clamp.outputs[0]
+
         if socket_name == "pbr_conv_metal":
             return metallic_out
         elif socket_name == "pbr_conv_base":
             diff_src = self._find_socket_source(mat, "color", None)
-
-            # 创建 Mix 节点 (B3.4+ ShaderNodeMix / Legacy ShaderNodeMixRGB)
-            from . import compat
-
             if compat.is_blender_4() or compat.is_blender_5():
                 mix = self._add_node(mat, "ShaderNodeMix")
                 mix.data_type = "RGBA"
-                tree.links.new(metallic_out, mix.inputs[0])  # Factor
-                # B4+ Mix node: Use named sockets if possible for better forward compatibility
-                # Blender 4.0+ handles named sockets "A" and "B" for RGBA.
-                # Fallback: search for RGBA sockets excluding Result (index 0) to avoid hard-coded index risk.
+                tree.links.new(metallic_out, mix.inputs[0])
                 sock_a = mix.inputs.get("A") or next(
                     (s for s in mix.inputs if s.type == "RGBA" and s != mix.inputs[0]),
                     None,
@@ -478,7 +509,7 @@ class NodeGraphHandler:
                 )
             else:
                 mix = self._add_node(mat, "ShaderNodeMixRGB")
-                tree.links.new(metallic_out, mix.inputs[0])  # Fac
+                tree.links.new(metallic_out, mix.inputs[0])
                 sock_a = mix.inputs.get(
                     "Color1", mix.inputs[1] if len(mix.inputs) > 1 else None
                 )
@@ -487,12 +518,11 @@ class NodeGraphHandler:
                 )
 
             if sock_a is None or sock_b is None:
-                logger.warning("PBR Conv: Mix node socket not found, skipping.")
+                logger.warning("PBR Conv: Mix node socket not found.")
                 return None
 
             tree.links.new(diff_src, sock_a)
             tree.links.new(spec_src, sock_b)
-            # 输出: B4+ ShaderNodeMix outputs[2]=Result(RGBA); Legacy MixRGB outputs[0]=Color
             result_output = (
                 mix.outputs[2]
                 if (compat.is_blender_4() or compat.is_blender_5())

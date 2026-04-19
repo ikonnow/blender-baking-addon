@@ -1,9 +1,16 @@
+"""Manages bake session state and crash recovery.
+
+Provides a robust mechanism to persist the current state of a bake process
+to a temporary file, enabling recovery and reporting after unexpected exits.
+"""
+
 import json
 import os
 import time
 import bpy
 import logging
 from pathlib import Path
+from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -14,23 +21,23 @@ class BakeStateManager:
     Writes session data to a JSON file in the system temp directory,
     allowing recovery from crashes or unexpected exits.
 
-    Example:
-        mgr = BakeStateManager()
-        mgr.start_session(total_steps=10, job_name="MyJob")
-        # ... baking operations ...
-        mgr.update_step(step_idx=5, obj_name="Cube", channel_name="Color")
-        # ... more operations ...
-        mgr.finish_session(context)
+    Attributes:
+        log_dir (Path): Directory where state logs are stored.
+        log_file (Path): Path to the current session log file.
     """
 
     def __init__(self):
-        # 使用系统临时目录，避免插件安装目录的权限问题
-        # Use system temp directory to avoid permission issues in addon dir
+        """Initialize state manager with system temp paths."""
         self.log_dir = Path(bpy.app.tempdir)
         self.log_file = self.log_dir / "sbt_last_session.json"
 
-    def start_session(self, total_steps, job_name):
-        """开始任务，创建日志"""
+    def start_session(self, total_steps: int, job_name: str) -> None:
+        """Initialize a new bake session record.
+
+        Args:
+            total_steps: Total number of steps in the bake queue.
+            job_name: Name of the job being processed.
+        """
         data = {
             "status": "STARTED",
             "start_time": time.strftime("%Y-%m-%d %H:%M:%S"),
@@ -44,13 +51,18 @@ class BakeStateManager:
         }
         self._write(data)
 
-    def update_step(self, step_idx, obj_name, channel_name, queue_idx=0):
-        """更新当前正在进行的步骤"""
-        # 读取现有日志以保留 start_time 等信息，如果读取失败则创建新的
-        data = self.read_log()
-        if not data:
-            data = {}
+    def update_step(
+        self, step_idx: int, obj_name: str, channel_name: str, queue_idx: int = 0
+    ) -> None:
+        """Update the persistent record with current progress.
 
+        Args:
+            step_idx: Index of the current channel/pass.
+            obj_name: Name of the object being baked.
+            channel_name: Name of the active channel.
+            queue_idx: Absolute index in the full execution queue.
+        """
+        data = self.read_log() or {}
         data.update(
             {
                 "status": "RUNNING",
@@ -63,8 +75,13 @@ class BakeStateManager:
         )
         self._write(data)
 
-    def reset_ui_state(self, context, status="Idle"):
-        """重置场景中的烘焙状态与进度条属性"""
+    def reset_ui_state(self, context: bpy.types.Context, status: str = "Idle") -> None:
+        """Reset scene progress and status properties to default values.
+
+        Args:
+            context: Blender context.
+            status: Status string to display in the UI.
+        """
         if not context or not hasattr(context, "scene"):
             return
 
@@ -72,29 +89,43 @@ class BakeStateManager:
         scene.is_baking = False
         scene.bake_status = status
         scene.bake_progress = 0.0
-        # 如果需要清理错误日志，可以在此处有选择地重置，但通常建议由用户手动清除
-        # scene.bake_error_log = ""
 
-    def finish_session(self, context=None, status="Idle"):
-        """正常结束，删除日志，并可选地重置 UI 状态"""
+    def finish_session(
+        self, context: Optional[bpy.types.Context] = None, status: str = "Idle"
+    ) -> None:
+        """End the session and remove the crash record file.
+
+        Args:
+            context: Optional Blender context to trigger UI reset.
+            status: Final status message for the UI.
+        """
         if self.log_file.exists():
             try:
                 os.remove(self.log_file)
-            except (OSError, FileNotFoundError, PermissionError):
-                logger.debug(f"Could not remove log file: {self.log_file}")
+            except (OSError, FileNotFoundError, PermissionError) as e:
+                logger.debug(f"Could not remove log file {self.log_file}: {e}")
 
         if context:
             self.reset_ui_state(context, status)
 
-    def log_error(self, error_msg):
-        """记录错误但不删除文件"""
+    def log_error(self, error_msg: str) -> None:
+        """Record an error state without removing the crash file.
+
+        Args:
+            error_msg: The error message to persist.
+        """
         data = self.read_log()
         if data:
             data["status"] = "ERROR"
             data["last_error"] = str(error_msg)
             self._write(data)
 
-    def _write(self, data):
+    def _write(self, data: Dict[str, Any]) -> None:
+        """Physically write data to disk with sync.
+
+        Args:
+            data: Dictionary of session state data.
+        """
         try:
             if not self.log_dir.exists():
                 self.log_dir.mkdir(parents=True, exist_ok=True)
@@ -105,12 +136,16 @@ class BakeStateManager:
                 try:
                     os.fsync(f.fileno())
                 except (OSError, AttributeError, NotImplementedError):
-                    pass  # Some systems/mounts don't support fsync
+                    pass
         except (OSError, IOError) as e:
             logger.error(f"BakeTool Log Error: {e}")
 
-    def read_log(self):
-        """读取日志，用于检测崩溃"""
+    def read_log(self) -> Optional[Dict[str, Any]]:
+        """Read and parse the session log file.
+
+        Returns:
+            Dictionary of session data, or None if file missing or invalid.
+        """
         if not self.log_file.exists():
             return None
         try:
@@ -118,12 +153,11 @@ class BakeStateManager:
                 return json.load(f)
         except (json.JSONDecodeError, OSError, IOError):
             return None
-        try:
-            with open(self.log_file, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            return None
 
-    def has_crash_record(self):
-        """检测是否有未完成的记录"""
+    def has_crash_record(self) -> bool:
+        """Check if an unfinished session record exists on disk.
+
+        Returns:
+            bool: True if log file exists.
+        """
         return self.log_file.exists()
