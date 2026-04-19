@@ -270,6 +270,9 @@ def draw_crash_report(layout: bpy.types.UILayout, context: bpy.types.Context) ->
     crash_data = getattr(scene, "baketool_crash_data_cache", None)
 
     if has_crash and crash_data:
+        # T-02: Use translated messages for crash report
+        msg_check = bpy.app.translations.pgettext("Check this object's UV/Mesh complexity")
+        
         if isinstance(crash_data, str):
             try:
                 data = json.loads(crash_data)
@@ -285,7 +288,7 @@ def draw_crash_report(layout: bpy.types.UILayout, context: bpy.types.Context) ->
     box = layout.box()
     box.alert = True
     row = box.row()
-    row.label(text="Detected Unexpected Exit (Crash)", icon="ERROR")
+    row.label(text=bpy.app.translations.pgettext("Detected Unexpected Exit (Crash)"), icon="ERROR")
     row.operator("bake.clear_crash_log", text="", icon="X")
 
     col = box.column()
@@ -304,7 +307,7 @@ def draw_crash_report(layout: bpy.types.UILayout, context: bpy.types.Context) ->
     if err:
         col.label(text=f"Last Error: {err}")
     else:
-        col.label(text="Check this object's UV/Mesh complexity")
+        col.label(text=msg_check)
 
     box.separator()
     op = box.operator(
@@ -451,14 +454,15 @@ def draw_env_status(layout: bpy.types.UILayout, setting: Any) -> None:
             row.operator("bake.open_addon_prefs", text="Fix", icon="SETTINGS")
             any_issue = True
 
-    # 2. Check Path Validity (cached)
+    # 2. Check Path Validity (Cached in RNA property)
     if setting.use_external_save or setting.export_model:
         path = bpy.path.abspath(setting.external_save_path)
-        path_valid = getattr(setting, "_cached_path_valid", None)
-        if path_valid is None:
-            path_valid = bool(path) and os.path.exists(path)
-            setting._cached_path_valid = path_valid
-        if not path_valid:
+        # Standardize check (RNA properties are safer than Python-level injection)
+        is_valid = bool(path) and os.path.exists(path)
+        if setting.path_valid != is_valid:
+            setting.path_valid = is_valid
+        
+        if not setting.path_valid:
             box = layout.box()
             box.alert = True
             box.label(text="Invalid Export Path!", icon="ERROR")

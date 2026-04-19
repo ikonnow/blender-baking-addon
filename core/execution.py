@@ -137,7 +137,7 @@ class BakeModalOperator:
         elif event.type == 'ESC': 
             self.waiting_confirmation = True
             self._last_status = context.scene.bake_status
-            context.scene.bake_status = "!! STOP BAKING? Press Y/Enter to Stop, N/Esc to Resume !!"
+            context.scene.bake_status = bpy.app.translations.pgettext("!! STOP BAKING? Press Y/Enter to Stop, N/Esc to Resume !!")
             return {'RUNNING_MODAL'}
             
         return {'RUNNING_MODAL'}
@@ -203,12 +203,12 @@ class BakeModalOperator:
         if self.bake_queue and hasattr(self.bake_queue[0].job, 'setting'):
              s = self.bake_queue[0].job.setting
              if getattr(s, 'save_and_quit', False): 
-                if not bpy.data.is_dirty:
+                if bpy.data.is_dirty:
                     logger.warning("BakeTool: save_and_quit enabled - saving and exiting Blender now.")
                     bpy.ops.wm.save_mainfile(exit=True)
                 else:
-                    logger.critical("BakeTool: Save and Quit ABORTED. Unsaved changes detected in the scene.")
-                    log_error(context, "Save and Quit aborted: Unsaved changes (dirty flag) detected.")
+                    # Even if not dirty, we might want to exit if the user requested it
+                    bpy.ops.wm.quit_blender()
 
     def cancel(self, context):
         self._cleanup_state(context, "Cancelled")

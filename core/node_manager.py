@@ -191,27 +191,25 @@ class NodeGraphHandler:
 
         # 2. Restore original links
         for mat, links_data in self.original_links.items():
-            if not mat or not mat.node_tree:
+            if not mat or not hasattr(mat, "node_tree") or not mat.node_tree:
                 continue
             tree = mat.node_tree
 
+            # HI-08: Surgical link restoration instead of full clear if possible, 
+            # but for simplicity and reliability of BSDF redirection, we use clear with protection.
             try:
                 tree.links.clear()
             except (ReferenceError, RuntimeError):
-                pass
+                continue
 
             for from_sock, to_sock in links_data:
                 try:
-                    if (
-                        from_sock
-                        and from_sock.node
-                        and from_sock.node.name in tree.nodes
-                        and to_sock
-                        and to_sock.node
-                        and to_sock.node.name in tree.nodes
-                    ):
+                    # Verify both sockets and their nodes still exist
+                    if (from_sock and from_sock.node and from_sock.node.name in tree.nodes and
+                        to_sock and to_sock.node and to_sock.node.name in tree.nodes):
                         tree.links.new(from_sock, to_sock)
-                except (ReferenceError, KeyError, AttributeError):
+                except (ReferenceError, KeyError, AttributeError, RuntimeError):
+                    # Individual link failure shouldn't stop others
                     pass
 
         # 3. Clean up temp attributes

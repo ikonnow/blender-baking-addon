@@ -245,16 +245,16 @@ class BakeStepRunner:
         self.context = context if context else bpy.context
         self.scene = scene if scene else self.context.scene
 
-    def run(self, step: BakeStep, state_mgr: Any = None, queue_idx: int = 0) -> List[Dict]:
+    def run(self, step: BakeStep, state_mgr: Any = None, queue_idx: int = 0) -> List[Dict[str, Any]]:
         """Execute a single Step and return the generated results.
 
         Args:
-            step: The bake step configuration.
+            step: The bake step configuration (namedtuple).
             state_mgr: Optional state manager for progress tracking.
             queue_idx: Index of the step in the execution queue.
 
         Returns:
-            List of dicts containing image data and metadata.
+            List[Dict[str, Any]]: List of dicts containing image data and metadata.
         """
         job, task, channels, f_info = (
             step.job,
@@ -264,9 +264,9 @@ class BakeStepRunner:
         )
         scene = self.scene
 
-        results = []
-        baked_images = {}
-        array_cache = {}
+        results: List[Dict[str, Any]] = []
+        baked_images: Dict[str, bpy.types.Image] = {}
+        array_cache: Dict[bpy.types.Image, np.ndarray] = {}
 
         from contextlib import ExitStack
 
@@ -288,13 +288,16 @@ class BakeStepRunner:
             denoise_scene = None
             if job.setting.use_denoise:
                 denoise_scene = bpy.data.scenes.new(name="BT_Denoise_Shared")
-                stack.callback(
-                    lambda s=denoise_scene: (
-                        bpy.data.scenes.remove(s)
-                        if s and s.name in bpy.data.scenes
-                        else None
-                    )
-                )
+
+                def cleanup_denoise_scene(s):
+                    if s and s.name in bpy.data.scenes:
+                        try:
+                            # HI-07: Use do_unlink=True for aggressive cleanup
+                            bpy.data.scenes.remove(s, do_unlink=True)
+                        except (ReferenceError, RuntimeError):
+                            pass
+
+                stack.callback(cleanup_denoise_scene, denoise_scene)
 
             total_ch = len(channels)
             for i, c in enumerate(channels):
@@ -1244,6 +1247,8 @@ class ModelExporter:
                     embed_textures=use_tex,
                     mesh_smooth_type="FACE",
                 )
+            else:
+                logger.error("BakeTool: FBX Export failed - Addon 'io_scene_fbx' is disabled.")
         elif fmt == "GLB":
             if hasattr(bpy.ops.export_scene, "gltf"):
                 bpy.ops.export_scene.gltf(
@@ -1251,6 +1256,8 @@ class ModelExporter:
                     use_selection=True,
                     export_format="GLB",
                 )
+            else:
+                logger.error("BakeTool: GLB Export failed - Addon 'io_scene_gltf2' is disabled.")
         elif fmt == "USD":
             if hasattr(bpy.ops.wm, "usd_export"):
                 usd_params = {
@@ -1262,6 +1269,8 @@ class ModelExporter:
                 if hasattr(bpy.ops.wm.usd_export, "selected_objects_only"):
                     usd_params["selected_objects_only"] = True
                 bpy.ops.wm.usd_export(**usd_params)
+            else:
+                logger.error("BakeTool: USD Export failed - Not supported in this Blender build or addon disabled.")
 
     @staticmethod
     def _restore_state(context, prev_sel, prev_act, hide_states):

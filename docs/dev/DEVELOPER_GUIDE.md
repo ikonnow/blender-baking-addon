@@ -10,11 +10,11 @@
 本指南为 BakeTool 的后续开发提供架构说明、技术规范及已知问题的记录。通过遵循本指南，您可以有效地为项目做出贡献，同时保持代码质量和跨版本兼容性?
 ---
 
-## 第一章：架构设计
+## 第一章：尝试性的设计架构
 
-### 1.1 三层架构原则
+### 1.1 三层架构设想 (Tentative Design)
 
-BakeTool 遵循严格?**UI-Engine-Core** 三层解耦原则：
+BakeTool 尝试遵循 **UI-Engine-Core** 三层逻辑划分。我们承认由于大量逻辑由 AI 生成，目前各层之间可能仍存在耦合风险，后续维护应保持警惕?
 
 ```
 ┌─────────────────────────────────────────────────────────────??                   UI / Operator ?                         ?? ops.py, ui.py                                             ?? - 数据驱动?UI (CHANNEL_UI_LAYOUT)                        ?? - ?Operator (Thin Operators)                            ?? - 环境健康监测                                            ?└─────────────────────────────────────────────────────────────?                              ?                              ?┌─────────────────────────────────────────────────────────────??                   Engine ?(编排?                          ?? core/engine.py                                            ?? - JobPreparer: 验证输入并准备执行队?                     ?? - BakePassExecutor: 执行烘焙步骤                          ?? - BakeStepRunner: 异步烘焙主控                            ?? - BakePostProcessor: 降噪后处?                          ?└─────────────────────────────────────────────────────────────?                              ?                              ?┌─────────────────────────────────────────────────────────────??                   Core ?(无状态工?                      ?? core/*.py                                                 ?? - image_manager: 图像管理                                 ?? - node_manager: 节点操作                                  ?? - uv_manager: UV 层处?                                  ?? - shading: 着色器工具                                    ?? - common: 共享工具                                        ?? - compat: 版本兼容                                        ?└─────────────────────────────────────────────────────────────?```
@@ -84,77 +84,22 @@ class BakePostProcessor:
 
 ---
 
-## 第二章：技术特?
-### 2.1 Principled BSDF 分析
+## 第二章：关键技术规约
 
-`NodeGraphHandler` 自动识别 Principled BSDF 节点?
-```python
-class NodeGraphHandler:
-    def _detect_shader_type(self, mat):
-        """检测着色器类型并识?BSDF 节点"""
-        if not mat.use_nodes:
-            return None
-        # 遍历节点查找 Principled BSDF
-        for node in mat.node_tree.nodes:
-            if node.bl_idname == "ShaderNodeBsdfPrincipled":
-                return node
-        return None
-```
+### 2.1 三点对齐协议 (Triple-Point Alignment Protocol)
+为了避免 AI 在生成不同文件时产生参数脱节，本项目尝试实施三点对齐规范：
 
-### 2.2 NumPy 加?
-PBR 转换和通道打包使用 NumPy 向量化计算：
+1.  **Constants**: 在 `constants.py` 中定义所有原始默认值、范围和映射。
+2.  **Property**: `property.py` 的 RNA 属性定义必须引用上述常量。
+3.  **Engine**: 核心执行逻辑直接读取 RNA 属性或常量。
 
-```python
-def process_pbr_numpy(target, spec, diff, mode, threshold=0.04):
-    """使用 NumPy 向量化处?PBR 转换"""
-    # 读取像素?NumPy 数组
-    # 向量化计?    # 写回图像
-```
+**校验机制**: 必须通过 `suite_parameter_matrix.py` 动态验证 100+ 种参数组合下的同步状态，尝试在发布前发现逻辑断层。
 
-### 2.3 智能属性迁?
-`PropertyIO` 包含内置的映射表，用于加载旧版本预设?
-```python
-PRESET_MIGRATION_MAP = {
-    "old_bake_type": "new.bake_type",
-    "res": "setting.res_x",
-    # ...
-}
-```
-
-### 2.4 智能对象复用
-
-`apply_baked_result` 检测现有结果物体并执行原地更新?
-```python
-def apply_baked_result(context, source_obj, images, setting, name):
-    """应用到场景，支持智能更新"""
-    existing = f"{name}_Baked"
-    if existing in bpy.data.objects:
-        # 更新现有物体
-        return update_existing_object(existing, images)
-    else:
-        # 创建新物?        return create_new_object(existing, images)
-```
-
-### 2.5 版本兼容?
-`core/compat.py` 提供统一的版本兼容接口：
-
-```python
-IS_BLENDER_5 = bpy.app.version >= (5, 0, 0)
-IS_BLENDER_4 = bpy.app.version >= (4, 0, 0)
-IS_BLENDER_3 = bpy.app.version >= (3, 0, 0)
-
-def get_bake_settings(scene):
-    """统一访问烘焙设置 (处理 5.0 ?render.bake vs 旧版?"""
-    if IS_BLENDER_5:
-        return scene.render.bake
-    return scene.render
-
-def configure_bake_settings(scene, **kwargs):
-    """一站式配置所有烘焙参?""
-    settings = get_bake_settings(scene)
-    for key, value in kwargs.items():
-        setattr(settings, key, value)
-```
+### 2.2 AI 代码维护规范
+本项目中超过 70% 的代码由 AI 辅助生成。由于缺乏大规模生产环境的洗礼，维护者需遵循：
+1.  **逻辑怀疑**: 不要假设 AI 生成的逻辑分支是覆盖完备的。
+2.  **强制测试**: 任何对 AI 生成函数的修改，必须同步运行对应的集成测试。
+3.  **姿态中立**: 在注释中保持客观描述，避免使用过度自信的判断语。
 
 ---
 

@@ -108,6 +108,7 @@ def get_classes():
         prop_module.BakeJobs,
         # Primary Panels
         ui.BAKE_PT_BakePanel,
+        ui.BAKETOOL_PT_BakedResults,
         ui.BAKE_PT_NodePanel,
         ui.BAKETOOL_PT_ImageEditorResults,
     ]

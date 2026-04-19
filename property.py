@@ -112,9 +112,11 @@ def get_channel_source_items(self, context):
 
         base_len = len(items)
         for i, c in enumerate(job.custom_bake_channels):
+            # P-01: Add unique prefix to custom identifiers to prevent conflict with standard IDs
+            identifier = f"BT_CUSTOM_{c.name}"
             items.append(
                 (
-                    c.name,
+                    identifier,
                     c.name,
                     f"Use {c.name} (Custom) as source",
                     "NONE",
@@ -511,6 +513,13 @@ class BakeJobSetting(bpy.types.PropertyGroup):
         default=False,
         name="Auto Switch to Vertex Paint",
         description="Automatically switch viewport to Vertex Paint mode after cage analysis",
+    )
+
+    path_valid: props.BoolProperty(
+        name="Path Valid",
+        default=True,
+        options={"SKIP_SAVE"},
+        description="Internal cache for export path validity",
     )
 
     # Channel Packing (ORM etc)

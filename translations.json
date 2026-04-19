@@ -191,11 +191,29 @@
             "ru_RU": "Auto Pack Channels",
             "ja_JP": "Auto Pack Channels"
         },
-        "Auto Pack Channels (ORM)": {
-            "zh_CN": "自动打包通道 (ORM)",
-            "fr_FR": "Auto Pack Channels (ORM)",
-            "ru_RU": "Auto Pack Channels (ORM)",
-            "ja_JP": "Auto Pack Channels (ORM)"
+        "ORM Packing (R+G+B+A)": {
+            "zh_CN": "ORM 通道打包 (R+G+B+A)",
+            "fr_FR": "Empaquetage ORM (R+G+B+A)",
+            "ru_RU": "ORM Упаковка (R+G+B+A)",
+            "ja_JP": "ORMパッキング (R+G+B+A)"
+        },
+        "Sync UDIM Tiles": {
+            "zh_CN": "同步 UDIM 瓦片",
+            "fr_FR": "Synchroniser les tuiles UDIM",
+            "ru_RU": "Синхронизировать плитки UDIM",
+            "ja_JP": "UDIMタイルを同期"
+        },
+        "Job Manager": {
+            "zh_CN": "任务管理器",
+            "fr_FR": "Gestionnaire de tâches",
+            "ru_RU": "Менеджер задач",
+            "ja_JP": "ジョブマネージャー"
+        },
+        "Target": {
+            "zh_CN": "目标",
+            "fr_FR": "Cible",
+            "ru_RU": "Цель",
+            "ja_JP": "ターゲット"
         },
         "Auto Repack": {
             "zh_CN": "自动重新分幅",
@@ -390,16 +408,88 @@
             "ja_JP": "ベイク结果"
         },
         "Baking": {
-            "zh_CN": "烘焙中",
-            "fr_FR": "Cuisson en cours",
-            "ru_RU": "Запекание...",
-            "ja_JP": "ベイク中"
+            "zh_CN": "烘焙",
+            "fr_FR": "Cuisson",
+            "ru_RU": "Запекание",
+            "ja_JP": "ベイク"
+        },
+        "JOB MANAGER": {
+            "zh_CN": "任务管理器",
+            "fr_FR": "GESTIONNAIRE DE TÂCHES",
+            "ru_RU": "МЕНЕДЖЕР ЗАДАЧ",
+            "ja_JP": "ジョブマネージャー"
+        },
+        "Import": {
+            "zh_CN": "导入",
+            "fr_FR": "Importer",
+            "ru_RU": "Импорт",
+            "ja_JP": "インポート"
+        },
+        "Export": {
+            "zh_CN": "导出",
+            "fr_FR": "Exporter",
+            "ru_RU": "Экспорт",
+            "ja_JP": "エクスポート"
+        },
+        "Export Settings": {
+            "zh_CN": "导出设置",
+            "fr_FR": "Paramètres d'exportation",
+            "ru_RU": "Настройки экспорта",
+            "ja_JP": "エクスポート設定"
+        },
+        "Create a job to define bake parameters": {
+            "zh_CN": "创建任务以配置烘焙参数",
+            "fr_FR": "Créer une tâche pour définir les paramètres",
+            "ru_RU": "Создайте задачу для настройки параметров",
+            "ja_JP": "ジョブを作成してベイクパラメータを定義します"
+        },
+        "Config Name": {
+            "zh_CN": "配置名称",
+            "fr_FR": "Nom de la config",
+            "ru_RU": "Имя конфигурации",
+            "ja_JP": "設定名"
+        },
+        "1. SETUP & TARGETS": {
+            "zh_CN": "1. 场景设置与目标",
+            "fr_FR": "1. CONFIGURATION & CIBLES",
+            "ru_RU": "1. НАСТРОЙКА И ЦЕЛИ",
+            "ja_JP": "1. セットアップとターゲット"
+        },
+        "2. BAKE CHANNELS": {
+            "zh_CN": "2. 烘焙通道配置",
+            "fr_FR": "2. CANAUX DE CUISSON",
+            "ru_RU": "2. КАНАЛЫ ЗАПЕКАНИЯ",
+            "ja_JP": "2. ベイクチャンネル"
+        },
+        "3. OUTPUT & EXPORT": {
+            "zh_CN": "3. 输出与导出",
+            "fr_FR": "3. SORTIE & EXPORTATION",
+            "ru_RU": "3. ВЫВОД И ЭКСПОРТ",
+            "ja_JP": "3. 出力とエクスポート"
+        },
+        "4. CUSTOM MAPS": {
+            "zh_CN": "4. 自定义贴图逻辑",
+            "fr_FR": "4. CARTES PERSONNALISÉES",
+            "ru_RU": "4. ПОЛЬЗОВАТЕЛЬСКИЕ КАРТЫ",
+            "ja_JP": "4. カスタムマップ"
         },
         "Baking Tool": {
-            "zh_CN": "简易烘焙工具",
-            "fr_FR": "Outil de cuisson simple",
-            "ru_RU": "Инструмент запекания",
-            "ja_JP": "簡易ベイクツール"
+            "zh_CN": "烘焙工具面板",
+            "fr_FR": "Outil de cuisson",
+            "ru_RU": "Панель запекания",
+            "ja_JP": "ベイクツール"
+        },
+        "Job 1": {
+            "zh_CN": "任务 1",
+            "fr_FR": "Tâche 1",
+            "ru_RU": "Задача 1",
+            "ja_JP": "ジョブ 1"
+        },
+        "Job 2": {
+            "zh_CN": "任务 2",
+            "fr_FR": "Tâche 2",
+            "ru_RU": "Задача 2",
+            "ja_JP": "ジョブ 2"
         },
         "Base Name": {
             "zh_CN": "基础命名",
@@ -2194,6 +2284,1056 @@
             "fr_FR": "⚠ Attention : Réservé aux développeurs !",
             "ru_RU": "⚠ Внимание: Только для разработчиков!",
             "ja_JP": "⚠ 警告: 开发者専用！"
+        },
+        "!! STOP BAKING? Press Y/Enter to Stop, N/Esc to Resume !!": {
+            "zh_CN": "!! STOP BAKING? Press Y/Enter to Stop, N/Esc to Resume !!",
+            "en_US": "!! STOP BAKING? Press Y/Enter to Stop, N/Esc to Resume !!",
+            "fr_FR": "!! STOP BAKING? Press Y/Enter to Stop, N/Esc to Resume !!",
+            "ru_RU": "!! STOP BAKING? Press Y/Enter to Stop, N/Esc to Resume !!",
+            "ja_JP": "!! STOP BAKING? Press Y/Enter to Stop, N/Esc to Resume !!"
+        },
+        "(Empty)": {
+            "zh_CN": "(Empty)",
+            "en_US": "(Empty)",
+            "fr_FR": "(Empty)",
+            "ru_RU": "(Empty)",
+            "ja_JP": "(Empty)"
+        },
+        "(No UV!)": {
+            "zh_CN": "(No UV!)",
+            "en_US": "(No UV!)",
+            "fr_FR": "(No UV!)",
+            "ru_RU": "(No UV!)",
+            "ja_JP": "(No UV!)"
+        },
+        "1. SETUP & TARGETS": {
+            "zh_CN": "1. SETUP & TARGETS",
+            "en_US": "1. SETUP & TARGETS",
+            "fr_FR": "1. SETUP & TARGETS",
+            "ru_RU": "1. SETUP & TARGETS",
+            "ja_JP": "1. SETUP & TARGETS"
+        },
+        "2. BAKE CHANNELS": {
+            "zh_CN": "2. BAKE CHANNELS",
+            "en_US": "2. BAKE CHANNELS",
+            "fr_FR": "2. BAKE CHANNELS",
+            "ru_RU": "2. BAKE CHANNELS",
+            "ja_JP": "2. BAKE CHANNELS"
+        },
+        "3. OUTPUT & EXPORT": {
+            "zh_CN": "3. OUTPUT & EXPORT",
+            "en_US": "3. OUTPUT & EXPORT",
+            "fr_FR": "3. OUTPUT & EXPORT",
+            "ru_RU": "3. OUTPUT & EXPORT",
+            "ja_JP": "3. OUTPUT & EXPORT"
+        },
+        "4. CUSTOM MAPS": {
+            "zh_CN": "4. CUSTOM MAPS",
+            "en_US": "4. CUSTOM MAPS",
+            "fr_FR": "4. CUSTOM MAPS",
+            "ru_RU": "4. CUSTOM MAPS",
+            "ja_JP": "4. CUSTOM MAPS"
+        },
+        "ADD": {
+            "zh_CN": "ADD",
+            "en_US": "ADD",
+            "fr_FR": "ADD",
+            "ru_RU": "ADD",
+            "ja_JP": "ADD"
+        },
+        "Action": {
+            "zh_CN": "Action",
+            "en_US": "Action",
+            "fr_FR": "Action",
+            "ru_RU": "Action",
+            "ja_JP": "Action"
+        },
+        "Add": {
+            "zh_CN": "Add",
+            "en_US": "Add",
+            "fr_FR": "Add",
+            "ru_RU": "Add",
+            "ja_JP": "Add"
+        },
+        "Add a new item": {
+            "zh_CN": "Add a new item",
+            "en_US": "Add a new item",
+            "fr_FR": "Add a new item",
+            "ru_RU": "Add a new item",
+            "ja_JP": "Add a new item"
+        },
+        "Addon Prefs": {
+            "zh_CN": "Addon Prefs",
+            "en_US": "Addon Prefs",
+            "fr_FR": "Addon Prefs",
+            "ru_RU": "Addon Prefs",
+            "ja_JP": "Addon Prefs"
+        },
+        "Analyze Cage Overlap": {
+            "zh_CN": "分析烘焙笼重叠",
+            "en_US": "Analyze Cage Overlap",
+            "fr_FR": "Analyze Cage Overlap",
+            "ru_RU": "Analyze Cage Overlap",
+            "ja_JP": "Analyze Cage Overlap"
+        },
+        "Analyze Overlap": {
+            "zh_CN": "Analyze Overlap",
+            "en_US": "Analyze Overlap",
+            "fr_FR": "Analyze Overlap",
+            "ru_RU": "Analyze Overlap",
+            "ja_JP": "Analyze Overlap"
+        },
+        "Angle": {
+            "zh_CN": "Angle",
+            "en_US": "Angle",
+            "fr_FR": "Angle",
+            "ru_RU": "Angle",
+            "ja_JP": "Angle"
+        },
+        "Angle limit for Smart UV projection (66° default)": {
+            "zh_CN": "Angle limit for Smart UV projection (66° default)",
+            "en_US": "Angle limit for Smart UV projection (66° default)",
+            "fr_FR": "Angle limit for Smart UV projection (66° default)",
+            "ru_RU": "Angle limit for Smart UV projection (66° default)",
+            "ja_JP": "Angle limit for Smart UV projection (66° default)"
+        },
+        "Anti-Aliasing": {
+            "zh_CN": "Anti-Aliasing",
+            "en_US": "Anti-Aliasing",
+            "fr_FR": "Anti-Aliasing",
+            "ru_RU": "Anti-Aliasing",
+            "ja_JP": "Anti-Aliasing"
+        },
+        "Auto Switch to Vertex Paint": {
+            "zh_CN": "Auto Switch to Vertex Paint",
+            "en_US": "Auto Switch to Vertex Paint",
+            "fr_FR": "Auto Switch to Vertex Paint",
+            "ru_RU": "Auto Switch to Vertex Paint",
+            "ja_JP": "Auto Switch to Vertex Paint"
+        },
+        "Auto UV": {
+            "zh_CN": "Auto UV",
+            "en_US": "Auto UV",
+            "fr_FR": "Auto UV",
+            "ru_RU": "Auto UV",
+            "ja_JP": "Auto UV"
+        },
+        "Auto-Apply": {
+            "zh_CN": "Auto-Apply",
+            "en_US": "Auto-Apply",
+            "fr_FR": "Auto-Apply",
+            "ru_RU": "Auto-Apply",
+            "ja_JP": "Auto-Apply"
+        },
+        "Auto-VP": {
+            "zh_CN": "Auto-VP",
+            "en_US": "Auto-VP",
+            "fr_FR": "Auto-VP",
+            "ru_RU": "Auto-VP",
+            "ja_JP": "Auto-VP"
+        },
+        "Automatically bind baked textures to exported model": {
+            "zh_CN": "Automatically bind baked textures to exported model",
+            "en_US": "Automatically bind baked textures to exported model",
+            "fr_FR": "Automatically bind baked textures to exported model",
+            "ru_RU": "Automatically bind baked textures to exported model",
+            "ja_JP": "Automatically bind baked textures to exported model"
+        },
+        "Automatically switch viewport to Vertex Paint mode after cage analysis": {
+            "zh_CN": "Automatically switch viewport to Vertex Paint mode after cage analysis",
+            "en_US": "Automatically switch viewport to Vertex Paint mode after cage analysis",
+            "fr_FR": "Automatically switch viewport to Vertex Paint mode after cage analysis",
+            "ru_RU": "Automatically switch viewport to Vertex Paint mode after cage analysis",
+            "ja_JP": "Automatically switch viewport to Vertex Paint mode after cage analysis"
+        },
+        "B&W": {
+            "zh_CN": "B&W",
+            "en_US": "B&W",
+            "fr_FR": "B&W",
+            "ru_RU": "B&W",
+            "ja_JP": "B&W"
+        },
+        "Bake Objects": {
+            "zh_CN": "Bake Objects",
+            "en_US": "Bake Objects",
+            "fr_FR": "Bake Objects",
+            "ru_RU": "Bake Objects",
+            "ja_JP": "Bake Objects"
+        },
+        "BakeTool properties not initialized.": {
+            "zh_CN": "BakeTool properties not initialized.",
+            "en_US": "BakeTool properties not initialized.",
+            "fr_FR": "BakeTool properties not initialized.",
+            "ru_RU": "BakeTool properties not initialized.",
+            "ja_JP": "BakeTool properties not initialized."
+        },
+        "Channel Op": {
+            "zh_CN": "Channel Op",
+            "en_US": "Channel Op",
+            "fr_FR": "Channel Op",
+            "ru_RU": "Channel Op",
+            "ja_JP": "Channel Op"
+        },
+        "Channels reset to default for current bake type.": {
+            "zh_CN": "通道已重置为当前类型的默认值。",
+            "en_US": "Channels reset to default for current bake type.",
+            "fr_FR": "Channels reset to default for current bake type.",
+            "ru_RU": "Channels reset to default for current bake type.",
+            "ja_JP": "Channels reset to default for current bake type."
+        },
+        "Clear Crash Log": {
+            "zh_CN": "Clear Crash Log",
+            "en_US": "Clear Crash Log",
+            "fr_FR": "Clear Crash Log",
+            "ru_RU": "Clear Crash Log",
+            "ja_JP": "Clear Crash Log"
+        },
+        "Config Name": {
+            "zh_CN": "Config Name",
+            "en_US": "Config Name",
+            "fr_FR": "Config Name",
+            "ru_RU": "Config Name",
+            "ja_JP": "Config Name"
+        },
+        "Crash Data Cache": {
+            "zh_CN": "Crash Data Cache",
+            "en_US": "Crash Data Cache",
+            "fr_FR": "Crash Data Cache",
+            "ru_RU": "Crash Data Cache",
+            "ja_JP": "Crash Data Cache"
+        },
+        "Create a job to define bake parameters": {
+            "zh_CN": "Create a job to define bake parameters",
+            "en_US": "Create a job to define bake parameters",
+            "fr_FR": "Create a job to define bake parameters",
+            "ru_RU": "Create a job to define bake parameters",
+            "ja_JP": "Create a job to define bake parameters"
+        },
+        "DEV MODE": {
+            "zh_CN": "DEV MODE",
+            "en_US": "DEV MODE",
+            "fr_FR": "DEV MODE",
+            "ru_RU": "DEV MODE",
+            "ja_JP": "DEV MODE"
+        },
+        "DOWN": {
+            "zh_CN": "DOWN",
+            "en_US": "DOWN",
+            "fr_FR": "DOWN",
+            "ru_RU": "DOWN",
+            "ja_JP": "DOWN"
+        },
+        "Down": {
+            "zh_CN": "Down",
+            "en_US": "Down",
+            "fr_FR": "Down",
+            "ru_RU": "Down",
+            "ja_JP": "Down"
+        },
+        "Export Bake Settings": {
+            "zh_CN": "Export Bake Settings",
+            "en_US": "Export Bake Settings",
+            "fr_FR": "Export Bake Settings",
+            "ru_RU": "Export Bake Settings",
+            "ja_JP": "Export Bake Settings"
+        },
+        "Export with Textures": {
+            "zh_CN": "Export with Textures",
+            "en_US": "Export with Textures",
+            "fr_FR": "Export with Textures",
+            "ru_RU": "Export with Textures",
+            "ja_JP": "Export with Textures"
+        },
+        "Ext": {
+            "zh_CN": "Ext",
+            "en_US": "Ext",
+            "fr_FR": "Ext",
+            "ru_RU": "Ext",
+            "ja_JP": "Ext"
+        },
+        "Fix": {
+            "zh_CN": "Fix",
+            "en_US": "Fix",
+            "fr_FR": "Fix",
+            "ru_RU": "Fix",
+            "ja_JP": "Fix"
+        },
+        "HDR": {
+            "zh_CN": "HDR",
+            "en_US": "HDR",
+            "fr_FR": "HDR",
+            "ru_RU": "HDR",
+            "ja_JP": "HDR"
+        },
+        "Has Crash Record": {
+            "zh_CN": "Has Crash Record",
+            "en_US": "Has Crash Record",
+            "fr_FR": "Has Crash Record",
+            "ru_RU": "Has Crash Record",
+            "ja_JP": "Has Crash Record"
+        },
+        "Import": {
+            "zh_CN": "Import",
+            "en_US": "Import",
+            "fr_FR": "Import",
+            "ru_RU": "Import",
+            "ja_JP": "Import"
+        },
+        "Import Bake Settings": {
+            "zh_CN": "Import Bake Settings",
+            "en_US": "Import Bake Settings",
+            "fr_FR": "Import Bake Settings",
+            "ru_RU": "Import Bake Settings",
+            "ja_JP": "Import Bake Settings"
+        },
+        "Internal cache for export path validity": {
+            "zh_CN": "Internal cache for export path validity",
+            "en_US": "Internal cache for export path validity",
+            "fr_FR": "Internal cache for export path validity",
+            "ru_RU": "Internal cache for export path validity",
+            "ja_JP": "Internal cache for export path validity"
+        },
+        "Invalid Export Path!": {
+            "zh_CN": "Invalid Export Path!",
+            "en_US": "Invalid Export Path!",
+            "fr_FR": "Invalid Export Path!",
+            "ru_RU": "Invalid Export Path!",
+            "ja_JP": "Invalid Export Path!"
+        },
+        "JOB MANAGER": {
+            "zh_CN": "JOB MANAGER",
+            "en_US": "JOB MANAGER",
+            "fr_FR": "JOB MANAGER",
+            "ru_RU": "JOB MANAGER",
+            "ja_JP": "JOB MANAGER"
+        },
+        "Light": {
+            "zh_CN": "Light",
+            "en_US": "Light",
+            "fr_FR": "Light",
+            "ru_RU": "Light",
+            "ja_JP": "Light"
+        },
+        "Mesh": {
+            "zh_CN": "Mesh",
+            "en_US": "Mesh",
+            "fr_FR": "Mesh",
+            "ru_RU": "Mesh",
+            "ja_JP": "Mesh"
+        },
+        "Move current item down": {
+            "zh_CN": "Move current item down",
+            "en_US": "Move current item down",
+            "fr_FR": "Move current item down",
+            "ru_RU": "Move current item down",
+            "ja_JP": "Move current item down"
+        },
+        "Move current item up": {
+            "zh_CN": "Move current item up",
+            "en_US": "Move current item up",
+            "fr_FR": "Move current item up",
+            "ru_RU": "Move current item up",
+            "ja_JP": "Move current item up"
+        },
+        "Naming": {
+            "zh_CN": "Naming",
+            "en_US": "Naming",
+            "fr_FR": "Naming",
+            "ru_RU": "Naming",
+            "ja_JP": "Naming"
+        },
+        "No objects to preview": {
+            "zh_CN": "No objects to preview",
+            "en_US": "No objects to preview",
+            "fr_FR": "No objects to preview",
+            "ru_RU": "No objects to preview",
+            "ja_JP": "No objects to preview"
+        },
+        "Nothing to bake (Check logs/setup).": {
+            "zh_CN": "没有可烘焙的内容 (请检查日志或设置)",
+            "en_US": "Nothing to bake (Check logs/setup).",
+            "fr_FR": "Nothing to bake (Check logs/setup).",
+            "ru_RU": "Nothing to bake (Check logs/setup).",
+            "ja_JP": "Nothing to bake (Check logs/setup)."
+        },
+        "One-Click PBR Setup": {
+            "zh_CN": "一键 PBR 快速设置",
+            "en_US": "One-Click PBR Setup",
+            "fr_FR": "One-Click PBR Setup",
+            "ru_RU": "One-Click PBR Setup",
+            "ja_JP": "One-Click PBR Setup"
+        },
+        "PBR": {
+            "zh_CN": "PBR",
+            "en_US": "PBR",
+            "fr_FR": "PBR",
+            "ru_RU": "PBR",
+            "ja_JP": "PBR"
+        },
+        "Path Valid": {
+            "zh_CN": "Path Valid",
+            "en_US": "Path Valid",
+            "fr_FR": "Path Valid",
+            "ru_RU": "Path Valid",
+            "ja_JP": "Path Valid"
+        },
+        "Refresh Presets": {
+            "zh_CN": "Refresh Presets",
+            "en_US": "Refresh Presets",
+            "fr_FR": "Refresh Presets",
+            "ru_RU": "Refresh Presets",
+            "ja_JP": "Refresh Presets"
+        },
+        "Remove all items": {
+            "zh_CN": "Remove all items",
+            "en_US": "Remove all items",
+            "fr_FR": "Remove all items",
+            "ru_RU": "Remove all items",
+            "ja_JP": "Remove all items"
+        },
+        "Remove the selected item": {
+            "zh_CN": "Remove the selected item",
+            "en_US": "Remove the selected item",
+            "fr_FR": "Remove the selected item",
+            "ru_RU": "Remove the selected item",
+            "ja_JP": "Remove the selected item"
+        },
+        "Requires 'Selected to Active' mode.": {
+            "zh_CN": "Requires 'Selected to Active' mode.",
+            "en_US": "Requires 'Selected to Active' mode.",
+            "fr_FR": "Requires 'Selected to Active' mode.",
+            "ru_RU": "Requires 'Selected to Active' mode.",
+            "ja_JP": "Requires 'Selected to Active' mode."
+        },
+        "Run Development Tests": {
+            "zh_CN": "运行插件安全性开发测试",
+            "en_US": "Run Development Tests",
+            "fr_FR": "Run Development Tests",
+            "ru_RU": "Run Development Tests",
+            "ja_JP": "Run Development Tests"
+        },
+        "Run Safety Audit": {
+            "zh_CN": "Run Safety Audit",
+            "en_US": "Run Safety Audit",
+            "fr_FR": "Run Safety Audit",
+            "ru_RU": "Run Safety Audit",
+            "ja_JP": "Run Safety Audit"
+        },
+        "START BAKE PIPELINE": {
+            "zh_CN": "START BAKE PIPELINE",
+            "en_US": "START BAKE PIPELINE",
+            "fr_FR": "START BAKE PIPELINE",
+            "ru_RU": "START BAKE PIPELINE",
+            "ja_JP": "START BAKE PIPELINE"
+        },
+        "Select high poly objects first.": {
+            "zh_CN": "Select high poly objects first.",
+            "en_US": "Select high poly objects first.",
+            "fr_FR": "Select high poly objects first.",
+            "ru_RU": "Select high poly objects first.",
+            "ja_JP": "Select high poly objects first."
+        },
+        "Smart Intelligence": {
+            "zh_CN": "Smart Intelligence",
+            "en_US": "Smart Intelligence",
+            "fr_FR": "Smart Intelligence",
+            "ru_RU": "Smart Intelligence",
+            "ja_JP": "Smart Intelligence"
+        },
+        "Smart Match (High -> Low)": {
+            "zh_CN": "Smart Match (High -> Low)",
+            "en_US": "Smart Match (High -> Low)",
+            "fr_FR": "Smart Match (High -> Low)",
+            "ru_RU": "Smart Match (High -> Low)",
+            "ja_JP": "Smart Match (High -> Low)"
+        },
+        "Standard PBR channels enabled.": {
+            "zh_CN": "标准 PBR 通道已启用。",
+            "en_US": "Standard PBR channels enabled.",
+            "fr_FR": "Standard PBR channels enabled.",
+            "ru_RU": "Standard PBR channels enabled.",
+            "ja_JP": "Standard PBR channels enabled."
+        },
+        "Texel": {
+            "zh_CN": "Texel",
+            "en_US": "Texel",
+            "fr_FR": "Texel",
+            "ru_RU": "Texel",
+            "ja_JP": "Texel"
+        },
+        "UP": {
+            "zh_CN": "UP",
+            "en_US": "UP",
+            "fr_FR": "UP",
+            "ru_RU": "UP",
+            "ja_JP": "UP"
+        },
+        "Up": {
+            "zh_CN": "Up",
+            "en_US": "Up",
+            "fr_FR": "Up",
+            "ru_RU": "Up",
+            "ja_JP": "Up"
+        },
+        "active_object": {
+            "zh_CN": "active_object",
+            "en_US": "active_object",
+            "fr_FR": "active_object",
+            "ru_RU": "active_object",
+            "ja_JP": "active_object"
+        },
+        "apply_to_scene": {
+            "zh_CN": "apply_to_scene",
+            "en_US": "apply_to_scene",
+            "fr_FR": "apply_to_scene",
+            "ru_RU": "apply_to_scene",
+            "ja_JP": "apply_to_scene"
+        },
+        "auto_cage_margin": {
+            "zh_CN": "auto_cage_margin",
+            "en_US": "auto_cage_margin",
+            "fr_FR": "auto_cage_margin",
+            "ru_RU": "auto_cage_margin",
+            "ja_JP": "auto_cage_margin"
+        },
+        "auto_cage_mode": {
+            "zh_CN": "auto_cage_mode",
+            "en_US": "auto_cage_mode",
+            "fr_FR": "auto_cage_mode",
+            "ru_RU": "auto_cage_mode",
+            "ja_JP": "auto_cage_mode"
+        },
+        "auto_load": {
+            "zh_CN": "auto_load",
+            "en_US": "auto_load",
+            "fr_FR": "auto_load",
+            "ru_RU": "auto_load",
+            "ja_JP": "auto_load"
+        },
+        "auto_switch_vertex_paint": {
+            "zh_CN": "auto_switch_vertex_paint",
+            "en_US": "auto_switch_vertex_paint",
+            "fr_FR": "auto_switch_vertex_paint",
+            "ru_RU": "auto_switch_vertex_paint",
+            "ja_JP": "auto_switch_vertex_paint"
+        },
+        "auto_uv_angle": {
+            "zh_CN": "auto_uv_angle",
+            "en_US": "auto_uv_angle",
+            "fr_FR": "auto_uv_angle",
+            "ru_RU": "auto_uv_angle",
+            "ja_JP": "auto_uv_angle"
+        },
+        "auto_uv_margin": {
+            "zh_CN": "auto_uv_margin",
+            "en_US": "auto_uv_margin",
+            "fr_FR": "auto_uv_margin",
+            "ru_RU": "auto_uv_margin",
+            "ja_JP": "auto_uv_margin"
+        },
+        "bake.analyze_cage": {
+            "zh_CN": "bake.analyze_cage",
+            "en_US": "bake.analyze_cage",
+            "fr_FR": "bake.analyze_cage",
+            "ru_RU": "bake.analyze_cage",
+            "ja_JP": "bake.analyze_cage"
+        },
+        "bake.bake_operator": {
+            "zh_CN": "bake.bake_operator",
+            "en_US": "bake.bake_operator",
+            "fr_FR": "bake.bake_operator",
+            "ru_RU": "bake.bake_operator",
+            "ja_JP": "bake.bake_operator"
+        },
+        "bake.clear_crash_log": {
+            "zh_CN": "bake.clear_crash_log",
+            "en_US": "bake.clear_crash_log",
+            "fr_FR": "bake.clear_crash_log",
+            "ru_RU": "bake.clear_crash_log",
+            "ja_JP": "bake.clear_crash_log"
+        },
+        "bake.generic_channel_op": {
+            "zh_CN": "bake.generic_channel_op",
+            "en_US": "bake.generic_channel_op",
+            "fr_FR": "bake.generic_channel_op",
+            "ru_RU": "bake.generic_channel_op",
+            "ja_JP": "bake.generic_channel_op"
+        },
+        "bake.load_setting": {
+            "zh_CN": "bake.load_setting",
+            "en_US": "bake.load_setting",
+            "fr_FR": "bake.load_setting",
+            "ru_RU": "bake.load_setting",
+            "ja_JP": "bake.load_setting"
+        },
+        "bake.manage_objects": {
+            "zh_CN": "bake.manage_objects",
+            "en_US": "bake.manage_objects",
+            "fr_FR": "bake.manage_objects",
+            "ru_RU": "bake.manage_objects",
+            "ja_JP": "bake.manage_objects"
+        },
+        "bake.one_click_pbr": {
+            "zh_CN": "bake.one_click_pbr",
+            "en_US": "bake.one_click_pbr",
+            "fr_FR": "bake.one_click_pbr",
+            "ru_RU": "bake.one_click_pbr",
+            "ja_JP": "bake.one_click_pbr"
+        },
+        "bake.open_addon_prefs": {
+            "zh_CN": "bake.open_addon_prefs",
+            "en_US": "bake.open_addon_prefs",
+            "fr_FR": "bake.open_addon_prefs",
+            "ru_RU": "bake.open_addon_prefs",
+            "ja_JP": "bake.open_addon_prefs"
+        },
+        "bake.quick_bake": {
+            "zh_CN": "bake.quick_bake",
+            "en_US": "bake.quick_bake",
+            "fr_FR": "bake.quick_bake",
+            "ru_RU": "bake.quick_bake",
+            "ja_JP": "bake.quick_bake"
+        },
+        "bake.refresh_presets": {
+            "zh_CN": "bake.refresh_presets",
+            "en_US": "bake.refresh_presets",
+            "fr_FR": "bake.refresh_presets",
+            "ru_RU": "bake.refresh_presets",
+            "ja_JP": "bake.refresh_presets"
+        },
+        "bake.refresh_udim_locations": {
+            "zh_CN": "bake.refresh_udim_locations",
+            "en_US": "bake.refresh_udim_locations",
+            "fr_FR": "bake.refresh_udim_locations",
+            "ru_RU": "bake.refresh_udim_locations",
+            "ja_JP": "bake.refresh_udim_locations"
+        },
+        "bake.reset_channels": {
+            "zh_CN": "bake.reset_channels",
+            "en_US": "bake.reset_channels",
+            "fr_FR": "bake.reset_channels",
+            "ru_RU": "bake.reset_channels",
+            "ja_JP": "bake.reset_channels"
+        },
+        "bake.run_dev_tests": {
+            "zh_CN": "bake.run_dev_tests",
+            "en_US": "bake.run_dev_tests",
+            "fr_FR": "bake.run_dev_tests",
+            "ru_RU": "bake.run_dev_tests",
+            "ja_JP": "bake.run_dev_tests"
+        },
+        "bake.save_setting": {
+            "zh_CN": "bake.save_setting",
+            "en_US": "bake.save_setting",
+            "fr_FR": "bake.save_setting",
+            "ru_RU": "bake.save_setting",
+            "ja_JP": "bake.save_setting"
+        },
+        "bake.selected_node_bake": {
+            "zh_CN": "bake.selected_node_bake",
+            "en_US": "bake.selected_node_bake",
+            "fr_FR": "bake.selected_node_bake",
+            "ru_RU": "bake.selected_node_bake",
+            "ja_JP": "bake.selected_node_bake"
+        },
+        "bake.set_save_local": {
+            "zh_CN": "bake.set_save_local",
+            "en_US": "bake.set_save_local",
+            "fr_FR": "bake.set_save_local",
+            "ru_RU": "bake.set_save_local",
+            "ja_JP": "bake.set_save_local"
+        },
+        "bake_mode": {
+            "zh_CN": "bake_mode",
+            "en_US": "bake_mode",
+            "fr_FR": "bake_mode",
+            "ru_RU": "bake_mode",
+            "ja_JP": "bake_mode"
+        },
+        "bake_progress": {
+            "zh_CN": "bake_progress",
+            "en_US": "bake_progress",
+            "fr_FR": "bake_progress",
+            "ru_RU": "bake_progress",
+            "ja_JP": "bake_progress"
+        },
+        "bake_type": {
+            "zh_CN": "bake_type",
+            "en_US": "bake_type",
+            "fr_FR": "bake_type",
+            "ru_RU": "bake_type",
+            "ja_JP": "bake_type"
+        },
+        "baketool.delete_all_results": {
+            "zh_CN": "baketool.delete_all_results",
+            "en_US": "baketool.delete_all_results",
+            "fr_FR": "baketool.delete_all_results",
+            "ru_RU": "baketool.delete_all_results",
+            "ja_JP": "baketool.delete_all_results"
+        },
+        "baketool.delete_result": {
+            "zh_CN": "baketool.delete_result",
+            "en_US": "baketool.delete_result",
+            "fr_FR": "baketool.delete_result",
+            "ru_RU": "baketool.delete_result",
+            "ja_JP": "baketool.delete_result"
+        },
+        "baketool.export_all_results": {
+            "zh_CN": "baketool.export_all_results",
+            "en_US": "baketool.export_all_results",
+            "fr_FR": "baketool.export_all_results",
+            "ru_RU": "baketool.export_all_results",
+            "ja_JP": "baketool.export_all_results"
+        },
+        "baketool.export_result": {
+            "zh_CN": "baketool.export_result",
+            "en_US": "baketool.export_result",
+            "fr_FR": "baketool.export_result",
+            "ru_RU": "baketool.export_result",
+            "ja_JP": "baketool.export_result"
+        },
+        "col_chan": {
+            "zh_CN": "col_chan",
+            "en_US": "col_chan",
+            "fr_FR": "col_chan",
+            "ru_RU": "col_chan",
+            "ja_JP": "col_chan"
+        },
+        "color_space": {
+            "zh_CN": "color_space",
+            "en_US": "color_space",
+            "fr_FR": "color_space",
+            "ru_RU": "color_space",
+            "ja_JP": "color_space"
+        },
+        "custom_cs": {
+            "zh_CN": "custom_cs",
+            "en_US": "custom_cs",
+            "fr_FR": "custom_cs",
+            "ru_RU": "custom_cs",
+            "ja_JP": "custom_cs"
+        },
+        "custom_mode": {
+            "zh_CN": "custom_mode",
+            "en_US": "custom_mode",
+            "fr_FR": "custom_mode",
+            "ru_RU": "custom_mode",
+            "ja_JP": "custom_mode"
+        },
+        "custom_name": {
+            "zh_CN": "custom_name",
+            "en_US": "custom_name",
+            "fr_FR": "custom_name",
+            "ru_RU": "custom_name",
+            "ja_JP": "custom_name"
+        },
+        "debug_mode": {
+            "zh_CN": "debug_mode",
+            "en_US": "debug_mode",
+            "fr_FR": "debug_mode",
+            "ru_RU": "debug_mode",
+            "ja_JP": "debug_mode"
+        },
+        "default_preset_path": {
+            "zh_CN": "default_preset_path",
+            "en_US": "default_preset_path",
+            "fr_FR": "default_preset_path",
+            "ru_RU": "default_preset_path",
+            "ja_JP": "default_preset_path"
+        },
+        "enabled": {
+            "zh_CN": "enabled",
+            "en_US": "enabled",
+            "fr_FR": "enabled",
+            "ru_RU": "enabled",
+            "ja_JP": "enabled"
+        },
+        "export_format": {
+            "zh_CN": "export_format",
+            "en_US": "export_format",
+            "fr_FR": "export_format",
+            "ru_RU": "export_format",
+            "ja_JP": "export_format"
+        },
+        "export_model": {
+            "zh_CN": "export_model",
+            "en_US": "export_model",
+            "fr_FR": "export_model",
+            "ru_RU": "export_model",
+            "ja_JP": "export_model"
+        },
+        "external_save_path": {
+            "zh_CN": "external_save_path",
+            "en_US": "external_save_path",
+            "fr_FR": "external_save_path",
+            "ru_RU": "external_save_path",
+            "ja_JP": "external_save_path"
+        },
+        "extrusion": {
+            "zh_CN": "extrusion",
+            "en_US": "extrusion",
+            "fr_FR": "extrusion",
+            "ru_RU": "extrusion",
+            "ja_JP": "extrusion"
+        },
+        "filepath": {
+            "zh_CN": "filepath",
+            "en_US": "filepath",
+            "fr_FR": "filepath",
+            "ru_RU": "filepath",
+            "ja_JP": "filepath"
+        },
+        "image": {
+            "zh_CN": "image",
+            "en_US": "image",
+            "fr_FR": "image",
+            "ru_RU": "image",
+            "ja_JP": "image"
+        },
+        "invert": {
+            "zh_CN": "invert",
+            "en_US": "invert",
+            "fr_FR": "invert",
+            "ru_RU": "invert",
+            "ja_JP": "invert"
+        },
+        "library_path": {
+            "zh_CN": "library_path",
+            "en_US": "library_path",
+            "fr_FR": "library_path",
+            "ru_RU": "library_path",
+            "ja_JP": "library_path"
+        },
+        "name": {
+            "zh_CN": "name",
+            "en_US": "name",
+            "fr_FR": "name",
+            "ru_RU": "name",
+            "ja_JP": "name"
+        },
+        "name_setting": {
+            "zh_CN": "name_setting",
+            "en_US": "name_setting",
+            "fr_FR": "name_setting",
+            "ru_RU": "name_setting",
+            "ja_JP": "name_setting"
+        },
+        "open_channels": {
+            "zh_CN": "open_channels",
+            "en_US": "open_channels",
+            "fr_FR": "open_channels",
+            "ru_RU": "open_channels",
+            "ja_JP": "open_channels"
+        },
+        "open_inputs": {
+            "zh_CN": "open_inputs",
+            "en_US": "open_inputs",
+            "fr_FR": "open_inputs",
+            "ru_RU": "open_inputs",
+            "ja_JP": "open_inputs"
+        },
+        "open_other": {
+            "zh_CN": "open_other",
+            "en_US": "open_other",
+            "fr_FR": "open_other",
+            "ru_RU": "open_other",
+            "ja_JP": "open_other"
+        },
+        "open_saves": {
+            "zh_CN": "open_saves",
+            "en_US": "open_saves",
+            "fr_FR": "open_saves",
+            "ru_RU": "open_saves",
+            "ja_JP": "open_saves"
+        },
+        "override_defaults": {
+            "zh_CN": "override_defaults",
+            "en_US": "override_defaults",
+            "fr_FR": "override_defaults",
+            "ru_RU": "override_defaults",
+            "ja_JP": "override_defaults"
+        },
+        "override_size": {
+            "zh_CN": "override_size",
+            "en_US": "override_size",
+            "fr_FR": "override_size",
+            "ru_RU": "override_size",
+            "ja_JP": "override_size"
+        },
+        "pack_a": {
+            "zh_CN": "pack_a",
+            "en_US": "pack_a",
+            "fr_FR": "pack_a",
+            "ru_RU": "pack_a",
+            "ja_JP": "pack_a"
+        },
+        "pack_b": {
+            "zh_CN": "pack_b",
+            "en_US": "pack_b",
+            "fr_FR": "pack_b",
+            "ru_RU": "pack_b",
+            "ja_JP": "pack_b"
+        },
+        "pack_g": {
+            "zh_CN": "pack_g",
+            "en_US": "pack_g",
+            "fr_FR": "pack_g",
+            "ru_RU": "pack_g",
+            "ja_JP": "pack_g"
+        },
+        "pack_r": {
+            "zh_CN": "pack_r",
+            "en_US": "pack_r",
+            "fr_FR": "pack_r",
+            "ru_RU": "pack_r",
+            "ja_JP": "pack_r"
+        },
+        "prefix": {
+            "zh_CN": "prefix",
+            "en_US": "prefix",
+            "fr_FR": "prefix",
+            "ru_RU": "prefix",
+            "ja_JP": "prefix"
+        },
+        "res_x": {
+            "zh_CN": "res_x",
+            "en_US": "res_x",
+            "fr_FR": "res_x",
+            "ru_RU": "res_x",
+            "ja_JP": "res_x"
+        },
+        "res_y": {
+            "zh_CN": "res_y",
+            "en_US": "res_y",
+            "fr_FR": "res_y",
+            "ru_RU": "res_y",
+            "ja_JP": "res_y"
+        },
+        "sep_col": {
+            "zh_CN": "sep_col",
+            "en_US": "sep_col",
+            "fr_FR": "sep_col",
+            "ru_RU": "sep_col",
+            "ja_JP": "sep_col"
+        },
+        "source": {
+            "zh_CN": "source",
+            "en_US": "source",
+            "fr_FR": "source",
+            "ru_RU": "source",
+            "ja_JP": "source"
+        },
+        "suffix": {
+            "zh_CN": "suffix",
+            "en_US": "suffix",
+            "fr_FR": "suffix",
+            "ru_RU": "suffix",
+            "ja_JP": "suffix"
+        },
+        "texel_density": {
+            "zh_CN": "texel_density",
+            "en_US": "texel_density",
+            "fr_FR": "texel_density",
+            "ru_RU": "texel_density",
+            "ja_JP": "texel_density"
+        },
+        "udim_height": {
+            "zh_CN": "udim_height",
+            "en_US": "udim_height",
+            "fr_FR": "udim_height",
+            "ru_RU": "udim_height",
+            "ja_JP": "udim_height"
+        },
+        "udim_mode": {
+            "zh_CN": "udim_mode",
+            "en_US": "udim_mode",
+            "fr_FR": "udim_mode",
+            "ru_RU": "udim_mode",
+            "ja_JP": "udim_mode"
+        },
+        "udim_tile": {
+            "zh_CN": "udim_tile",
+            "en_US": "udim_tile",
+            "fr_FR": "udim_tile",
+            "ru_RU": "udim_tile",
+            "ja_JP": "udim_tile"
+        },
+        "udim_width": {
+            "zh_CN": "udim_width",
+            "en_US": "udim_width",
+            "fr_FR": "udim_width",
+            "ru_RU": "udim_width",
+            "ja_JP": "udim_width"
+        },
+        "use_auto_uv": {
+            "zh_CN": "use_auto_uv",
+            "en_US": "use_auto_uv",
+            "fr_FR": "use_auto_uv",
+            "ru_RU": "use_auto_uv",
+            "ja_JP": "use_auto_uv"
+        },
+        "use_custom_map": {
+            "zh_CN": "use_custom_map",
+            "en_US": "use_custom_map",
+            "fr_FR": "use_custom_map",
+            "ru_RU": "use_custom_map",
+            "ja_JP": "use_custom_map"
+        },
+        "use_extension_map": {
+            "zh_CN": "use_extension_map",
+            "en_US": "use_extension_map",
+            "fr_FR": "use_extension_map",
+            "ru_RU": "use_extension_map",
+            "ja_JP": "use_extension_map"
+        },
+        "use_external_save": {
+            "zh_CN": "use_external_save",
+            "en_US": "use_external_save",
+            "fr_FR": "use_external_save",
+            "ru_RU": "use_external_save",
+            "ja_JP": "use_external_save"
+        },
+        "use_float32": {
+            "zh_CN": "use_float32",
+            "en_US": "use_float32",
+            "fr_FR": "use_float32",
+            "ru_RU": "use_float32",
+            "ja_JP": "use_float32"
+        },
+        "use_light_map": {
+            "zh_CN": "use_light_map",
+            "en_US": "use_light_map",
+            "fr_FR": "use_light_map",
+            "ru_RU": "use_light_map",
+            "ja_JP": "use_light_map"
+        },
+        "use_map": {
+            "zh_CN": "use_map",
+            "en_US": "use_map",
+            "fr_FR": "use_map",
+            "ru_RU": "use_map",
+            "ja_JP": "use_map"
+        },
+        "use_mesh_map": {
+            "zh_CN": "use_mesh_map",
+            "en_US": "use_mesh_map",
+            "fr_FR": "use_mesh_map",
+            "ru_RU": "use_mesh_map",
+            "ja_JP": "use_mesh_map"
+        },
+        "use_packing": {
+            "zh_CN": "use_packing",
+            "en_US": "use_packing",
+            "fr_FR": "use_packing",
+            "ru_RU": "use_packing",
+            "ja_JP": "use_packing"
+        },
+        "use_preview": {
+            "zh_CN": "use_preview",
+            "en_US": "use_preview",
+            "fr_FR": "use_preview",
+            "ru_RU": "use_preview",
+            "ja_JP": "use_preview"
         }
     }
 }

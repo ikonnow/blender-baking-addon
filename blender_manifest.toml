@@ -1,8 +1,8 @@
 schema_version = "1.0.0"
 id = "baketool"
-version = "1.0.0"
-name = "BakeTool"
-tagline = "Professional Texture Baking Suite for Blender (Beta)"
+version = "1.0.0-rc"
+name = "BakeTool (AI-Assisted)"
+tagline = "Experimental AI-Assisted Baking Utility for Blender (RC)"
 maintainer = "BakeTool Team"
 type = "add-on"
 

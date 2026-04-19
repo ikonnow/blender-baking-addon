@@ -95,9 +95,13 @@ def get_compositor_tree(scene: bpy.types.Scene) -> Optional[bpy.types.NodeTree]:
             # Background Initialization Fix for B5.0
             if not tree and is_blender_5():
                 try:
-                    tree = bpy.data.node_groups.new(
-                        "BT_Compositor_Tree", "CompositorNodeTree"
-                    )
+                    # C-01: Check for existing group first to prevent leaks/duplicates
+                    tree_name = "BT_Compositor_Tree"
+                    tree = bpy.data.node_groups.get(tree_name)
+                    if not tree:
+                        tree = bpy.data.node_groups.new(
+                            tree_name, "CompositorNodeTree"
+                        )
                     scene.compositing_node_group = tree
                 except (AttributeError, RuntimeError, TypeError) as e:
                     logger.debug(f"B5.0: Failed to create CompositorNodeTree: {e}")
