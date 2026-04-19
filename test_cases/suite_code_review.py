@@ -167,7 +167,7 @@ class SuiteCodeReviewFixes(unittest.TestCase):
         if manifest_path is None:
             self.skipTest("blender_manifest.toml not found in any known location")
 
-        with open(manifest_path, "r") as f:
+        with open(manifest_path, "r", encoding="utf-8") as f:
             content = f.read()
 
         import re

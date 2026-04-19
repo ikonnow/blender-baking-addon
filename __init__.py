@@ -87,23 +87,26 @@ def get_classes():
     # 2. Add classes from relevant modules
     # Priority classes require specific registration order due to dependencies
     priority_classes = [
+        # Base settings (no dependencies)
         prop_module.BakeNormalSettings,
         prop_module.BakePassSettings,
         prop_module.BakeCombineSettings,
         prop_module.BakeMeshSettings,
         prop_module.BakeExtensionSettings,
-        prop_module.BakeObject,
+        prop_module.BakeImageSettings,
         prop_module.BakeChannelSource,
+        prop_module.BakeObject,
+        prop_module.BakedImageResult,
+        # Intermediate groups
         prop_module.BakeChannel,
         prop_module.CustomBakeChannel,
-        prop_module.BakeImageSettings,
+        prop_module.BakeJobSetting,
+        # Top-level groups
+        prop_module.BakeJob,
         prop_module.BakeNodeSettings,
         prop_module.BakeResultSettings,
-        prop_module.BakeJobSetting,
-        prop_module.BakeJob,
         prop_module.BakeJobs,
-        prop_module.BakedImageResult,
-        # Primary Panels (must be registered before subpanels)
+        # Primary Panels
         ui.BAKE_PT_BakePanel,
         ui.BAKE_PT_NodePanel,
         ui.BAKETOOL_PT_ImageEditorResults,
@@ -111,8 +114,7 @@ def get_classes():
     classes.extend(priority_classes)
 
     # Auto-discover other modules (Operators, UI lists, etc.)
-    other_modules = [ops, ui]
-    other_modules.append(cleanup)
+    other_modules = [ops, ui, prop_module, cleanup]
 
     # Filter to avoid duplicates and ensure they are modules
     other_modules = [m for m in other_modules if inspect.ismodule(m)]
@@ -188,11 +190,20 @@ def register():
     )
     bpy.types.Scene.test_pass = props.BoolProperty(name="Test Passed", default=False)
 
+    # Crash Recovery Cache
+    bpy.types.Scene.baketool_has_crash_record = props.BoolProperty(
+        name="Has Crash Record", default=False
+    )
+    bpy.types.Scene.baketool_crash_data_cache = props.StringProperty(
+        name="Crash Data Cache", default=""
+    )
+
     # Add to Object Context Menu
     bpy.types.VIEW3D_MT_object_context_menu.append(menu_func_quick_bake)
 
     # Register Auto Load Handler
     preset_handler.AutoLoadHandler.register()
+    preset_handler.UpdateCrashCacheHandler.register()
 
     # 制作 keymap // Create keymap
     wm = bpy.context.window_manager
@@ -218,6 +229,7 @@ def unregister():
 
     # 3. Handlers
     preset_handler.AutoLoadHandler.unregister()
+    preset_handler.UpdateCrashCacheHandler.unregister()
 
     # 4. Menus
     bpy.types.VIEW3D_MT_object_context_menu.remove(menu_func_quick_bake)
@@ -246,6 +258,10 @@ def unregister():
         del bpy.types.Scene.last_test_info
     if hasattr(bpy.types.Scene, "test_pass"):
         del bpy.types.Scene.test_pass
+    if hasattr(bpy.types.Scene, "baketool_has_crash_record"):
+        del bpy.types.Scene.baketool_has_crash_record
+    if hasattr(bpy.types.Scene, "baketool_crash_data_cache"):
+        del bpy.types.Scene.baketool_crash_data_cache
 
     # 6. Classes (Registered first, unregister last)
     for cls in reversed(classes_to_register):

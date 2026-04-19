@@ -1,4 +1,3 @@
-import bpy
 import json
 from pathlib import Path
 import logging

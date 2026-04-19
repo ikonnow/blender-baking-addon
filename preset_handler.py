@@ -222,6 +222,8 @@ class AutoLoadHandler:
             except (OSError, IOError, json.JSONDecodeError) as e:
                 logger.warning(f"BakeTool: Failed to auto-load preset: {e}")
 
+        UpdateCrashCacheHandler.update_crash_cache()
+
     @classmethod
     def register(cls):
         if cls.load_default_preset not in bpy.app.handlers.load_post:
@@ -231,3 +233,43 @@ class AutoLoadHandler:
     def unregister(cls):
         if cls.load_default_preset in bpy.app.handlers.load_post:
             bpy.app.handlers.load_post.remove(cls.load_default_preset)
+
+
+class UpdateCrashCacheHandler:
+    """Updates cached crash record in scene properties to avoid disk I/O in UI draw."""
+
+    @staticmethod
+    @persistent
+    def update_crash_cache(dummy=None):
+        """Cache crash record data in scene properties on file load."""
+        try:
+            from .state_manager import BakeStateManager
+        except ImportError:
+            return
+
+        scene = bpy.context.scene
+        if not scene:
+            return
+
+        mgr = BakeStateManager()
+        has_crash = mgr.has_crash_record()
+        scene.baketool_has_crash_record = has_crash
+
+        if has_crash:
+            data = mgr.read_log()
+            if data:
+                scene.baketool_crash_data_cache = json.dumps(data)
+            else:
+                scene.baketool_crash_data_cache = ""
+        else:
+            scene.baketool_crash_data_cache = ""
+
+    @classmethod
+    def register(cls):
+        if cls.update_crash_cache not in bpy.app.handlers.load_post:
+            bpy.app.handlers.load_post.append(cls.update_crash_cache)
+
+    @classmethod
+    def unregister(cls):
+        if cls.update_crash_cache in bpy.app.handlers.load_post:
+            bpy.app.handlers.load_post.remove(cls.update_crash_cache)

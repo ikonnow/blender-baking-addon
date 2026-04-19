@@ -133,20 +133,21 @@ class SuiteUILogic(unittest.TestCase):
         draw_image_format_options(mock_layout, mock_setting, "")
         mock_layout.row.assert_called()
 
-    def test_draw_crash_report_instantiates_mgr(self):
-        """Verify draw_crash_report instantiates BakeStateManager."""
+    def test_draw_crash_report_accepts_json_cache(self):
+        """Verify draw_crash_report handles JSON-string crash cache safely."""
         if draw_crash_report is None:
             self.skipTest("UI draw functions not importable")
-        from unittest.mock import MagicMock, patch
+        from unittest.mock import MagicMock
+        import json
 
-        with patch("baketool.ui.BakeStateManager") as MockMgr:
-            mock_instance = MagicMock()
-            mock_instance.has_crash_record.return_value = False
-            MockMgr.return_value = mock_instance
-
-            mock_layout = MagicMock()
-            draw_crash_report(mock_layout)
-            MockMgr.assert_called_once()
+        mock_layout = MagicMock()
+        mock_context = MagicMock()
+        mock_context.scene.baketool_has_crash_record = True
+        mock_context.scene.baketool_crash_data_cache = json.dumps(
+            {"start_time": "2026-04-20 10:00:00", "current_step": 1, "total_steps": 2}
+        )
+        draw_crash_report(mock_layout, mock_context)
+        mock_layout.box.assert_called()
 
 
 if __name__ == '__main__':

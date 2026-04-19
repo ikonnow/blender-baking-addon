@@ -415,11 +415,10 @@ class NodeGraphHandler:
                 else SOCKET_DEFAULT_TYPE.get(socket_name, (0, 0, 0, 1))
             )
             rgb = self._add_node(mat, "ShaderNodeRGB")
-            v = (
-                (val[0], val[1], val[2], 1)
-                if hasattr(val, "__len__") and len(val) >= 3
-                else (val, val, val, 1)
-            )
+            if hasattr(val, "__len__") and len(val) >= 3:
+                v = (val[0], val[1], val[2], 1.0)
+            else:
+                v = (val, val, val, 1.0)
             rgb.outputs[0].default_value = v
             src = rgb.outputs[0]
 

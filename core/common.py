@@ -224,7 +224,10 @@ def manage_channels_logic(
     Returns:
         Tuple of (success: bool, error_message: str).
     """
-    job = bj.jobs[bj.job_index] if bj.jobs else None
+    job_index = bj.job_index if bj.jobs else -1
+    if job_index < 0 or job_index >= len(bj.jobs):
+        job_index = 0 if bj.jobs else -1
+    job = bj.jobs[job_index] if 0 <= job_index < len(bj.jobs) else None
 
     dispatch = {
         "jobs_channel": (bj.jobs, "job_index", bj),

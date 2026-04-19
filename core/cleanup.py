@@ -39,7 +39,16 @@ class BAKETOOL_OT_EmergencyCleanup(bpy.types.Operator):
 
     bl_idname = "bake.emergency_cleanup"
     bl_label = "Clean Up Bake Junk"
-    bl_options = {"REGISTER", "UNDO"}
+    bl_options = {"REGISTER"}
+
+    @classmethod
+    def poll(cls, context: bpy.types.Context) -> bool:
+        """Ensure we have a valid context for cleanup."""
+        if not context:
+            return False
+        if not context.scene:
+            return False
+        return True
 
     def execute(self, context: bpy.types.Context) -> set[str]:
         """Execute the emergency cleanup process.

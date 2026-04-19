@@ -29,6 +29,60 @@ logger = logging.getLogger(__name__)
 
 # --- Helper Functions for Properties ---
 
+_LEGACY_DEPTH_MAP = {"0": "8", "1": "16", "2": "32"}
+_LEGACY_MODE_MAP = {"0": "RGBA", "1": "RGB", "2": "BW"}
+_CANONICAL_DEPTH_KEYS = {"8", "10", "12", "16", "32"}
+_CANONICAL_MODE_KEYS = {"RGBA", "RGB", "BW"}
+
+
+def _as_key_set(values):
+    if not values:
+        return set()
+    if isinstance(values, set):
+        return values
+    if isinstance(values, (list, tuple)):
+        return set(values)
+    return set(values)
+
+
+def _canonical_depth(value):
+    key = str(value) if value is not None else ""
+    return _LEGACY_DEPTH_MAP.get(key, key)
+
+
+def _canonical_mode(value):
+    key = str(value) if value is not None else ""
+    return _LEGACY_MODE_MAP.get(key, key)
+
+
+def _canonical_depth_items():
+    return [item for item in COLOR_DEPTHS if item[0] in _CANONICAL_DEPTH_KEYS]
+
+
+def _canonical_mode_items():
+    return [item for item in COLOR_MODES if item[0] in _CANONICAL_MODE_KEYS]
+
+
+def _build_enum_item(item_tuple, idx):
+    return (item_tuple[0], item_tuple[1], item_tuple[2], "NONE", idx)
+
+
+def _pick_first_allowed(valid_keys, ordered_items, preferred):
+    if preferred in valid_keys:
+        return preferred
+    for item in ordered_items:
+        key = item[0]
+        if key in valid_keys:
+            return key
+    return None
+
+
+def _find_item_by_identifier(items, identifier):
+    for item in items:
+        if item[0] == identifier:
+            return item
+    return None
+
 
 def get_channel_source_items(self, context):
     """Safely retrieve available channels for custom source selection."""
@@ -39,8 +93,14 @@ def get_channel_source_items(self, context):
     if not hasattr(scene, "BakeJobs") or not scene.BakeJobs.jobs:
         return [("NONE", "None", "No enabled channels available", "NONE", 0)]
 
+    bj = scene.BakeJobs
+    job_index = getattr(bj, "job_index", 0)
+
+    if job_index < 0 or job_index >= len(bj.jobs):
+        return [("NONE", "None", "No enabled channels available", "NONE", 0)]
+
     try:
-        job = scene.BakeJobs.jobs[scene.BakeJobs.job_index]
+        job = bj.jobs[job_index]
         setting = job.setting
 
         items = []
@@ -74,42 +134,108 @@ def get_channel_source_items(self, context):
 
 def get_valid_depths(self, context):
     """Filter color depths based on current image format technical constraints."""
-    if not context or not getattr(context, "scene", None):
-        return [
-            (item[0], item[1], item[2], "NONE", i)
-            for i, item in enumerate(COLOR_DEPTHS)
+    try:
+        canonical_items = _canonical_depth_items()
+        default_items = [
+            _build_enum_item(item, i) for i, item in enumerate(canonical_items)
         ]
-    fmt = getattr(self, "external_save_format", "PNG")
-    valid_keys = FORMAT_SETTINGS.get(fmt, {}).get("depths", [])
-    if not valid_keys:
-        return [
-            (item[0], item[1], item[2], "NONE", i)
-            for i, item in enumerate(COLOR_DEPTHS)
+
+        if not context or not hasattr(context, "scene"):
+            return default_items
+
+        fmt = getattr(self, "external_save_format", "PNG")
+        valid_keys = _as_key_set(FORMAT_SETTINGS.get(fmt, {}).get("depths", []))
+        raw_current = str(self.get("color_depth", ""))
+        current = _canonical_depth(raw_current)
+
+        if not valid_keys:
+            return default_items
+
+        filtered = [
+            _build_enum_item(item, i)
+            for i, item in enumerate(canonical_items)
+            if item[0] in valid_keys
         ]
-    return [
-        (item[0], item[1], item[2], "NONE", i)
-        for i, item in enumerate(COLOR_DEPTHS)
-        if item[0] in valid_keys
-    ]
+
+        if current and current not in {item[0] for item in filtered}:
+            for item in canonical_items:
+                if item[0] == current:
+                    filtered.append(_build_enum_item(item, len(filtered)))
+                    break
+        if raw_current in _LEGACY_DEPTH_MAP:
+            legacy_item = _find_item_by_identifier(COLOR_DEPTHS, raw_current)
+            if legacy_item:
+                filtered.append(_build_enum_item(legacy_item, len(filtered)))
+
+        return filtered if filtered else default_items
+    except Exception as e:
+        logger.error(f"Error in get_valid_depths: {e}")
+        return [("8", "8", "Fallback 8-bit", "NONE", 0)]
 
 
 def get_valid_modes(self, context):
     """Filter color modes based on current image format technical constraints."""
-    if not context or not getattr(context, "scene", None):
-        return [
-            (item[0], item[1], item[2], "NONE", i) for i, item in enumerate(COLOR_MODES)
+    try:
+        canonical_items = _canonical_mode_items()
+        default_items = [
+            _build_enum_item(item, i) for i, item in enumerate(canonical_items)
         ]
+        if not context or not hasattr(context, "scene"):
+            return default_items
+
+        fmt = getattr(self, "external_save_format", "PNG")
+        valid_keys = _as_key_set(FORMAT_SETTINGS.get(fmt, {}).get("modes", []))
+        raw_current = str(self.get("color_mode", ""))
+        current = _canonical_mode(raw_current)
+
+        if not valid_keys:
+            return default_items
+
+        filtered = [
+            _build_enum_item(item, i)
+            for i, item in enumerate(canonical_items)
+            if item[0] in valid_keys
+        ]
+
+        if current and current not in {item[0] for item in filtered}:
+            for item in canonical_items:
+                if item[0] == current:
+                    filtered.append(_build_enum_item(item, len(filtered)))
+                    break
+        if raw_current in _LEGACY_MODE_MAP:
+            legacy_item = _find_item_by_identifier(COLOR_MODES, raw_current)
+            if legacy_item:
+                filtered.append(_build_enum_item(legacy_item, len(filtered)))
+
+        return filtered if filtered else default_items
+    except Exception as e:
+        logger.error(f"Error in get_valid_modes: {e}")
+        return [("RGB", "RGB", "Fallback RGB", "NONE", 0)]
+
+
+def update_format_dependent_enums(self, context):
+    """Keep dynamic format-dependent enums in a valid state."""
     fmt = getattr(self, "external_save_format", "PNG")
-    valid_keys = FORMAT_SETTINGS.get(fmt, {}).get("modes", [])
-    if not valid_keys:
-        return [
-            (item[0], item[1], item[2], "NONE", i) for i, item in enumerate(COLOR_MODES)
-        ]
-    return [
-        (item[0], item[1], item[2], "NONE", i)
-        for i, item in enumerate(COLOR_MODES)
-        if item[0] in valid_keys
-    ]
+    fmt_cfg = FORMAT_SETTINGS.get(fmt, {})
+    valid_depths = _as_key_set(fmt_cfg.get("depths", []))
+    valid_modes = _as_key_set(fmt_cfg.get("modes", []))
+
+    current_depth = _canonical_depth(self.get("color_depth", "8"))
+    current_mode = _canonical_mode(self.get("color_mode", "RGBA"))
+
+    if valid_depths and current_depth not in valid_depths:
+        next_depth = _pick_first_allowed(valid_depths, _canonical_depth_items(), "8")
+        if next_depth:
+            self.color_depth = next_depth
+    elif current_depth:
+        self.color_depth = current_depth
+
+    if valid_modes and current_mode not in valid_modes:
+        next_mode = _pick_first_allowed(valid_modes, _canonical_mode_items(), "RGB")
+        if next_mode:
+            self.color_mode = next_mode
+    elif current_mode:
+        self.color_mode = current_mode
 
 
 def update_debug_mode(self, context):
@@ -123,6 +249,24 @@ def update_debug_mode(self, context):
 def update_channels(self, context):
     """Trigger channel sync when map categories are toggled."""
     reset_channels_logic(self)
+
+
+def update_preview(self, context):
+    """Trigger real-time viewport preview when toggled."""
+    from .core import shading
+
+    # 'self' here is the BakeJobSetting group
+    objs = [o.bakeobject for o in self.bake_objects if o.bakeobject]
+
+    for obj in objs:
+        if self.use_preview:
+            shading.apply_preview(obj, self)
+        else:
+            shading.remove_preview(obj)
+
+    for area in context.screen.areas:
+        if area.type == "VIEW_3D":
+            area.tag_redraw()
 
 
 # --- Sub-Setting Groups ---
@@ -321,10 +465,17 @@ class BakeJobSetting(bpy.types.PropertyGroup):
     use_external_save: props.BoolProperty(default=False, name="External Save")
     external_save_path: props.StringProperty(subtype="DIR_PATH", name="Save Path")
     external_save_format: props.EnumProperty(
-        items=BASIC_FORMATS, name="Format", default="PNG"
+        items=BASIC_FORMATS,
+        name="Format",
+        default="PNG",
+        update=update_format_dependent_enums,
     )
-    color_depth: props.EnumProperty(items=get_valid_depths, name="Color Depth")
-    color_mode: props.EnumProperty(items=get_valid_modes, name="Color Mode")
+    color_depth: props.EnumProperty(
+        items=get_valid_depths, name="Color Depth", default=0
+    )
+    color_mode: props.EnumProperty(
+        items=get_valid_modes, name="Color Mode", default=0
+    )
     quality: props.IntProperty(name="Quality", default=85)
     exr_code: props.EnumProperty(items=EXR_CODECS, name="EXR Codec", default="ZIP")
     tiff_codec: props.EnumProperty(
@@ -375,6 +526,7 @@ class BakeJobSetting(bpy.types.PropertyGroup):
         name="Interactive Preview",
         default=False,
         description="Show real-time channel packing preview in viewport",
+        update=update_preview,
     )
 
     channels: props.CollectionProperty(type=BakeChannel)
@@ -445,9 +597,13 @@ class BakeJob(bpy.types.PropertyGroup):
 # Blender PropertyGroup does not support inheritance-based reuse,
 # and these serve different contexts (Job Save vs Node/Result Save).
 class BakeImageSettings(bpy.types.PropertyGroup):
-    external_save_format: props.EnumProperty(items=BASIC_FORMATS, default="PNG")
-    color_depth: props.EnumProperty(items=get_valid_depths)
-    color_mode: props.EnumProperty(items=get_valid_modes)
+    external_save_format: props.EnumProperty(
+        items=BASIC_FORMATS,
+        default="PNG",
+        update=update_format_dependent_enums,
+    )
+    color_depth: props.EnumProperty(items=get_valid_depths, default=0)
+    color_mode: props.EnumProperty(items=get_valid_modes, default=0)
     quality: props.IntProperty(name="Quality", default=100)
     exr_code: props.EnumProperty(items=EXR_CODECS, default="ZIP")
     tiff_codec: props.EnumProperty(items=TIFF_CODECS, default="DEFLATE")
@@ -479,11 +635,11 @@ def update_library_preset(self, context):
         from . import preset_handler
 
         try:
-            with open(path, "r") as f:
+            with open(path, "r", encoding="utf-8") as f:
                 data = json.load(f)
             preset_handler.PropertyIO().from_dict(self, data)
             # Reset the enum so it can be re-selected if needed
-            # (Blender enums stay on the last value)
+            self.library_preset = "NONE"
         except Exception as e:
             logger.error(f"Failed to load preset from library: {e}")
 
@@ -505,7 +661,7 @@ def get_library_preset_items(self, context):
 
     from .core import thumbnail_manager
 
-    pcoll = thumbnail_manager.get_preview_collection("presets")
+    thumbnail_manager.get_preview_collection("presets")
 
     found_items = []
     # Find all .json files

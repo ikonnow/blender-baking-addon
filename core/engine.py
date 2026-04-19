@@ -27,6 +27,7 @@ from ..constants import (
     CHANNEL_BAKE_INFO,
     CHANNEL_MESH_TYPE_MAP,
     DATA_BAKE_FORCE_SINGLE_SAMPLE,
+    DEFAULT_BAKE_TARGET,
     SYSTEM_NAMES,
 )
 from . import compat
@@ -122,6 +123,14 @@ class BakePostProcessor:
             reuse_scene: Optional existing temp scene to reuse (avoids overhead).
         """
         if not image:
+            return
+
+        # Blender 3.6 has known crashes with denoise compositor
+        # Skip denoise on this version to prevent access violation
+        if compat.is_blender_3():
+            logger.warning(
+                "BakeTool: Skipping denoise on Blender 3.6 (known crash issue)"
+            )
             return
 
         # 1. Ensure temporary scene exists
@@ -1012,7 +1021,7 @@ class BakePassExecutor:
                 "type": bake_type,
                 "margin": setting.margin,
                 "use_clear": setting.use_clear_image,
-                "target": "IMAGE_TEXTURES",
+                "target": DEFAULT_BAKE_TARGET,
             }
 
             if bake_type == "NORMAL":
@@ -1180,10 +1189,13 @@ class ModelExporter:
             ModelExporter._execute_format_export(abs_filepath, setting)
 
             if is_temp:
-                data_to_del = export_obj.data
+                mesh_ref = export_obj.data
                 bpy.data.objects.remove(export_obj, do_unlink=True)
-                if data_to_del and data_to_del.users == 0:
-                    bpy.data.meshes.remove(data_to_del, do_unlink=True)
+                try:
+                    if mesh_ref and hasattr(mesh_ref, 'users') and mesh_ref.users == 0:
+                        bpy.data.meshes.remove(mesh_ref, do_unlink=True)
+                except (ReferenceError, RuntimeError):
+                    pass
 
             logger.info(f"Exported: {setting.export_format} -> {abs_filepath}")
         except (RuntimeError, IOError) as e:

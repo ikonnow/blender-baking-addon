@@ -108,6 +108,14 @@ class BakeStateManager:
         if context:
             self.reset_ui_state(context, status)
 
+    def clear_state(self) -> None:
+        """Delete crash record file without touching scene UI state."""
+        if self.log_file.exists():
+            try:
+                os.remove(self.log_file)
+            except (OSError, FileNotFoundError, PermissionError) as e:
+                logger.debug(f"Could not clear state file {self.log_file}: {e}")
+
     def log_error(self, error_msg: str) -> None:
         """Record an error state without removing the crash file.
 

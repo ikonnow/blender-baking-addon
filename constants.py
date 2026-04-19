@@ -62,6 +62,9 @@ NORMAL_TYPES = [
     ("DIRECTX", "DIRECTX", "Use DIRECTX Standard"),
     ("CUSTOM", "Custom", "Use Custom Standard"),
 ]
+
+DEFAULT_BAKE_TARGET = "IMAGE_TEXTURES"
+
 NORMAL_CHANNELS = [
     ("POS_X", "+X", "+X"),
     ("POS_Y", "+Y", "+Y"),
@@ -86,6 +89,10 @@ COLOR_MODES = [
     ("RGBA", "RGBA", "RGB and Alpha channel"),
     ("RGB", "RGB", "RGB channel"),
     ("BW", "BW", "BW channel"),
+    # Legacy Support
+    ("0", "RGBA", "Legacy RGBA", "NONE", 3),
+    ("1", "RGB", "Legacy RGB", "NONE", 4),
+    ("2", "BW", "Legacy BW", "NONE", 5),
 ]
 COLOR_SPACES = [
     ("NONCOL", "Non-Color", "Non-Color"),

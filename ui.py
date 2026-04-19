@@ -6,7 +6,8 @@ job management, target selection, channel configuration, and result inspection.
 
 import bpy
 import os
-from typing import Any, Tuple, Optional, Set
+import json
+from typing import Any, Tuple
 from .constants import (
     FORMAT_SETTINGS,
     CAT_MESH,
@@ -15,9 +16,7 @@ from .constants import (
     CAT_EXTENSION,
     CHANNEL_BAKE_INFO,
     CHANNEL_UI_LAYOUT,
-    UI_MESSAGES,
 )
-from .state_manager import BakeStateManager
 
 
 def draw_header(layout: bpy.types.UILayout, text: str, icon: str = "NONE") -> None:
@@ -256,7 +255,7 @@ def draw_results(scene: bpy.types.Scene, layout: bpy.types.UILayout, bj: Any) ->
     draw_image_format_options(col, bj.bake_result_settings.image_settings, "")
 
 
-def draw_crash_report(layout: bpy.types.UILayout) -> None:
+def draw_crash_report(layout: bpy.types.UILayout, context: bpy.types.Context) -> None:
     """Draw crash detection UI with resume option.
 
     Shows detected crash information and a resume button if
@@ -264,42 +263,54 @@ def draw_crash_report(layout: bpy.types.UILayout) -> None:
 
     Args:
         layout: UI layout to draw in.
+        context: Blender context for accessing cached scene properties.
     """
-    mgr = BakeStateManager()
-    if mgr.has_crash_record():
-        data = mgr.read_log()
-        if not data:
-            return
+    scene = context.scene
+    has_crash = getattr(scene, "baketool_has_crash_record", False)
+    crash_data = getattr(scene, "baketool_crash_data_cache", None)
 
-        box = layout.box()
-        box.alert = True
-        row = box.row()
-        row.label(text="Detected Unexpected Exit (Crash)", icon="ERROR")
-        row.operator("bake.clear_crash_log", text="", icon="X")
-
-        col = box.column()
-        col.scale_y = 0.8
-
-        t = data.get("start_time", "?")
-        obj = data.get("current_object", "Unknown")
-        curr = data.get("current_step", 0)
-        total = data.get("total_steps", "?")
-        err = data.get("last_error", "")
-
-        col.label(text=f"Time: {t}")
-        col.label(text=f"Last Object: {obj}")
-        col.label(text=f"Progress: {curr} / {total}")
-
-        if err:
-            col.label(text=f"Last Error: {err}")
+    if has_crash and crash_data:
+        if isinstance(crash_data, str):
+            try:
+                data = json.loads(crash_data)
+            except json.JSONDecodeError:
+                return
+        elif isinstance(crash_data, dict):
+            data = crash_data
         else:
-            col.label(text="Check this object's UV/Mesh complexity")
+            return
+    else:
+        return
 
-        box.separator()
-        op = box.operator(
-            "bake.bake_operator", text="Resume Interrupted Bake", icon="RECOVER_LAST"
-        )
-        op.is_resume = True
+    box = layout.box()
+    box.alert = True
+    row = box.row()
+    row.label(text="Detected Unexpected Exit (Crash)", icon="ERROR")
+    row.operator("bake.clear_crash_log", text="", icon="X")
+
+    col = box.column()
+    col.scale_y = 0.8
+
+    t = data.get("start_time", "?")
+    obj = data.get("current_object", "Unknown")
+    curr = data.get("current_step", 0)
+    total = data.get("total_steps", "?")
+    err = data.get("last_error", "")
+
+    col.label(text=f"Time: {t}")
+    col.label(text=f"Last Object: {obj}")
+    col.label(text=f"Progress: {curr} / {total}")
+
+    if err:
+        col.label(text=f"Last Error: {err}")
+    else:
+        col.label(text="Check this object's UV/Mesh complexity")
+
+    box.separator()
+    op = box.operator(
+        "bake.bake_operator", text="Resume Interrupted Bake", icon="RECOVER_LAST"
+    )
+    op.is_resume = True
 
 
 class UI_UL_ObjectList(bpy.types.UIList):
@@ -323,7 +334,11 @@ class UI_UL_ObjectList(bpy.types.UIList):
 
         # Contextual UI for Custom UDIM
         scene = context.scene
-        if hasattr(scene, "BakeJobs") and scene.BakeJobs.jobs:
+        if (
+            hasattr(scene, "BakeJobs")
+            and scene.BakeJobs.jobs
+            and 0 <= scene.BakeJobs.job_index < len(scene.BakeJobs.jobs)
+        ):
             job = scene.BakeJobs.jobs[scene.BakeJobs.job_index]
             s = job.setting
             if s.bake_mode == "UDIM":
@@ -436,10 +451,14 @@ def draw_env_status(layout: bpy.types.UILayout, setting: Any) -> None:
             row.operator("bake.open_addon_prefs", text="Fix", icon="SETTINGS")
             any_issue = True
 
-    # 2. Check Path Validity
+    # 2. Check Path Validity (cached)
     if setting.use_external_save or setting.export_model:
         path = bpy.path.abspath(setting.external_save_path)
-        if not path or not os.path.exists(path):
+        path_valid = getattr(setting, "_cached_path_valid", None)
+        if path_valid is None:
+            path_valid = bool(path) and os.path.exists(path)
+            setting._cached_path_valid = path_valid
+        if not path_valid:
             box = layout.box()
             box.alert = True
             box.label(text="Invalid Export Path!", icon="ERROR")
@@ -502,8 +521,13 @@ class BAKE_PT_BakePanel(bpy.types.Panel):
         scene = context.scene
         bj = scene.BakeJobs
 
+        # Get active job setting safely for top-level quick actions
+        s = None
+        if bj.jobs and 0 <= bj.job_index < len(bj.jobs):
+            s = bj.jobs[bj.job_index].setting
+
         # --- 1. Top Dashboard (Crash Recover & Dev Zone) ---
-        draw_crash_report(layout)
+        draw_crash_report(layout, context)
 
         # Dev Zone - More subtle UI
         if bj.debug_mode:
@@ -534,6 +558,8 @@ class BAKE_PT_BakePanel(bpy.types.Panel):
         sub = row.column(align=True)
         sub.operator("bake.refresh_presets", text="", icon="FILE_REFRESH")
         sub.operator("bake.one_click_pbr", text="", icon="MATERIAL")
+        if s:
+            sub.prop(s, "use_preview", text="", icon="HIDE_OFF", toggle=True)
         sub.prop(bj, "debug_mode", text="", icon="CONSOLE", toggle=True)
 
         layout.separator(factor=0.5)
@@ -558,7 +584,12 @@ class BAKE_PT_BakePanel(bpy.types.Panel):
             return
 
         # --- 4. Detailed Configuration (Active Job) ---
-        job = bj.jobs[bj.job_index]
+        job_index = bj.job_index
+        if job_index < 0 or job_index >= len(bj.jobs):
+            job_index = 0
+            bj.job_index = 0
+        job = bj.jobs[job_index]
+        # s is already defined above, but we ensure it matches the active job
         s = job.setting
 
         # Env Status Warnings
@@ -775,7 +806,10 @@ class BAKE_PT_BakePanel(bpy.types.Panel):
             return
 
         col = l.column(align=True)
-        j = bj.jobs[bj.job_index]
+        job_index = bj.job_index
+        if job_index < 0 or job_index >= len(bj.jobs):
+            job_index = 0
+        j = bj.jobs[job_index]
 
         col.prop(
             s,
