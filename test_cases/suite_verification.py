@@ -5,8 +5,7 @@ from .helpers import cleanup_scene, create_test_object, MockSetting
 
 class SuiteVerification(unittest.TestCase):
     """
-    Consolidated verification suite for critical fixes identified in code reviews.
-    Replaces the standalone comprehensive_verification.py script.
+    Consolidated verification suite for critical release-gating fixes.
     """
 
     def setUp(self):

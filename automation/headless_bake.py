@@ -8,17 +8,37 @@ import bpy
 import argparse
 import logging
 
-# Add current directory to path to find the addon
+# Add the addon package parent so `import baketool` works from source.
 addon_dir = os.path.dirname(os.path.dirname(__file__))
-if addon_dir not in sys.path:
-    sys.path.append(addon_dir)
+addon_parent = os.path.dirname(addon_dir)
+for path in (addon_parent, addon_dir):
+    if path not in sys.path:
+        sys.path.append(path)
 
 try:
+    import baketool
     from baketool.core.engine import JobPreparer, BakeStepRunner
-    from baketool.core import api
 except ImportError:
     print("Error: Could not import BakeTool core. Ensure the script is inside the addon or path is correct.")
     sys.exit(1)
+
+
+def ensure_addon_registered():
+    """Register BakeTool when running from a clean background session."""
+    scene = bpy.context.scene
+    if hasattr(scene, "BakeJobs"):
+        return True
+
+    try:
+        baketool.register()
+    except ValueError:
+        # Already registered but Blender state was partially initialized.
+        pass
+    except Exception as exc:
+        print(f"Error: Failed to register BakeTool addon: {exc}")
+        return False
+
+    return hasattr(bpy.context.scene, "BakeJobs")
 
 def main():
     # Parse CLI arguments after '--'
@@ -32,6 +52,10 @@ def main():
     parser.add_argument("--job", type=str, help="Name of the job to bake (if empty, bakes all enabled)")
     parser.add_argument("--output", type=str, help="Override output directory")
     args = parser.parse_args(cli_args)
+
+    if not ensure_addon_registered():
+        print("Error: BakeTool properties could not be initialized.")
+        return
 
     scene = bpy.context.scene
     bj_prop = getattr(scene, "BakeJobs", None)

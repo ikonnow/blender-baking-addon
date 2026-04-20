@@ -14,6 +14,40 @@ from ..constants import FORMAT_SETTINGS
 logger = logging.getLogger(__name__)
 
 
+def _resolve_color_space_name(
+    image: bpy.types.Image, space: str
+) -> str:
+    """Map addon enum keys to Blender color-space identifiers."""
+    if not space:
+        return "sRGB"
+
+    fallback_map = {
+        "NONCOL": ("Non-Color",),
+        "SRGB": ("sRGB",),
+        "LINEAR": ("Linear Rec.709", "Linear"),
+    }
+    candidates = list(fallback_map.get(space, (space,)))
+    if space not in candidates:
+        candidates.append(space)
+
+    try:
+        enum_items = image.colorspace_settings.bl_rna.properties["name"].enum_items
+        valid_names = {item.identifier for item in enum_items}
+    except Exception:
+        valid_names = set()
+
+    for candidate in candidates:
+        if not valid_names or candidate in valid_names:
+            return candidate
+
+    if space == "LINEAR":
+        for name in valid_names:
+            if name.startswith("Linear") and "CIE" not in name:
+                return name
+
+    return "sRGB"
+
+
 @contextmanager
 def robust_image_editor_context(context: bpy.types.Context, image: bpy.types.Image):
     """Safely finds or hijacks an area to function as an IMAGE_EDITOR context.
@@ -151,7 +185,7 @@ def set_image(
 
     if not full:
         try:
-            image.colorspace_settings.name = space
+            image.colorspace_settings.name = _resolve_color_space_name(image, space)
         except (AttributeError, RuntimeError):
             pass
 

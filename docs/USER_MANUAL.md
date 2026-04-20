@@ -1,521 +1,371 @@
-# BakeTool User Manual
-## Professional Texture Baking Suite for Blender
+# BakeTool 用户手册
 
-**Version:** 1.0.0
-**Supported Blender:** 3.3 - 5.0+
-**Location:** 3D View > N Panel > Baking
+本文档面向插件实际使用者，目标不是列一堆按钮名称，而是帮助你理解 BakeTool 当前版本的工作方式、适用边界、典型流程和常见故障处理方法。文档内容已经和当前仓库中的实现同步，尤其反映了正式发布前这轮修复后的真实行为。
 
----
+## 1. 插件定位与适用范围
 
-## Overview
+BakeTool 的目标是把 Blender 中贴图烘焙里最容易反复出错、最耗时间的部分整理成一个可重复、可批量、可验证的流程。它适用于以下类型的工作：
 
-BakeTool is a comprehensive texture baking solution designed for Blender that automates the complex process of generating texture maps from 3D scenes. Whether you're preparing assets for game engines, real-time rendering, or archviz projects, BakeTool streamlines the workflow with intelligent automation and multi-channel support.
+- 低模对象基础贴图输出
+- 高模到低模的 Selected-to-Active 烘焙
+- 多对象批处理
+- 多材质拆分烘焙
+- UDIM 资产贴图处理
+- 节点结果烘焙
+- 自定义通道和通道打包
+- 烘焙后导出模型与贴图
 
-### Key Features
-- **Non-Destructive Workflow**: No manual node connections required
-- **Automatic Resource Creation**: Auto-creates images, UVs, and materials
-- **Multi-Channel Support**: PBR, Light, Mesh, and Custom channels
-- **Smart Analysis**: Auto-detects Principled BSDF configurations
-- **Interactive Preview**: Real-time channel packing preview in viewport
-- **Cross-Version Support**: Supports Blender 3.3 through 5.0+
+它不试图替代 Blender 原生材质系统，也不会自动理解你所有自定义节点网络的语义。BakeTool 的原则是优先把“明确可判断、能被稳定验证”的流程自动化，把“项目差异大、推断成本高”的部分交给你显式配置。
 
----
+## 2. 安装与基本访问方式
 
-## Section 1: Interface Overview
+### 2.1 安装
 
-### 1.1 Panel Layout
+你可以从 ZIP 包安装，也可以直接用源码目录作为插件目录。无论哪种方式，最终都需要在 Blender 的 `Edit > Preferences > Add-ons` 中启用 BakeTool。
 
-The BakeTool panel is located in Blender's N Panel (sidebar) and organized into the following collapsible sections:
+### 2.2 界面位置
 
+主面板位于：
+
+- `3D View > N Panel > Baking`
+
+辅助面板位于：
+
+- 结果浏览相关面板
+- `Image Editor` 中的结果查看区域
+- `Node Editor` 中的节点烘焙面板
+
+## 3. 核心概念
+
+### 3.1 Job
+
+Job 是 BakeTool 的最基本工作单元。一个 Job 保存一整套烘焙配置，包括：
+
+- 对象选择与模式
+- 分辨率与采样
+- 启用的烘焙通道
+- 输出路径与图像格式
+- 通道打包设置
+- 自定义贴图配置
+- 导出联动选项
+- 动画和命名规则
+
+如果你的项目里有角色、场景资产、道具三类对象，最直接的用法往往不是反复改一个 Job，而是为每一类对象各建一个 Job，分别保存预设。
+
+### 3.2 Bake Mode
+
+BakeTool 当前围绕几种核心模式工作：
+
+- `SINGLE_OBJECT`：单对象或常规对象集合烘焙
+- `COMBINE_OBJECT`：合并对象结果
+- `SELECT_ACTIVE`：高模到低模的 Selected-to-Active 流程
+- `SPLIT_MATERIAL`：按材质拆分结果
+- `UDIM`：基于 UDIM tile 的烘焙流程
+
+模式会影响执行队列的构造、对象上下文、目标图像命名和导出行为，因此建议先确定模式，再勾通道。
+
+### 3.3 Channel
+
+Channel 指单个需要输出的贴图结果，例如颜色、粗糙度、法线、AO、Combined 或自定义图。BakeTool 最终会把这些通道转成执行步骤，并为每个步骤准备图像、节点上下文和保存逻辑。
+
+### 3.4 自定义贴图
+
+自定义贴图是 BakeTool 的一个关键能力。你可以从已有烘焙结果中提取某个通道，或按 R/G/B/A 分别指定来源，组装成新的灰度或 RGBA 图。当前版本已经把这条链路真正接入执行引擎，因此自定义图不仅能生成，也能继续参与通道打包。
+
+## 4. 主面板结构
+
+3D 视图主面板的结构大体分为四大块：
+
+- `SETUP & TARGETS`
+- `BAKE CHANNELS`
+- `OUTPUT & EXPORT`
+- `CUSTOM MAPS`
+
+面板顶部还会包含预设、任务管理和环境检查相关信息，底部是启动烘焙入口。使用顺序建议也是从上到下。
+
+### 4.1 Job 管理区
+
+这里负责创建、删除、切换、保存和加载 Job。推荐做法：
+
+1. 先新建 Job。
+2. 立刻改一个有语义的名字。
+3. 先配置最常用通道和输出格式。
+4. 再保存为预设。
+
+这样后续新场景只需要加载预设，而不是从零点选。
+
+### 4.2 One-Click PBR
+
+`One-Click PBR` 的作用是快速启用一个最基础、最常见的 PBR 集合。当前实现只会启用：
+
+- `Base Color`
+- `Roughness`
+- `Normal`
+
+这很重要，因为旧版文档里把它描述成会同时启用金属度和 AO，这和当前代码不一致。若你的项目需要金属度、AO、Emission、Alpha 或其他图层，请在 `BAKE CHANNELS` 中手动勾选。
+
+### 4.3 SETUP & TARGETS
+
+这一部分决定“谁被烘焙、如何被组织、结果尺寸和执行上下文如何建立”。通常包括：
+
+- 目标对象列表
+- bake 类型或工作模式
+- 分辨率
+- 采样和 margin
+- 目标对象与激活对象
+- UV 相关策略
+- cage 与 extrusion
+- UDIM 行为
+
+建议先确认对象和模式，再调整采样。很多看似像“贴图出错”的问题，其实是模式选错或对象上下文不对。
+
+### 4.4 BAKE CHANNELS
+
+这一部分决定“具体要输出哪些图”。你可以把它理解为一个通道清单，每一项通道都可能带有自己的一组设置。实际项目中最常见的组合通常是：
+
+- 颜色类：Base Color、Emission
+- 表面属性类：Roughness、Metallic、Specular
+- 法线与几何辅助：Normal、AO 等
+- 光照类：Combined、Diffuse、Glossy、Transmission
+
+对于光照类或 Combined 类型，当前版本中的 pass filter 选项已经真正会传递到 Blender 的 bake 设置里。也就是说，界面里看到的 direct、indirect、color 等开关不再是摆设，而会实际影响结果。
+
+### 4.5 OUTPUT & EXPORT
+
+这一部分负责结果落盘和导出联动。可配置内容一般包括：
+
+- 是否外部保存
+- 保存目录
+- 文件命名与后缀
+- 图像格式、位深、质量
+- 颜色空间
+- 动画帧输出
+- 通道打包
+- 是否导出模型
+- 模型格式和是否连带贴图输出
+
+如果你启用了导出，BakeTool 会在执行结束后调用相应导出逻辑。当前版本已经修复导出时对对象可见性的污染问题，`hide_set()` 和 `hide_viewport` 都会在完成后恢复。
+
+### 4.6 CUSTOM MAPS
+
+这里用于创建自定义贴图。配置时重点注意：
+
+- 输出类型是灰度还是 RGBA
+- 每个分量来源于哪一张已烘焙结果
+- 是否需要取单通道
+- 是否反相
+- 是否按黑白输出
+
+如果通道打包要使用自定义图，建议先确认自定义贴图名称稳定，因为打包源会使用 `BT_CUSTOM_<name>` 这一规范化结果键。
+
+## 5. 标准操作流程
+
+### 5.1 单对象烘焙
+
+适合已经有明确低模目标且只需要标准贴图的情况。
+
+1. 新建 Job。
+2. 添加目标对象。
+3. 选择 `SINGLE_OBJECT`。
+4. 设定分辨率与保存路径。
+5. 选择常用通道，例如颜色、粗糙度、法线。
+6. 检查材质和 UV。
+7. 执行。
+
+如果只想快速起步，可以先点击 `One-Click PBR` 再微调。
+
+### 5.2 高模到低模烘焙
+
+适合需要将高模细节转移到低模贴图的情况。
+
+1. 在场景中准备高模和低模。
+2. 确认低模是激活对象。
+3. 选择 `SELECT_ACTIVE`。
+4. 设置 cage 相关参数。
+5. 启用法线、AO、颜色等需要的通道。
+6. 根据结果调整 extrusion 或 cage。
+
+如果你发现法线边缘有穿插、AO 污染或细节丢失，优先检查对象法线、UV、cage 和采样，再考虑是否是贴图设置问题。
+
+### 5.3 多材质拆分
+
+当一个对象需要按材质拆开输出时，使用 `SPLIT_MATERIAL`。这种模式常用于复杂资产或导出到游戏引擎前需要按材质槽管理贴图的场景。建议在命名规则和输出目录上提前统一，否则后期整理成本会明显增加。
+
+### 5.4 UDIM 工作流
+
+UDIM 流程的关键不在于“能不能烘”，而在于 tile 检测、命名和结果组织是否稳定。推荐顺序：
+
+1. 确认对象 UV 已经按 UDIM 组织。
+2. 使用 `UDIM` 模式。
+3. 选择合适的 `udim_mode`，例如自动检测或自定义。
+4. 如对象列表发生变化，可使用刷新 UDIM 位置的功能重新同步。
+5. 在导出前确认输出文件名和 tile 匹配关系。
+
+### 5.5 动画帧序列烘焙
+
+BakeTool 支持按帧输出贴图序列。配置点包括：
+
+- 是否启用动画烘焙
+- 是否使用自定义帧范围
+- 起始帧和持续帧数
+- 起始编号
+- 编号位数
+- 帧分隔符
+
+这适合逐帧变化的缓存或特殊程序化效果，但也会显著增加时间和磁盘占用。发布资产前建议先用短帧范围做烟测。
+
+### 5.6 节点烘焙
+
+如果你只想把当前节点的输出直接烘成图，而不是走完整个对象级的通道配置，可以在 Node Editor 面板里使用节点烘焙功能。当前版本已经补齐了对应 operator，界面按钮与注册状态保持一致。
+
+使用时注意：
+
+- 需要有激活对象和激活材质
+- 需要有当前激活节点
+- 节点烘焙的输出路径和图像参数由节点烘焙设置控制
+
+## 6. 输出与命名建议
+
+### 6.1 路径策略
+
+如果项目已经保存，优先使用项目目录下的专用输出文件夹。如果当前 `.blend` 尚未保存，BakeTool 会在某些路径逻辑下退回临时目录，但正式资产不建议长期依赖这个行为。
+
+### 6.2 颜色空间
+
+法线、粗糙度、金属度、AO 等数据图一般应使用非颜色数据。当前版本已经增加颜色空间映射逻辑，会把插件内部枚举值正确映射到 Blender 实际支持的 colorspace 名称，例如：
+
+- `NONCOL` 对应 `Non-Color`
+- `SRGB` 对应 `sRGB`
+- `LINEAR` 会尝试匹配可用的线性颜色空间
+
+如果你在不同 Blender 版本之间切换，建议始终检查关键数据图是否落在正确颜色空间。
+
+### 6.3 通道打包
+
+通道打包适合把多个数据图合并成单一纹理，例如常见的 ORM 或其他自定义组合。推荐在以下前提下使用：
+
+- 各源图尺寸一致
+- 都是最终确认后的结果
+- 颜色空间需求已经明确
+- 下游引擎或 DCC 管线确实需要打包贴图
+
+如果打包包含自定义贴图，请确认源来自最新生成结果，而不是旧文件名或临时缓存。
+
+## 7. 预设与复用
+
+BakeTool 的预设系统会序列化 Job 相关属性，并支持一定程度上的迁移兼容。建议这样使用：
+
+- 把“项目模板级”配置保存为预设
+- 不要把强依赖特定对象名的临时状态混入通用预设
+- 在升级插件后，先用测试场景加载旧预设验证结果
+
+如果预设加载后部分字段没有恢复，通常有三种原因：
+
+- 属性已改名且未命中迁移映射
+- 某些字段是只读或运行期字段，不参与保存
+- 对象、材质、图像这类 Blender ID 不会被直接写入预设
+
+## 8. 状态恢复与中断处理
+
+BakeTool 使用 `state_manager.py` 在系统临时目录写入上一次执行状态，文件名为：
+
+```text
+sbt_last_session.json
 ```
-┌──────────────────────────────────────────────┐
-│ [ENVIRONMENT CHECK]                          │
-│  ├ Addon Dependencies: FBX ✓ GLB ✓          │
-│  └ Output Path: Valid ✓                      │
-├──────────────────────────────────────────────┤
-│ [PRESET LIBRARY]           [Refresh] [+ Add] │
-├──────────────────────────────────────────────┤
-│ [JOB MANAGEMENT]                            │
-│  ├ Job 1 ● [One-Click PBR]                   │
-│  └ [+ Add] [- Remove] [Save] [Load]            │
-├──────────────────────────────────────────────┤
-│ 1. SETUP & TARGETS        [▼]                 │
-│ 2. BAKE CHANNELS        [▼]                  │
-│ 3. OUTPUT & EXPORT     [▼]                  │
-│ 4. CUSTOM MAPS        [▼]                  │
-├──────────────────────────────────────────────┤
-│ [START BAKE PIPELINE]                         │
-└──────────────────────────────────────────────┘
-```
 
-### 1.2 Environment Health Check
+它会记录：
 
-The top section performs real-time system validation:
+- Job 名称
+- 总步骤数
+- 当前步骤
+- 队列索引
+- 当前对象
+- 当前通道
+- 最后一次错误
 
-| Status Icon | Meaning | Action Required |
-|-------------|---------|-----------------|
-| Green ✓ | Normal | No action needed |
-| Orange ⚠ | Warning | Check settings |
-| Red ✗ | Error | Fix before baking |
+如果 Blender 崩溃或流程中断，重新打开界面后可以根据 UI 提示决定是否恢复或清理状态。恢复并不意味着“从任何内部细节处继续”，而是基于记录到的执行位置做合理续跑，因此在关键生产任务中仍然建议保留中间结果和场景备份。
 
-**Checks Performed:**
-- **Addon Dependencies**: Verifies export addons (FBX/GLB/USD) are enabled
-- **Path Validation**: Confirms export path exists and is writable
-- **UV Detection**: Checks objects have valid UV maps
+## 9. Headless 与脚本化使用
 
----
+### 9.1 背景烘焙
 
-## Section 2: Job Management
-
-### 2.1 Creating and Managing Jobs
-
-Jobs are templates that store and reuse bake configurations:
-
-**Create New Job:**
-1. Click `+ Add` button
-2. Select the newly created job from the list
-3. Configure bake parameters
-
-**Save Preset:**
-1. Configure all parameters
-2. Click `Save` button
-3. Choose save location
-4. Preset saves as `.json` file containing all channel configurations
-
-**Load Preset:**
-1. Click `Load` button
-2. Browse to preset file
-3. Parameters auto-load to current job
-
-### 2.2 One-Click PBR Setup
-
-Click `One-Click PBR Setup` to automatically configure standard PBR bake channels:
-- Base Color
-- Roughness
-- Normal
-- Metallic
-- Ambient Occlusion
-
-This is recommended for Substance Painter/Substance Painter workflow automatic texturing.
-
----
-
-## Section 3: Object Management
-
-### 3.1 Adding Bake Objects
-
-**Manual Addition:**
-1. Select objects in 3D viewport
-2. Click `+ Add` button
-3. Objects added to list
-
-**Auto-Select:**
-1. Select all objects that need baking in 3D viewport
-2. Click `Auto-Select`
-3. All selected mesh objects added to list
-
-### 3.2 Object List Indicators
-
-The object list displays real-time status information:
-
-| Icon | Meaning | Description |
-|------|---------|-------------|
-| ✓ Green | UV Valid | Object has valid UV maps |
-| ⚠ Orange | No UV | Object missing UV, needs creation |
-| ✗ Red | Error | Object has issues, cannot bake |
-
-### 3.3 Adding UVs
-
-1. Select objects lacking UVs
-2. Press `U` in 3D viewport
-3. Choose UV method (Smart UV Project / Unwrap)
-
-### 3.4 High-to-Low Baking (Selected to Active)
-
-For high-poly to low-poly baking workflow:
-1. Select all high-poly objects
-2. Hold `Shift` and select low-poly object (becomes active)
-3. Set `Bake Mode` to `Select to Active`
-4. Bake
-
-**Advantage**: High-poly objects don't need UVs; system auto-handles processing
-
----
-
-## Section 4: Channel Configuration
-
-### 4.1 PBR Channels
-
-| Channel | Description | Blender Bake Type |
-|---------|------------|-------------------|
-| Base Color | Base color/Albedo | Diffuse |
-| Roughness | Surface roughness | Roughness |
-| Metallic | Metalness | Glossy (Metallic) |
-| Specular | Specular level | Specular |
-| Normal | Normal map | Normal |
-| Height | Displacement | Displacement |
-| Ambient Occlusion | Ambient occlusion | Ambient Occlusion |
-| Emit | Emission | Emit |
-
-### 4.2 Light/Render Channels
-
-| Channel | Description |
-|---------|-------------|
-| Curvature | Edge wear detection |
-| Normal | Point normal |
-| Position | Object position |
-| UV | UV coordinates viewable |
-
-### 4.3 Mesh Analysis Channels
-
-| Channel | Description |
-|---------|-------------|
-| Material ID | Material identification |
-| Fac | Face count |
-| Element ID | Element identification |
-
-### 4.4 Channel Suffixes
-
-Configure output file suffixes:
-| Channel | Default Suffix |
-|---------|----------------|
-| Base Color | `_color` |
-| Roughness | `_rough` |
-| Normal | `_normal` |
-| Metallic | `_metal` |
-
-### 4.5 Custom Channels
-
-Support for custom channel building:
-1. Click `+ Add Channel`
-2. Choose channel type
-3. Configure suffix and parameters
-4. Drag to adjust order
-
----
-
-## Section 5: Advanced Settings
-
-### 5.1 Cage Settings (Cage)
-
-Cage is an intermediate body for raycasting between high and low poly.
-
-**Modes:**
-- **Uniform**: Uniform extrusion, all faces same distance
-- **Proximity**: Smart nearest neighbor analysis, auto-detects high-poly to low-poly distance
-
-**Settings:**
-- **Cage Extrusion**: Extrusion distance (default 0.01)
-- **Cage Offset**: Additional cage offset
-- **Cage Object**: Use custom cage object
-
-### 5.2 Cage Analysis
-
-Click `Analyze Cage` to perform raycast analysis between high and low poly meshes.
-
-**Visual Feedback:**
-- 🟢 Green: Safe areas, baking safe
-- 🟡 Yellow: Proximity areas,可能出现间隙
-- 🟠 Orange: Warning areas, review recommended
-
-**Analysis Report:**
-- Error count
-- Warning percentage
-- Recommended extrusion distance
-
-### 5.3 Texel Density
-
-Define target texel density to maintain consistent texture quality.
-
-**Formula:**
-```
-Resolution = Texel Density × Object Size
-```
-
-**Configuration:**
-1. Enter target density (e.g., 512 px/unit)
-2. System auto-calculates recommended resolution
-3. Click apply recommendation
-
-### 5.4 Denoise Settings
-
-Enable Intel Open Image Denoise (OIDN) for post-processing:
-
-1. Enable `Denoise`
-2. Choose denoise strength (1-10)
-3. Configure strength affects smoothing
-
-**Best Use Cases:**
-- Low sampling fast preview
-- Complex multi-bounce baking
-- Reduce noise artifacts
-
-### 5.5 Performance Profiling
-
-After baking, view each channel's performance metrics:
-
-| Metric | Description |
-|--------|-------------|
-| Bake Time | Calculation time |
-| Save Time | File save time |
-| Total Time | Total elapsed time |
-| Memory Peak | Maximum memory used |
-
----
-
-## Section 6: Saving and Exporting
-
-### 6.1 Apply to Scene
-
-After baking, create new material and assign to objects automatically.
-
-**Automatic Update:**
-- If material exists in scene, system directly updates material and node connections
-- No recreation, keeping scene clean
-
-**Naming Convention:**
-- Material: `{Original Material Name}_Baked`
-- Material: `{Original Material Name}_Baked`
-
-### 6.2 External Save
-
-Save baking results to disk after completion.
-
-**Supported Formats:**
-- PNG (default, recommended)
-- JPEG
-- EXR (32-bit, supports HDR)
-- TIFF
-
-**Path Configuration:**
-- Absolute path: `C:/textures/`
-- Relative path: `//textures/` (relative to .blend file)
-
-### 6.3 One-File Delivery (GLB/GLTF Export)
-
-Auto-export baked results to immediately usable formats:
-
-**Supported Formats:**
-- **GLB/GLTF**: For Web, Three.js, game engines
-- **USD**: For film/compositing, DC workflow
-
-**Workflow:**
-1. Enable `Export Model`
-2. Choose export format
-3. Choose export path
-4. Baking completes and auto-executes export
-
-**PBR Automatic Binding:**
-- Auto-create industry-standard PBR material
-- Auto-link all baked textures
-- Usable directly in Substance, Unity, Unreal, etc.
-
----
-
-## Section 7: Quick Baking
-
-### 7.1 Quick Bake Feature
-
-Bake without configuring complex task - directly bake selected objects:
-
-1. Select objects in 3D viewport
-2. Click `Quick Bake`
-3. Uses current job settings (or default settings if none)
-
-**Characteristics:**
-- **Memory Mode**: Uses in-memory execution without modifying current job settings
-- **Fast Preview**: Suitable for quick quality checks
-- **No Panel Switch**: No need to switch panels
-
-### 7.2 UDIM Baking
-
-Designed for UDIM workflow:
-1. Ensure model uses UDIM format UVs
-2. Display all detected tiles in list
-3. Each tile auto-creates corresponding image
-4. Single bake outputs all tiles
-
----
-
-## Section 8: Interactive Preview
-
-### 8.1 Interactive Preview Mode
-
-Preview channel packing results in viewport before baking:
-1. Click `Preview Packing`
-2. View 3D viewport see ORM result in real-time
-3. Adjust parameters and auto-update preview
-- Occlusion (R channel)
-- Roughness (G channel)
-- Metallic (B channel)
-
-### 8.2 Auto-Recovery
-
-After closing preview, system auto-restores original material:
-- No persistent viewport artifacts
-- Non-destructive workflow
-- 100% safe
-
----
-
-## Section 9: Command Line and API
-
-### 9.1 Headless Baking (CLI)
-
-Execute baking in server or headless environments:
 ```bash
-# Basic command
-blender -b project.blend -P headless_bake.py
-
-# Specify job
-blender -b project.blend -P headless_bake.py -- --job "PBR_Job"
-
-# Specify output directory
-blender -b project.blend -P headless_bake.py -- --output "C:/baked/"
-
-# Combined parameters
-blender -b project.blend -P headless_bake.py -- --job "PBR" --output "C:/baked/"
+blender -b scene.blend -P automation/headless_bake.py -- --job "PBR_Job"
+blender -b scene.blend -P automation/headless_bake.py -- --output "C:/baked"
+blender -b scene.blend -P automation/headless_bake.py -- --job "PBR_Job" --output "C:/baked"
 ```
 
-### 9.2 Python API
+### 9.2 使用限制
 
-Call baking functions directly in scripts:
-```python
-import bpy
-from baketool.core import api
+- headless 脚本不会替你新建 Job
+- `.blend` 里必须已经存在并保存 BakeTool 的作业配置
+- 若未指定 `--job`，会运行所有已启用 Job
+- `--output` 会覆盖 Job 的外部保存目录，并自动启用外部保存
 
-# Basic baking - use current scene's Job settings
-# Bake currently selected objects
-api.bake(objects=bpy.context.selected_objects)
+### 9.3 API 使用
 
-# Or use viewport selection
-api.bake(use_selection=True)
+对其他脚本或插件集成来说，可以使用 `core/api.py` 提供的入口：
 
-# Get UDIM tiles
-tiles = api.get_udim_tiles(bpy.context.selected_objects)
-print(f"UDIM tiles: {tiles}")
+- `bake(objects, use_selection=True)`
+- `get_udim_tiles(objects)`
+- `validate_settings(job)`
 
-# Validate settings
-is_valid, msg = api.validate_settings(bpy.context.scene.BakeJobs.jobs[0])
-print(f"Valid: {is_valid}, Message: {msg}")
-```
+这类入口更适合做管线集成或自定义自动化，而不是直接驱动 UI operator。
 
-### 9.3 API Reference
-| Function | Description | Parameters |
-|----------|-------------|------------|
-| `api.bake()` | Execute baking | objects (optional), use_selection (default False) |
-| `api.get_udim_tiles()` | Get UDIM tiles | objects list |
-| `api.validate_settings()` | Validate Job settings | job object |
+## 10. 常见问题与排查
 
----
+### 10.1 按钮点击没反应或报 operator 错误
 
-## Section 10: Troubleshooting
+当前版本已经修复已知缺失 operator 问题。如果仍出现错误，优先检查：
 
-### 10.1 Crash Recovery
+- 插件是否是最新目录
+- Blender 是否加载了旧缓存
+- 是否存在多个同名插件目录
 
-If Blender crashes during baking:
-1. Reopen Blender
-2. Red warning appears in panel header
-3. Shows last executed asset and channel
-4. Follow information to check issues
+### 10.2 背景模式提示找不到 BakeTool 属性
 
-### 10.2 Cleanup
+使用当前版本的 `automation/headless_bake.py` 时，该问题应该已修复。若仍出现：
 
-If scene has leftover temporary data:
-1. Press `F3` (Search)
-2. Enter `Clean Up Bake Junk`
-3. Click to execute cleanup
+- 确认脚本路径在 `automation/` 下
+- 确认仓库目录可被 Python 导入为 `baketool`
+- 确认 `.blend` 文件中确实存在作业配置
 
-**Cleanup Contents:**
-- `BT_Bake_Temp_UV` - Temporary UV layers
-- `BT_Protection_*` - Protection nodes
-- `BT_*` Images - Temporary images
+### 10.3 法线图颜色不对
 
-### 10.3 Common Issues
+优先检查：
 
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| Normal map incorrect | Incorrect Color Space | Ensure Color Space is `Non-Color` |
-| Baking results black | Object not selected or no UV | Add UVs and select objects |
-| Missing textures | Image path reference broken | Unlink and fix paths |
-| Memory insufficient | High resolution too large | Reduce resolution or tile baking |
-| Export failed | Addon not enabled | Enable glTF/USD addon |
+- 图像颜色空间是否为 `Non-Color`
+- 目标材质是否正确使用法线图节点
+- 高低模方向和 cage 是否合理
 
-### 10.4 Performance Optimization
+### 10.4 通道打包里选了自定义图但结果异常
 
-| Issue | Optimization Method |
-|-------|-------------------|
-| Baking too slow | Use GPU baking, reduce sample count |
-| Memory insufficient | Reduce resolution or use tiled baking |
-| Preview too slow | Disable preview, use lower sample count |
+当前版本已修复自定义图打包键不一致的问题。如果仍异常，检查：
 
----
+- 自定义图是否已成功生成
+- 自定义图名称是否在生成后又被修改
+- 打包源是否仍指向旧名称
 
-## Appendix A: Keyboard Shortcuts
-| Shortcut | Action |
-|----------|-------|
-| `F3` | Search (enter `Bake` to find options) |
-| `Ctrl + Shift + B` | Open BakeTool panel |
-| `U` | UV in UV Editor |
+### 10.5 导出后对象可见性变化
 
----
+当前版本已恢复 `hide_viewport` 和 `hide_set()`。如果你观察到场景状态仍被改变，通常说明导出流程被异常中断，此时应先检查控制台错误，再确认是否有其他插件同时修改对象可见性。
 
-## Appendix B: File Structure
+## 11. 使用建议
 
-```
-baketool/
-├── __init__.py           # Addon entry point
-├── ops.py                # Operator definitions
-├── ui.py                 # UI panel
-├── property.py           # Property definitions
-├── constants.py          # Constants
-├── translations.py        # Translation system
-├── state_manager.py       # State management
-├── preset_handler.py    # Preset handling
-├── core/                 # Core modules
-│   ├── api.py          # Public API
-│   ├── engine.py       # Baking engine
-│   ├── execution.py    # Execution context
-│   ├── image_manager.py # Image management
-│   ├── node_manager.py # Node management
-│   ├── uv_manager.py   # UV management
-│   ├── shading.py     # Shading utilities
-│   ├── cage_analyzer.py # Cage analysis
-│   ├── common.py       # Common utilities
-│   ├── compat.py       # Version compatibility
-│   ├── math_utils.py   # Math utilities
-│   ├── thumbnail_manager.py # Thumbnail manager
-├── automation/           # Automation tools
-│   ├── cli_runner.py   # CLI test runner
-│   ├── multi_version_test.py # Multi-version test
-│   ├── headless_bake.py # Headless baking
-├── dev_tools/           # Development tools
-│   ├── extract_translations.py
-├── docs/                # Documentation
-├── test_cases/          # Test suites
-```
+- 首次上生产资产前，先在一个小测试场景里跑完整流程。
+- 把常用项目模板做成预设，减少人工点选。
+- 数据图尽量统一颜色空间和命名规则。
+- 对动画、UDIM、多对象合并这类高成本流程，先做小样验证。
+- 对关键项目保留 `.blend` 备份和中间输出，不要把“插件能恢复”当成主保险。
 
----
+## 12. 文档边界说明
 
-## Appendix C: Glossary
+本文档描述的是当前仓库版本的实际能力，不承诺未来版本保持完全相同的按钮命名或布局。对用户而言，最重要的是理解：
 
-| Term | Definition |
-|------|-----------|
-| UDIM | Multi-tile image system supporting 1001, 1002, ... tiles |
-| Cage | Intermediate body for raycasting between high and low poly |
-| Texel Density | Texture pixel density per unit area |
-| PBR | Physics-Based Rendering |
-| ORM | Occlusion + Roughness + Metallic channel packing |
-| OIDN | Intel Open Image Denoise, GPU-based denoiser |
+- Job 是配置载体
+- 模式决定执行上下文
+- 通道决定输出内容
+- 自定义贴图和打包决定最终交付格式
+- 自动化和恢复机制是辅助稳定性的工具，而不是替代备份与验证
 
----
-
-## Appendix D: Support and Feedback
-- **Issue Reports**: [GitHub Issues](https://github.com/lastraindrop/baketool/issues)
-- **Feature Requests**: [GitHub Discussions](https://github.com/lastraindrop/baketool/discussions)
-- **Documentation Fixes**: Pull Request
-
----
-
-*User Manual Version 1.0.0*
-*Last Updated: 2026-04-17*
+如果你需要扩展、调试或接入更复杂的外部流程，请继续阅读开发者文档和自动化参考文档。

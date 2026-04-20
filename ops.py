@@ -25,7 +25,6 @@ from .core.common import (
 )
 from .core.image_manager import set_image, save_image
 from .core.uv_manager import UVLayoutManager, detect_object_udim_tile
-from .core.node_manager import NodeGraphHandler
 from .core.math_utils import pack_channels_numpy
 from .core.engine import (
     BakeStep,
@@ -315,6 +314,134 @@ class BAKETOOL_OT_ResetChannels(bpy.types.Operator):
         job = bj.jobs[bj.job_index]
         reset_channels_logic(job.setting)
         self.report({"INFO"}, "Channels reset to default for current bake type.")
+        return {"FINISHED"}
+
+
+class BAKETOOL_OT_SetSaveLocal(bpy.types.Operator):
+    """Point save paths to the current blend directory or a safe temp fallback."""
+
+    bl_idname = "bake.set_save_local"
+    bl_label = "Use Local Path"
+
+    save_location: props.IntProperty(default=0)
+
+    @staticmethod
+    def _resolve_local_dir() -> str:
+        if bpy.data.filepath:
+            return str(Path(bpy.data.filepath).resolve().parent)
+        return str(Path(bpy.app.tempdir or os.getcwd()).resolve())
+
+    def execute(self, context: bpy.types.Context) -> Set[str]:
+        if not hasattr(context.scene, "BakeJobs"):
+            return {"CANCELLED"}
+
+        bj = context.scene.BakeJobs
+        local_dir = self._resolve_local_dir()
+        target = None
+
+        if self.save_location == 2:
+            target = bj.node_bake_settings
+        elif self.save_location == 1:
+            target = bj.bake_result_settings
+        elif bj.jobs:
+            job_index = bj.job_index if 0 <= bj.job_index < len(bj.jobs) else 0
+            target = bj.jobs[job_index].setting
+
+        if target is None:
+            self.report({"WARNING"}, "No save target is available.")
+            return {"CANCELLED"}
+
+        target.external_save_path = local_dir
+        self.report({"INFO"}, f"Save path set to {local_dir}")
+        return {"FINISHED"}
+
+
+class BAKETOOL_OT_SelectedNodeBake(bpy.types.Operator):
+    """Bake the active shader node to an image using node-bake settings."""
+
+    bl_idname = "bake.selected_node_bake"
+    bl_label = "Bake Selected Node"
+
+    def execute(self, context: bpy.types.Context) -> Set[str]:
+        if not hasattr(context.scene, "BakeJobs"):
+            self.report({"ERROR"}, "BakeTool properties not initialized.")
+            return {"CANCELLED"}
+
+        obj = context.active_object
+        if not obj or obj.type != "MESH":
+            self.report({"WARNING"}, "Active mesh object required.")
+            return {"CANCELLED"}
+
+        mat = obj.active_material
+        if not mat or not mat.use_nodes or not mat.node_tree:
+            self.report({"WARNING"}, "Active material with nodes required.")
+            return {"CANCELLED"}
+
+        node = mat.node_tree.nodes.active
+        if not node:
+            self.report({"WARNING"}, "Select an active shader node to bake.")
+            return {"CANCELLED"}
+        if not node.outputs:
+            self.report({"WARNING"}, "Selected node has no output sockets.")
+            return {"CANCELLED"}
+
+        settings = context.scene.BakeJobs.node_bake_settings
+        from .core.node_manager import bake_node_to_image
+        from .core.execution import add_bake_result_to_ui
+
+        image = bake_node_to_image(context, mat, node, settings)
+        if not image:
+            self.report({"ERROR"}, f"Failed to bake node '{node.name}'.")
+            return {"CANCELLED"}
+
+        path = image.filepath_raw if settings.use_external_save else ""
+        add_bake_result_to_ui(
+            context,
+            image,
+            node.name,
+            obj.name,
+            path,
+            {
+                "res_x": image.size[0],
+                "res_y": image.size[1],
+                "samples": int(getattr(settings, "sample", 1)),
+                "duration": 0.0,
+                "bake_time": 0.0,
+                "save_time": 0.0,
+                "bake_type": "NODE_BAKE",
+                "device": getattr(context.scene.cycles, "device", "UNKNOWN"),
+            },
+        )
+        self.report({"INFO"}, f"Baked node '{node.name}'.")
+        return {"FINISHED"}
+
+
+class BAKETOOL_OT_RefreshUDIMLocations(bpy.types.Operator):
+    """Rescan assigned bake objects and sync their detected UDIM tiles."""
+
+    bl_idname = "bake.refresh_udim_locations"
+    bl_label = "Refresh UDIM Tiles"
+
+    def execute(self, context: bpy.types.Context) -> Set[str]:
+        if not hasattr(context.scene, "BakeJobs"):
+            return {"CANCELLED"}
+
+        bj = context.scene.BakeJobs
+        if not bj.jobs:
+            return {"CANCELLED"}
+
+        job_index = bj.job_index if 0 <= bj.job_index < len(bj.jobs) else 0
+        job = bj.jobs[job_index]
+        synced = 0
+
+        for bake_obj in job.setting.bake_objects:
+            obj = bake_obj.bakeobject
+            if not obj or obj.type != "MESH":
+                continue
+            bake_obj.udim_tile = detect_object_udim_tile(obj)
+            synced += 1
+
+        self.report({"INFO"}, f"Synchronized UDIM tiles for {synced} objects.")
         return {"FINISHED"}
 
 

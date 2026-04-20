@@ -66,6 +66,7 @@ class SuiteExport(unittest.TestCase):
         """Verify export restores original visibility state."""
         obj = create_test_object("ExportVisTest")
         original_hide = obj.hide_get()
+        original_hide_viewport = obj.hide_viewport
 
         s = MockSetting(
             external_save_path=str(self.output_dir),
@@ -80,6 +81,28 @@ class SuiteExport(unittest.TestCase):
             original_hide,
             "Object visibility should be restored after export",
         )
+        self.assertEqual(
+            obj.hide_viewport,
+            original_hide_viewport,
+            "Viewport visibility should be restored after export",
+        )
+
+    def test_export_hidden_viewport_state_restored(self):
+        """Hidden viewport flag should survive export round-trips."""
+        obj = create_test_object("ExportHiddenViewport")
+        obj.hide_set(True)
+        obj.hide_viewport = True
+
+        s = MockSetting(
+            external_save_path=str(self.output_dir),
+            export_format="GLB",
+            export_textures_with_model=False,
+        )
+
+        ModelExporter.export(bpy.context, obj, s, file_name="HiddenViewportRestore")
+
+        self.assertTrue(obj.hide_get())
+        self.assertTrue(obj.hide_viewport)
 
     def test_export_hidden_select_object(self):
         """Verify objects hidden from selection can still be exported."""

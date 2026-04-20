@@ -1,422 +1,298 @@
-# BakeTool Developer Guide
+# BakeTool 开发者指南
 
-**Version:** 1.0.0
-**Last Updated:** 2026-04-17
+本文档面向维护者、贡献者和需要把 BakeTool 接入外部流程的开发者。它描述当前版本的结构边界、执行链、关键约束、扩展方式以及本轮发布前收尾后形成的稳定规范。请把它理解成“当前版本如何被正确维护”的说明，而不是一篇泛泛而谈的 Blender 插件教程。
 
----
+## 1. 设计目标
 
-## Overview
+BakeTool 的工程目标有三条：
 
-This guide provides architecture documentation, technical specifications, and known issues for BakeTool development. Following this guide enables effective contribution while maintaining code quality and cross-version compatibility.
+1. 把 Blender 原生烘焙流程中重复而脆弱的步骤收敛成可复用的执行链。
+2. 保持 UI、operator、核心引擎和自动化验证之间有清晰边界。
+3. 在 Blender 3.3 到 5.x 范围内维持可测试、可发布、可解释的行为。
 
----
+这意味着代码里的很多“看起来绕一点”的保护逻辑并不是多余的，它们通常对应 Blender 上下文、版本差异、导出副作用、图像颜色空间或测试可复现性问题。
 
-## Chapter 1: Architecture Design
+## 2. 仓库结构与职责划分
 
-### 1.1 Three-Layer Architecture
-
-BakeTool follows a **UI-Engine-Core** three-layer logic division:
-
-```
-┌─────────────────────────────────────────────────────┐
-│  UI / Operator Layer                                 │
-│  ops.py, ui.py                                      │
-│  - Data-driven UI (CHANNEL_UI_LAYOUT)             │
-│  - Operators (Thin Operators)                     │
-│  - Environment health monitoring                  │
-├─────────────────────────────────────────────────────┤
-│  Engine Layer (Orchestration)                      │
-│  core/engine.py                                    │
-│  - JobPreparer: Validate input and prepare queue │
-│  - BakePassExecutor: Execute bake steps            │
-│  - BakeStepRunner: Async bake controller           │
-│  - BakePostProcessor: Denoise post-processing     │
-├─────────────────────────────────────────────────────┤
-│  Core Layer (Stateless Utilities)                  │
-│  core/*.py                                         │
-│  - image_manager: Image management                │
-│  - node_manager: Node operations                 │
-│  - uv_manager: UV layer handling                  │
-│  - shading: Shader utilities                       │
-│  - common: Shared utilities                       │
-│  - compat: Version compatibility                  │
-└─────────────────────────────────────────────────────┘
-```
-
-### 1.2 Core Components
-
-#### 1.2.1 JobPreparer
-
-Responsible for validating input and preparing execution queue:
-
-```python
-class JobPreparer:
-    @staticmethod
-    def prepare_execution_queue(context, jobs) -> List[BakeStep]:
-        """Validate inputs and prepare execution queue"""
-        queue = []
-        for job in jobs:
-            if not job.enabled:
-                continue
-            # Validate objects
-            # Prepare channel config
-            # Create BakeStep
-            queue.append(step)
-        return queue
-```
-
-#### 1.2.2 BakePassExecutor
-
-Executes individual bake step pipeline:
-```python
-class BakePassExecutor:
-    @staticmethod
-    def execute(context, setting, task, channel, ...) -> Image:
-        """Execute single bake pass"""
-        # 1. Create/select target image
-        # 2. Set up bake context
-        # 3. Execute Blender bake operation
-        # 4. Apply post-processing
-        return image
-```
-
-#### 1.2.3 BakeStepRunner
-
-Controls asynchronous execution with error handling:
-```python
-class BakeStepRunner:
-    def __init__(self, context, scene):
-        self.context = context
-        self.scene = scene
-
-    def run(self, step, state_mgr=None, queue_idx=0) -> List[Dict]:
-        """Execute single step with full context management"""
-        # Orchestrates UV setup, node graph, bake, save, channel packing
-```
-
-#### 1.2.4 BakePostProcessor
-
-Handles denoising and post-processing:
-```python
-class BakePostProcessor:
-    @staticmethod
-    def apply_denoise(context, images, method) -> None:
-        """Apply denoising using OIDN"""
-        # Uses Blender compositor with OIDN
-```
-
----
-
-## Chapter 2: Data Flow
-
-### 2.1 Execution Flow
-
-```
-User Click "START BAKE PIPELINE"
-        │
-        ▼
-JobPreparer.prepare_execution_queue()
-        │ Validates jobs, objects, channels
-        ▼
-BakeStepRunner.run() [Modal Loop]
-        │
-        ├─► BakeContextManager (Context preservation)
-        ├─► UVLayoutManager (UV preparation)
-        ├─► NodeGraphHandler (Node setup)
-        ├─► BakePassExecutor (Execute bake)
-        ├─► ImageManager (Save to disk)
-        ├─► ChannelPacker (ORM packing)
-        └─► BakePostProcessor (Denoise)
-        │
-        ▼
-Result (Apply to scene / Export)
-```
-
-### 2.2 Named Tuples
-
-BakeStep and BakeTask use named tuples for lightweight data passing:
-
-```python
-# In constants.py
-BakeStep = namedtuple('BakeStep', ['job', 'task', 'channels', 'frame_info'])
-BakeTask = namedtuple('BakeTask', ['base_name', 'object', 'udim_tile', ...])
-```
-
----
-
-## Chapter 3: Naming Conventions
-
-### 3.1 File Naming
-- **Modules**: `snake_case.py` (e.g., `image_manager.py`)
-- **Classes**: `PascalCase` (e.g., `BakeStepRunner`)
-- **Functions**: `snake_case()` (e.g., `save_image()`)
-- **Constants**: `UPPER_SNAKE_CASE` (e.g., `BAKE_TYPES`)
-
-### 3.2 Blender-Specific Conventions
-
-Due to Blender API requirements:
-- **Operators**: `BAKETOOL_OT_*` (e.g., `BAKETOOL_OT_BakeOperator`)
-- **Panels**: `BAKE_PT_*` (e.g., `BAKE_PT_BakePanel`)
-- **UI Lists**: `BAKETOOL_UL_*`
-- **PropertyGroups**: `Bake*Settings` (e.g., `BakeJobSetting`)
-
-### 3.3 System Names
-
-Avoid name collisions with Blender internal names:
-```python
-SYSTEM_NAMES = {
-    "TEMP_UV": "BT_Bake_Temp_UV",      # Prefix with BT_
-    "DUMMY_IMG": "BT_Protection_Dummy",
-    "PROTECTION_NODE": "BT_Protection_Node",
-}
-```
-
----
-
-## Chapter 4: Version Compatibility
-
-### 4.1 Blender Version Detection
-
-```python
-# In core/compat.py
-def is_blender_5() -> bool:
-    return bpy.app.version >= (5, 0, 0)
-
-def is_blender_4() -> bool:
-    return bpy.app.version >= (4, 0, 0) and bpy.app.version < (5, 0, 0)
-```
-
-### 4.2 Common Compatibility Issues
-
-| Issue | Blender 3.x | Blender 4.x+ | Solution |
-|-------|-------------|--------------|----------|
-| Vertex Colors | `vertex_colors` | Deprecated | Use mesh attributes API |
-| Bake Types | `scene.render.bake_type` | `scene.cycles.bake_type` | Use compat function |
-
-### 4.3 Testing Multi-Version
-
-```bash
-# Run automated multi-version tests
-python automation/multi_version_test.py --verification
-```
-
----
-
-## Chapter 5: Testing Framework
-
-### 5.1 Test Suites
-
-| Suite | Purpose |
-|-------|---------|
-| `suite_unit.py` | Unit tests for core functions |
-| `suite_memory.py` | Memory leak detection |
-| `suite_export.py` | Export safety tests |
-| `suite_api.py` | API stability tests |
-| `suite_code_review.py` | Code quality checks |
-
-### 5.2 Running Tests
-
-```bash
-# Run all tests via Blender
-blender -b --python automation/cli_runner.py -- --suite all
-
-# Run specific suite
-blender -b --python automation/cli_runner.py -- --suite unit
-```
-
-### 5.3 CI/CD Integration
-
-Tests automatically run on:
-- Pull requests
-- Version tags
-- Scheduled daily builds
-
----
-
-## Chapter 6: Coding Standards
-
-### 6.1 Error Handling
-
-**Always use specific exceptions:**
-
-```python
-# BAD
-try:
-    operation()
-except Exception:
-    pass
-
-# GOOD
-try:
-    operation()
-except (OSError, FileNotFoundError) as e:
-    logger.warning(f"Operation failed: {e}")
-```
-
-### 6.2 Type Annotations
-
-Add type annotations for public functions:
-
-```python
-def set_image(
-    name: str,
-    x: int,
-    y: int,
-    alpha: bool = True,
-    context: Optional[bpy.types.Context] = None,
-) -> bpy.types.Image:
-    """Get or create an image with specified settings."""
-    pass
-```
-
-### 6.3 Docstrings
-
-Follow Google style for docstrings:
-
-```python
-class BakeStepRunner:
-    """Executes a single bake step with full context management.
-
-    Handles context switching, UV layout setup, node graph manipulation,
-    bake execution, result saving, and channel packing.
-
-    Args:
-        context: Blender context. Uses bpy.context if None.
-        scene: Target scene. Uses context.scene if None.
-    """
-
-    def run(self, step: BakeStep) -> List[Dict[str, Any]]:
-        """Execute a single Step and return generated results.
-
-        Returns:
-            List of dicts containing image data and metadata.
-        """
-        pass
-```
-
----
-
-## Chapter 7: API Reference
-
-### 7.1 Core Modules
-
-| Module | Purpose | Public API |
-|--------|---------|------------|
-| `api.py` | Public API | `api.bake()`, `api.get_udim_tiles()` |
-| `engine.py` | Bake orchestration | `JobPreparer`, `BakeStepRunner` |
-| `image_manager.py` | Image handling | `set_image()`, `save_image()` |
-| `node_manager.py` | Node operations | `NodeGraphHandler` |
-| `uv_manager.py` | UV operations | `UVLayoutManager`, `detect_object_udim_tile()` |
-
-### 7.2 Constants
-
-Key constants defined in `constants.py`:
-- `CHANNEL_BAKE_INFO` - Channel metadata
-- `CHANNEL_UI_LAYOUT` - Data-driven UI configuration
-- `FORMAT_SETTINGS` - Image format technical settings
-
----
-
-## Chapter 8: Build and Release
-
-### 8.1 Release Checklist
-
-Before releasing:
-- [ ] Run full test suite
-- [ ] Update version in `bl_info` (\_\_init\_\_.py)
-- [ ] Sync versions in `blender_manifest.toml`
-- [ ] Update `translations.json` header
-- [ ] Update ROADMAP.md with release notes
-- [ ] Run syntax validation: `python -m py_compile *.py`
-
-### 8.2 Creating Release Package
-
-```bash
-# Build using MANIFEST.in
-python -m build
-
-# Or manual packaging
-cd baketool
-zip -r baketool.zip . -x "automation/*" "test_cases/*" "docs/dev/*"
-```
-
----
-
-## Chapter 9: Known Issues
-
-### 9.1 AI-Generated Code Risks
-
-Due to AI-assisted development:
-- Possible boundary case errors
-- Potential edge case not handled
-- Limited production validation
-
-**Mitigation:**
-- Comprehensive test suite (220+ tests)
-- User feedback encouraged
-- Regular updates
-
-### 9.2 Performance Notes
-
-- Large resolution baking (>4K) may cause memory issues
-- Recommend GPU baking for speed
-- Use tiled baking for extremely large textures
-
----
-
-## Appendix A: Directory Structure
-
-```
+```text
 baketool/
-├── __init__.py              # Main addon entry
-├── ops.py                  # Operator definitions
-├── ui.py                   # UI panel definition
-├── property.py             # PropertyGroup definitions
-├── constants.py            # Constants and enums
-├── translations.py         # Translation system
-├── translations.json       # Translation data
-├── state_manager.py        # Session state management
-├── preset_handler.py      # Preset serialization
-├── core/                   # Core modules
-│   ├── __init__.py       # Module exports
-│   ├── api.py            # Public API
-│   ├── engine.py         # Bake engine
-│   ├── execution.py      # Modal execution
-│   ├── image_manager.py # Image management
-│   ├── node_manager.py  # Node operations
-│   ├── uv_manager.py    # UV operations
-│   ├── shading.py       # Shading utilities
-│   ├── cage_analyzer.py # Cage analysis
-│   ├── common.py        # Common utilities
-│   ├── compat.py       # Version compatibility
-│   └── math_utils.py    # Math utilities
-├── automation/             # Automation tools
-│   ├── cli_runner.py
-│   ├── headless_bake.py
-│   └── multi_version_test.py
-├── dev_tools/              # Development tools
-└── docs/                   # Documentation
+  automation/       本地 CLI 测试入口、跨版本验证、headless 入口
+  core/             执行引擎、图像/节点/UV/兼容层等核心模块
+  dev_tools/        开发辅助工具
+  docs/             用户文档、开发文档、路线图、检查清单
+  test_cases/       unittest 套件与测试帮助函数
+  __init__.py       注册入口、bl_info、偏好设置与模块加载
+  constants.py      参数、UI 布局和映射元数据
+  ops.py            面向 UI 的 operator
+  property.py       PropertyGroup、枚举、Job/Setting 结构
+  preset_handler.py 预设序列化、迁移与自动加载
+  state_manager.py  崩溃恢复状态管理
+  ui.py             主面板、结果面板、节点烘焙面板
 ```
 
----
+### 2.1 `ui.py`
 
-## Appendix B: Contribution Guidelines
+只负责绘制界面、读取上下文和把用户操作委托给 operator。UI 不应直接承载复杂业务逻辑。对维护者来说，一个重要判断标准是：如果某段逻辑无法在 headless 或测试环境中复用，那么它大概率不应该塞进 UI 绘制代码里。
 
-1. **Fork** this repository
-2. **Create** a feature branch (`git checkout -b feature/amazing-feature`)
-3. **Commit** changes (`git commit -m 'Add amazing feature'`)
-4. **Push** to branch (`git push origin feature/amazing-feature`)
-5. **Create** Pull Request
+### 2.2 `ops.py`
 
----
+operator 层是 UI 与核心执行之间的桥。它可以做：
 
-## Appendix C: Support
+- 基础上下文检查
+- 将 UI 状态整理成调用参数
+- 调用 `core/engine.py` 或其他核心模块
+- 反馈结果到 UI
 
-- **Issue Reports**: [GitHub Issues](https://github.com/lastraindrop/baketool/issues)
-- **Feature Requests**: [GitHub Discussions](https://github.com/lastraindrop/baketool/discussions)
-- **Documentation Fixes**: Pull Request
+它不应承担难以测试的复杂状态机。当前版本已经补齐缺失 operator，并通过测试保证 UI 引用与注册状态一致。
 
----
+### 2.3 `property.py`
 
-*Developer Guide Version 1.0.0*
-*Last Updated: 2026-04-17*
+定义 Job、Setting、自定义图、节点烘焙设置等 Blender RNA 属性。这个模块的稳定性很重要，因为它直接关系到：
+
+- 界面显示
+- 预设序列化
+- 默认值和范围
+- 引擎读取参数
+
+如果你修改属性名或结构，必须同步考虑：
+
+- `constants.py` 映射
+- `preset_handler.py` 迁移逻辑
+- 测试
+- 文档
+
+### 2.4 `constants.py`
+
+这里不是“便于复制粘贴的常量池”，而是 BakeTool 的参数元数据中心。很多 UI 配置、通道信息和映射关系都依赖这个模块。维护时应优先把规则放到这里，而不是在 UI 和引擎两边各写一份。
+
+### 2.5 `core/`
+
+这是 BakeTool 的执行核心。原则上，越靠近 `core/` 的逻辑越应具备以下特征：
+
+- 可测试
+- 尽量少依赖 UI
+- 有明确输入输出
+- 对 Blender 版本差异有集中处理
+
+## 3. 执行链总览
+
+BakeTool 的典型执行过程可以概括为：
+
+1. UI 或脚本选择 Job。
+2. operator/API/headless 入口收集上下文。
+3. `JobPreparer` 校验 Job 并构建执行队列。
+4. `BakeStepRunner` 逐步执行队列。
+5. `BakePassExecutor` 为每个通道准备图像、节点上下文和 bake 参数。
+6. 如有需要，执行自定义图组装、通道打包、后处理和导出。
+7. `state_manager.py` 在过程中记录状态，便于异常恢复。
+
+这条链路的关键点在于：BakeTool 不是直接“点一下按钮就调用 Blender bake”，而是把输入验证、资源准备、状态保护和输出整理都放进了执行链里。也正因为如此，很多修复都必须落到 `core/engine.py` 而不是 UI 层。
+
+## 4. 核心组件
+
+### 4.1 `JobPreparer`
+
+主要负责：
+
+- 校验 Job 是否可执行
+- 解析对象和模式
+- 生成执行队列
+- 为 quick bake 或 API 使用准备简化队列
+
+它的职责是“决定要做什么”，不是“真正去做”。如果一个问题出现在错误对象进入队列、空队列、模式解释不正确等阶段，优先检查这里。
+
+### 4.2 `BakeStepRunner`
+
+它是队列执行控制器，主要负责：
+
+- 逐步骤执行
+- 管理执行过程中的上下文
+- 调用 `BakePassExecutor`
+- 收集本步骤结果
+- 触发自定义图、通道打包和导出等后续动作
+
+本轮修复中，自定义图结果键统一和打包支持就落在这条路径上。
+
+### 4.3 `BakePassExecutor`
+
+这是单通道执行的关键组件。主要职责包括：
+
+- 创建或获取目标图像
+- 确认 bake 类型和通道策略
+- 处理 Blender bake 参数
+- 调用原生 `bpy.ops.object.bake`
+- 对自定义图执行 NumPy 组装路径
+- 返回当前通道生成的图像结果
+
+本轮修复后的几个关键规则：
+
+- 自定义图优先走 `_try_custom_channel`，不再退回默认黑图
+- 自定义图结果键使用 `BT_CUSTOM_<name>`
+- 打包源通过 `normalize_source_id()` 统一处理
+- pass filter 通过 `_get_pass_filter_settings()` 映射到 Blender bake 设置
+
+### 4.4 `ModelExporter`
+
+负责烘焙后导出对象和贴图。这个模块必须特别注意“副作用管理”。当前版本已经明确：
+
+- 导出前会记录对象选择和可见性状态
+- 导出后恢复 `hide_set()` 和 `hide_viewport`
+- 不能把导出过程留下的场景污染视为可接受代价
+
+任何新的导出相关改动，都应首先问自己一句：它会不会把场景状态改坏。
+
+## 5. 关键数据约定
+
+### 5.1 自定义结果键
+
+自定义通道统一使用：
+
+```text
+BT_CUSTOM_<name>
+```
+
+这不是随便取的命名，而是执行结果、通道打包、测试和文档共同依赖的协议。若修改这一规范，必须同步改动：
+
+- `BakePassExecutor.get_result_key()`
+- `BakePassExecutor.normalize_source_id()`
+- 打包逻辑
+- 测试用例
+- 用户文档
+
+### 5.2 颜色空间映射
+
+属性层使用枚举值，Blender 图像对象需要实际 colorspace 名称。当前版本通过 `core/image_manager.py` 将例如 `NONCOL`、`SRGB`、`LINEAR` 等值映射到 Blender 实际可识别名称。不要再把内部枚举直接写入 `image.colorspace_settings.name`。
+
+### 5.3 状态记录
+
+`state_manager.py` 会在系统临时目录写入：
+
+```text
+sbt_last_session.json
+```
+
+记录内容包括 Job 名称、当前步骤、当前对象、当前通道和最后错误。恢复机制依赖这个文件，因此若你调整字段命名或写入时机，也需要同步检查 UI 恢复入口和测试。
+
+## 6. Headless、API 与 UI 的边界
+
+### 6.1 UI 路径
+
+适用于交互式 Blender 会话。优势是可视化和即时反馈，代价是更多依赖当前界面上下文。
+
+### 6.2 Headless 路径
+
+`automation/headless_bake.py` 现在会在干净会话中自动注册插件，然后从当前 `.blend` 中读取已保存的 Job 配置并执行。这一路径适用于：
+
+- 后台批处理
+- 管线自动化
+- 无界面验证
+
+限制也要写清楚：
+
+- 它不会自动创建 Job
+- 它不是通用批量调度系统
+- 它依赖当前场景文件已有 BakeTool 数据
+
+### 6.3 API 路径
+
+`core/api.py` 暴露了最基础的对外接口：
+
+- `bake(objects, use_selection=True)`
+- `get_udim_tiles(objects)`
+- `validate_settings(job)`
+
+API 适合外部脚本或其他插件集成。如果某个功能只能通过 UI operator 访问，而无法通过 API 或核心模块调用，那通常说明结构还不够干净。
+
+## 7. 测试策略
+
+### 7.1 基础原则
+
+- 先修 bug，再补回归测试
+- 测试应尽量验证真实协议，而不是伪信号
+- 涉及 Blender operator 注册的验证不能只用 `hasattr`
+- 对跨版本行为要优先依赖自动化，而不是记忆
+
+### 7.2 当前关键套件
+
+- `suite_unit.py`：核心逻辑、协议和回归测试
+- `suite_export.py`：导出安全与状态恢复
+- `suite_ui_logic.py`：UI/属性联动
+- `suite_verification.py`：综合验证
+- `suite_production_workflow.py`：端到端工作流
+
+### 7.3 本轮新增或强化的重点
+
+- UI operator 完整性测试改为 `get_rna_type()`
+- 自定义图执行与打包测试
+- headless 初始化测试
+- pass filter 映射测试
+- `hide_viewport` 恢复测试
+
+如果后续再出现“文档写得有，UI 也画出来了，但执行没接上”的问题，说明测试还不够贴近真实链路。
+
+## 8. 修改代码时的工作方法
+
+### 8.1 修改属性前
+
+先检查：
+
+- `property.py`
+- `constants.py`
+- `preset_handler.py`
+- 对应 UI
+- 对应测试
+- 对应文档
+
+### 8.2 修改执行链前
+
+先明确变化落在哪一层：
+
+- 输入验证
+- 队列构建
+- 单通道执行
+- 打包/导出/后处理
+
+不要用“临时补一个 if”把层级边界打乱。短期看似快，长期成本很高。
+
+### 8.3 修改 UI 前
+
+任何新增按钮或操作入口都至少应检查三件事：
+
+1. 对应 operator 是否存在并注册。
+2. 是否有最基本的测试覆盖。
+3. 用户文档是否需要更新。
+
+本轮缺失 operator 的问题已经说明，UI 引用和实际注册状态不一致是非常容易漏掉、但用户一上手就会踩到的错误。
+
+## 9. 文档维护要求
+
+BakeTool 当前已经重写了主说明文件，后续不应再回到“代码先变，文档长期欠债”的状态。建议强制执行以下规则：
+
+- 新增用户可见功能时，同步更新 `README` 和用户手册
+- 新增开发约束或接口变化时，同步更新开发文档
+- 新增或删除自动化脚本时，同步更新自动化参考
+- 每次发布前检查 changelog、路线图和任务看板
+
+文档不是附属品，它直接决定后续维护成本和外部使用误差。
+
+## 10. 后续重构建议
+
+当前最值得做但不适合在 1.0 发布前推进的，是对 `core/engine.py` 的渐进式拆分。建议的拆分思路是：
+
+- 保持外部接口稳定
+- 先提炼纯函数和局部模块
+- 先以测试保护现有行为，再做拆分
+- 不用“为了更优雅”而一次性重写
+
+同理，预设 schema、导出链和高级自定义图能力也应采取“先护栏、后扩展”的方式。
+
+## 11. 结论
+
+BakeTool 当前已经从“功能还在快速堆叠的试验脚本”转向“可以被持续维护的 Blender 插件项目”。对开发者而言，最重要的不是继续快速加代码，而是守住下面这组基本原则：
+
+- UI、operator、核心引擎分层清晰
+- 参数和命名协议统一
+- 新行为必须有测试和文档
+- 发布前靠自动化和清单，而不是凭印象
+
+只要这四点保持住，BakeTool 后续的迭代就会越来越稳，而不是越做越难维护。

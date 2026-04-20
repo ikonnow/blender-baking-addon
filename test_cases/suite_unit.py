@@ -10,6 +10,7 @@ from .helpers import (
     DataLeakChecker,
 )
 from ..core import image_manager, uv_manager, math_utils, common, compat
+from ..core.engine import BakePassExecutor, BakeStepRunner, BakeTask
 from ..core.node_manager import NodeGraphHandler
 
 
@@ -223,7 +224,7 @@ class SuiteUnit(unittest.TestCase):
             self.fail(f"BakeJobSetting instance check failed: {e}")
 
     def test_ui_operator_integrity(self):
-        """Audit all operators referenced in ui.py to ensure they exist in Blender."""
+        """Audit all operators referenced in ui.py to ensure they resolve to RNA."""
         import os
         import re
 
@@ -239,25 +240,192 @@ class SuiteUnit(unittest.TestCase):
 
         # 2. Check if they are registered in bpy.ops
         for op_id in operator_ids:
-            # Operator ID "bake.xxx" -> bpy.ops.bake.xxx
             parts = op_id.split(".")
             if len(parts) != 2:
                 continue
 
-            # Special case: some standard Blender ops
-            if parts[0] in {"wm", "object", "screen"}:
-                continue
-
-            # Check existence in bpy.ops
             self.assertTrue(
                 hasattr(bpy.ops, parts[0]),
                 f"Operator module '{parts[0]}' not found for '{op_id}'",
             )
             sub = getattr(bpy.ops, parts[0])
-            self.assertTrue(
-                hasattr(sub, parts[1]),
-                f"Operator '{parts[1]}' missing in 'bpy.ops.{parts[0]}' (from UI: {op_id})",
-            )
+            operator_ref = getattr(sub, parts[1])
+            try:
+                rna_type = operator_ref.get_rna_type()
+            except KeyError:
+                self.fail(
+                    f"Operator '{op_id}' is referenced in UI but not registered in Blender"
+                )
+            self.assertTrue(rna_type.identifier)
+
+    def test_custom_result_key_normalization(self):
+        """Custom outputs must use stable prefixed IDs for reuse and packing."""
+        custom_cfg = {"id": "CUSTOM", "name": "MaskA"}
+        result_key = BakePassExecutor.get_result_key(custom_cfg)
+        self.assertEqual(result_key, "BT_CUSTOM_MaskA")
+
+        dummy_img = image_manager.set_image("MaskA_Source", 4, 4)
+        resolved = BakePassExecutor.normalize_source_id(
+            "MaskA", {"BT_CUSTOM_MaskA": dummy_img}
+        )
+        self.assertEqual(resolved, "BT_CUSTOM_MaskA")
+
+    def test_custom_channel_numpy_composition(self):
+        """Custom channel sources should compose directly from baked results."""
+        obj = create_test_object("CustomMapObj")
+        job = JobBuilder("CustomMapJob").build()
+        setting = job.setting
+        setting.res_x = 32
+        setting.res_y = 32
+
+        custom = job.custom_bake_channels.add()
+        custom.name = "MaskA"
+        custom.bw = False
+        for channel in setting.channels:
+            if channel.id == "alpha":
+                channel.enabled = True
+                break
+
+        custom.r_settings.use_map = True
+        custom.r_settings.source = "color"
+
+        custom.g_settings.use_map = True
+        custom.g_settings.source = "color"
+        custom.g_settings.sep_col = True
+        custom.g_settings.col_chan = "B"
+
+        custom.b_settings.use_map = True
+        custom.b_settings.source = "color"
+        custom.b_settings.invert = True
+
+        custom.a_settings.use_map = True
+        custom.a_settings.source = "alpha"
+
+        task = BakeTask(
+            objects=[obj],
+            materials=[obj.material_slots[0].material],
+            active_obj=obj,
+            base_name="CustomOut",
+            folder_name="",
+        )
+        current_results = {
+            "color": image_manager.set_image(
+                "CustomColorSrc", 32, 32, basiccolor=(0.2, 0.4, 0.6, 1.0)
+            ),
+            "alpha": image_manager.set_image(
+                "CustomAlphaSrc", 32, 32, basiccolor=(0.1, 0.1, 0.1, 0.25)
+            ),
+        }
+        c_config = {
+            "id": "CUSTOM",
+            "name": custom.name,
+            "prop": custom,
+            "bake_pass": "EMIT",
+            "info": {"cat": "DATA"},
+            "prefix": "",
+            "suffix": "_mask",
+        }
+
+        img = BakePassExecutor.execute(
+            bpy.context,
+            setting,
+            task,
+            c_config,
+            None,
+            current_results,
+            array_cache={},
+        )
+
+        self.assertIsNotNone(img)
+        arr = np.empty(img.size[0] * img.size[1] * 4, dtype=np.float32)
+        img.pixels.foreach_get(arr)
+        self.assertAlmostEqual(arr[0], 0.2, places=3)
+        self.assertAlmostEqual(arr[1], 0.6, places=3)
+        self.assertAlmostEqual(arr[2], 0.4, places=3)
+        self.assertAlmostEqual(arr[3], 0.25, places=2)
+
+    def test_channel_packing_supports_custom_sources(self):
+        """Packed outputs should accept the prefixed custom source IDs."""
+        obj = create_test_object("PackCustomObj")
+        setting = MockSetting(
+            res_x=4,
+            res_y=4,
+            pack_r="BT_CUSTOM_MaskA",
+            pack_suffix="_PACK",
+        )
+
+        task = BakeTask(
+            objects=[obj],
+            materials=[obj.material_slots[0].material],
+            active_obj=obj,
+            base_name="PackCustom",
+            folder_name="",
+        )
+        src_img = image_manager.set_image(
+            "PackCustomSrc", 4, 4, basiccolor=(0.7, 0.7, 0.7, 1.0)
+        )
+
+        packed = BakeStepRunner(bpy.context)._handle_channel_packing(
+            setting,
+            task,
+            {"BT_CUSTOM_MaskA": src_img},
+            None,
+            {},
+        )
+
+        self.assertIsNotNone(packed)
+        arr = np.empty(4 * 4 * 4, dtype=np.float32)
+        packed["image"].pixels.foreach_get(arr)
+        self.assertAlmostEqual(arr[0], 0.7, places=2)
+
+    def test_pass_filter_settings_mapping(self):
+        """Light and combined pass toggles must map to Blender bake settings."""
+        job = JobBuilder("PassSettingsJob").type("BASIC").build()
+        setting = job.setting
+
+        diff = next(c for c in setting.channels if c.id == "diff")
+        diff.pass_settings.use_direct = False
+        diff.pass_settings.use_indirect = True
+        diff.pass_settings.use_color = False
+        diff_filters = BakePassExecutor._get_pass_filter_settings(
+            setting, diff, "DIFFUSE"
+        )
+        self.assertEqual(
+            diff_filters,
+            {
+                "use_pass_direct": False,
+                "use_pass_indirect": True,
+                "use_pass_color": False,
+            },
+        )
+
+        combine = next(c for c in setting.channels if c.id == "combine")
+        combine.combine_settings.use_direct = True
+        combine.combine_settings.use_indirect = False
+        combine.combine_settings.use_diffuse = True
+        combine.combine_settings.use_glossy = False
+        combine.combine_settings.use_transmission = True
+        combine.combine_settings.use_emission = False
+        combine_filters = BakePassExecutor._get_pass_filter_settings(
+            setting, combine, "COMBINED"
+        )
+        self.assertEqual(
+            combine_filters,
+            {
+                "use_pass_direct": True,
+                "use_pass_indirect": False,
+                "use_pass_diffuse": True,
+                "use_pass_glossy": False,
+                "use_pass_transmission": True,
+                "use_pass_emit": False,
+            },
+        )
+
+    def test_headless_entry_can_initialize_properties(self):
+        """Headless entry point should expose a registration bootstrap."""
+        from ..automation import headless_bake
+
+        self.assertTrue(headless_bake.ensure_addon_registered())
 
     # --- Auto-Cage 2.0 Proximity Logic ---
     def test_cage_proximity_analysis(self):
@@ -416,12 +584,11 @@ class SuiteUnit(unittest.TestCase):
         baked_images = {}
         img = image_manager.set_image("MaskImg", 16, 16)
 
-        # This mirrors the logic in BakeStepRunner.run (L189)
-        key = c["name"] if c["id"] == "CUSTOM" else c["id"]
+        key = BakePassExecutor.get_result_key(c)
         baked_images[key] = img
 
-        self.assertIn("MyMask", baked_images)
-        self.assertEqual(baked_images["MyMask"], img)
+        self.assertIn("BT_CUSTOM_MyMask", baked_images)
+        self.assertEqual(baked_images["BT_CUSTOM_MyMask"], img)
 
     def test_generate_optimized_colors_count(self):
         """Correct number of colors generated by optimized factory."""
@@ -483,12 +650,19 @@ class SuiteUnit(unittest.TestCase):
 
     def test_save_image_disk_existence(self):
         """Verify image_manager writes valid file to disk."""
-        import tempfile, os
+        import os
+        import shutil
+        from pathlib import Path
 
         img = image_manager.set_image("DiskTest", 8, 8)
-        with tempfile.TemporaryDirectory() as tmp:
-            path = image_manager.save_image(img, path=tmp)
+        out_dir = Path(__file__).resolve().parents[1] / "test_output" / "unit_disk"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            path = image_manager.save_image(img, path=str(out_dir))
+            self.assertIsNotNone(path, "Image save returned None")
             self.assertTrue(os.path.exists(path), f"File not found: {path}")
+        finally:
+            shutil.rmtree(out_dir, ignore_errors=True)
 
     def test_id_map_optimized_colors_integrity(self):
         """Verify generated colors contain no NaNs and are within [0,1]."""

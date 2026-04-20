@@ -1,556 +1,218 @@
-# BakeTool Ecosystem Integration Guide
-
-**Version:** 1.0.0
-**Updated:** 2026-04-20
-
----
-
-## Table of Contents
-
-1. [Ecosystem Overview](#1-ecosystem-overview)
-2. [Blender Testing Ecosystem](#2-blender-testing-ecosystem)
-3. [BakeTool Testing Framework](#3-baketool-testing-framework)
-4. [Automation Toolchain](#4-automation-toolchain)
-5. [CI/CD Integration](#5-cicd-integration)
-6. [Internationalization Workflow](#6-internationalization-workflow)
-7. [Maintenance Guide](#7-maintenance-guide)
-8. [Best Practices](#8-best-practices)
-
----
-
-## 1. Ecosystem Overview
-
-BakeTool provides a complete development toolchain:
-
-```
-baketool/
-├── automation/           # Automation tools
-│   ├── cli_runner.py           # Unified CLI test entry
-│   ├── comprehensive_verification.py  # Verification scripts
-│   ├── multi_version_test.py   # Cross-version testing
-│   ├── headless_bake.py        # Headless bake CLI
-│   └── env_setup.py            # Environment setup
-├── test_cases/          # Test suites
-│   ├── helpers.py              # Test utilities
-│   ├── suite_unit.py           # Unit tests
-│   ├── suite_memory.py         # Memory tests
-│   ├── suite_export.py        # Export tests
-│   ├── suite_api.py           # API tests
-│   └── ... (15+ test suites)
-├── dev_tools/
-│   └── extract_translations.py  # Translation extraction
-└── docs/dev/
-    ├── DEVELOPER_GUIDE.md      # Developer guide
-    └── STANDARDIZATION_GUIDE.md # Standardization guide
-```
-
----
-
-## 2. Blender Testing Ecosystem
-
-### 2.1 Official Blender Testing Methods
-
-| Method | Description | Use Case |
-|--------|-------------|----------|
-| **unittest (built-in)** | Blender's built-in `unittest` module | Basic unit tests |
-| **pytest-blender** | pytest plugin for Blender | Advanced testing framework |
-| **Headless CLI** | `blender -b --python` | CI/CD automation |
-| **Manual Testing** | Blender GUI | Manual acceptance tests |
-
-### 2.2 Blender Testing Best Practices
-
-```python
-# Standard Blender test template
-import bpy
-import unittest
-
-class TestMyAddon(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        # Initialize Blender environment
-        bpy.ops.mesh.primitive_cube_add()
-
-    def setUp(self):
-        # Clean before each test
-        bpy.ops.object.select_all(action='SELECT')
-        bpy.ops.object.delete()
-
-    def tearDown(self):
-        # Clean after each test
-        bpy.ops.object.select_all(action='SELECT')
-        bpy.ops.object.delete()
-
-    def test_example(self):
-        self.assertIsNotNone(bpy.context.object)
-```
-
-### 2.3 Blender Version Compatibility Strategy
-
-```python
-# core/compat.py example
-import bpy
-
-# Version checks
-IS_BLENDER_5 = bpy.app.version >= (5, 0, 0)
-IS_BLENDER_4 = bpy.app.version >= (4, 0, 0)
-IS_BLENDER_3 = bpy.app.version >= (3, 0, 0)
-
-def get_bake_settings(scene):
-    """Unified access to bake settings (compatible 3.3 - 5.0+)."""
-    if IS_BLENDER_5:
-        return scene.render.bake
-    return scene.render
-```
-
----
-
-## 3. BakeTool Testing Framework
-
-### 3.1 Framework Architecture
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     CLI Entry Point                         │
-│         automation/cli_runner.py                            │
-│         - --suite, --category, --json, --list               │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              │
-┌─────────────────────────────────────────────────────────────┐
-│                      Test Suites                          │
-│            test_cases/suite_*.py                          │
-│            - suite_unit.py      # Core logic               │
-│            - suite_memory.py    # Memory leak detection   │
-│            - suite_export.py    # Export safety         │
-│            - suite_api.py       # API stability       │
-│            - ...                                            │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              │
-┌─────────────────────────────────────────────────────────────┐
-│                     Utilities                             │
-│            test_cases/helpers.py                          │
-│            - DataLeakChecker    # Leak detection        │
-│            - JobBuilder         # Fluent API for jobs    │
-│            - MockSetting       # Mock objects          │
-│            - cleanup_scene()   # Scene cleanup       │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### 3.2 Core Component Details
-
-#### 3.2.1 DataLeakChecker
-
-Detects Blender datablock leaks:
-
-```python
-from test_cases.helpers import DataLeakChecker
-
-class TestMemoryLeaks(unittest.TestCase):
-    def test_no_image_leak(self):
-        checker = DataLeakChecker()
-
-        # Perform operation
-        img = bpy.data.images.new("TestImg", 64, 64)
-
-        # Check for leaks
-        leaks = checker.check()
-        self.assertEqual(len(leaks), 0, f"Leaks detected: {leaks}")
-```
-
-#### 3.2.2 assert_no_leak (Context Manager)
-
-```python
-from test_cases.helpers import assert_no_leak
-
-def test_operations(self):
-    with assert_no_leak(self, aggressive=True):
-        # Perform potentially leaking operation
-        create_bake_result()
-        apply_baked_result()
-    # Automatically detects leaks
-```
-
-#### 3.2.3 JobBuilder (Fluent API)
-
-```python
-from test_cases.helpers import JobBuilder
-
-job = (JobBuilder("TestJob")
-    .mode("SINGLE_OBJECT")
-    .type("BSDF")
-    .resolution(512)
-    .add_objects([obj1, obj2])
-    .enable_channel("color")
-    .build())
-```
-
-### 3.3 Test Suite Inventory
-
-| Suite | File | Description | Category |
-|-------|------|-------------|----------|
-| Unit Tests | `suite_unit.py` | Core component logic tests | core |
-| Memory Tests | `suite_memory.py` | Memory leak detection | memory |
-| Export Tests | `suite_export.py` | Export safety verification | export |
-| API Tests | `suite_api.py` | Public API stability | core |
-| UI Tests | `suite_ui_logic.py` | Panel drawing logic | ui |
-| Preset Tests | `suite_preset.py` | Serialization and migration | core |
-| Negative Tests | `suite_negative.py` | Edge conditions | core |
-| Denoise Tests | `suite_denoise.py` | Denoiser sets | core |
-| Production Flow | `suite_production_workflow.py` | End-to-end flow tests | integration |
-| Context Lifecycle | `suite_context_lifecycle.py` | Context management | integration |
-| Cleanup Tests | `suite_cleanup.py` | Resource cleanup | core |
-| Compatibility Tests | `suite_compat.py` | Version compatibility | core |
-| Parameter Matrix | `suite_parameter_matrix.py` | Parameter combinations | core |
-| UDIM Advanced | `suite_udim_advanced.py` | UDIM features | core |
-| Shading Tests | `suite_shading.py` | Shader logic | core |
-| Code Review | `suite_code_review.py` | Static analysis | core |
-
-### 3.4 Running Tests
-
-#### 3.4.1 Running via Blender UI
-
-```
-Blender UI → N Panel → Baking → Debug Mode → Run Test Suite
-```
-
-#### 3.4.2 Running via CLI
-
-```bash
-# Single test suite
-blender -b --python automation/cli_runner.py -- --suite unit
-
-# All test suites
-blender -b --python automation/cli_runner.py -- --suite all
-
-# Run by category
-blender -b --python automation/cli_runner.py -- --category memory
-
-# List all suites
-blender -b --python automation/cli_runner.py -- --list
-
-# Output JSON report
-blender -b --python automation/cli_runner.py -- --json report.json
-```
-
-#### 3.4.3 Cross-Version Testing
-
-```bash
-python automation/multi_version_test.py --verification
-
-# Specific category
-python automation/multi_version_test.py --category memory
-```
-
----
-
-## 4. Automation Toolchain
-
-### 4.1 Tool Inventory
-
-| Tool | Path | Usage |
-|------|------|-------|
-| **cli_runner.py** | `automation/` | Unified test entry point |
-| **multi_version_test.py** | `automation/` | Cross-Blender version testing |
-| **comprehensive_verification.py** | `automation/` | Fix verification |
-| **headless_bake.py** | `automation/` | Headless bake CLI |
-| **extract_translations.py** | `dev_tools/` | Translation extraction and sync |
-
-### 4.2 CLI Runner Details
-
-```bash
-# Basic usage
-blender -b --python automation/cli_runner.py [options]
-
-# Options
---suite {unit|shading|negative|memory|export|api|all}
-    Specify test suite to run
---category {all|core|memory|export|ui|integration}
-    Run tests by category
---test <test_name>
-    Run specific test case
-
---discover
-    Auto-discover all suite_*.py files
-
---json <path>
-    Save JSON format report
-
---list
-    List all available test suites
-```
-
-### 4.3 Comprehensive Verification Script
-
-Used to verify fixes identified in code review:
-```bash
-# Run verification
-blender -b --python automation/comprehensive_verification.py
-
-# Multi-version verification
-python automation/multi_version_test.py --verification
-```
-
-**Verification Coverage:**
-1. Memory leak fix (`use_fake_user`)
-2. Image cleanup fix (`DeleteResult`)
-3. NumPy memory optimization (`_physical_clear_pixels`)
-4. Export safety (`hidden_object_export`)
-5. UI safety (`space_data` access)
-6. Mesh cleanup (`do_unlink=True`)
-
-### 4.4 Headless Bake
-
-```bash
-# Basic usage
-blender -b scene.blend -P automation/headless_bake.py -- --job "JobName" --output "C:/output"
-
-# Run all enabled tasks without parameters
-blender -b scene.blend -P automation/headless_bake.py
-```
-
----
-
-## 5. CI/CD Integration
-
-### 5.1 GitHub Actions Example
-
-```yaml
-# .github/workflows/test.yml
-name: BakeTool Tests
-
-on:
-  push:
-    branches: [main, develop]
-  pull_request:
-    branches: [main]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        blender-version: ['3.3.21', '3.6.23', '4.2.14', '4.5.3', '5.0.1']
-
-    container:
-      image: user/blender:${{ matrix.blender-version }}
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Run Tests
-        run: |
-          blender -b --python automation/cli_runner.py -- --json test_report.json
-
-      - name: Upload Report
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-report-${{ matrix.blender-version }}
-          path: test_report.json
-
-  verify:
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Run Verification
-        run: python automation/multi_version_test.py --verification
-```
-
-### 5.2 Pre-commit Hooks
-
-```yaml
-# .pre-commit-config.yaml
-repos:
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0
-    hooks:
-      - id: trailing-whitespace
-      - id: end-of-file-fixer
-      - id: check-yaml
-
-  - repo: local
-    hooks:
-      - id: blender-lint
-        name: Blender Python Syntax
-        entry: blender -b --python-expr "exec(open('tests/lint_check.py').read())"
-        language: system
-        files: \.py$
-```
-
-### 5.3 Local Development Workflow
-
-```bash
-# 1. Install pre-commit
-pip install pre-commit
-pre-commit install
-
-# 2. Run all tests
-make test
-
-# 3. Run cross-version tests
-make test-multi-version
-
-# 4. Generate translations
-python dev_tools/extract_translations.py --mode sync
-```
-
----
-
-## 6. Internationalization Workflow
-
-### 6.1 Translation Extraction Tool
-
-```bash
-# Scan code, extract translatable strings
-python dev_tools/extract_translations.py --mode update
-
-# Sync: remove unused keys
-python dev_tools/extract_translations.py --mode sync
-
-# Clean: reset all translations
-python dev_tools/extract_translations.py --mode clean
-```
-
-### 6.2 Tool Features
-
-**SmartFilter Intelligent Filtering:**
-- **Preserves**: User-visible strings (`"Bake"`, `"Select Object"`)
-- **Ignores**: Internal IDs (`"BAKETOOL_OT_Bake"`)
-- **Ignores**: Numbers (`"1024"`, `"3.14"`)
-- **Ignores**: Single characters (`"X"`, `"Y"`, `"Z"`)
-
-### 6.3 Blender i18n Integration
+# BakeTool 生态说明
 
-BakeTool uses Blender's built-in translation system:
-
-```python
-# Register translations
-bpy.app.translations.register(__name__, translations.translation_dict)
-
-# Use translations
-layout.label(text=bpy.app.translations.pgettext("Bake"))
+本文档用于说明 BakeTool 仓库内各类文件、脚本、测试、文档和发布物之间的关系。它回答的不是“某个函数怎么写”，而是“这个项目作为一个完整插件产品，是如何组织、验证、记录和交付的”。这对于发布前收口尤其重要，因为很多质量问题并不来自单个函数错误，而来自生态层的失配：脚本名变了、文档没改、测试还在验证旧路径、发布包混入了开发文件，等等。
 
-# Unregister
-bpy.app.translations.unregister(__name__)
-```
-
-### 6.4 Adding a New Language
-
-1. Edit `translations.py`
-2. Add language code to `translation_dict`
-3. Translate all strings
+## 1. 仓库的基本分层
 
----
+BakeTool 仓库大致可以看成五个子系统：
 
-## 7. Maintenance Guide
+1. 运行时插件子系统
+2. 自动化验证子系统
+3. 文档与规范子系统
+4. 开发辅助子系统
+5. 发布与分发子系统
 
-### 7.1 Release Checklist
+它们并不是彼此独立的岛，而是围绕同一套插件行为互相约束。
 
-- [ ] Run all test suites (`--suite all`)
-- [ ] Run cross-version tests (`--verification`)
-- [ ] Check memory leaks (`suite_memory.py`)
-- [ ] Verify export safety (`suite_export.py`)
-- [ ] Update `bl_info` version
-- [ ] Update CHANGELOG
-- [ ] Run translation sync (`--mode sync`)
+## 2. 运行时插件子系统
 
-### 7.2 Regression Prevention
+这一层决定 Blender 中真正会发生什么。
 
-When modifying the following, run corresponding tests:
+### 2.1 入口与注册
 
-| Modification | Required Tests |
-|-------------|---------------|
-| `core/engine.py` | `suite_unit.py`, `suite_production_workflow.py` |
-| `core/image_manager.py` | `suite_memory.py`, `suite_unit.py` |
-| `core/node_manager.py` | `suite_shading.py`, `suite_unit.py` |
-| `ui.py` | `suite_ui_logic.py` |
-| `property.py` | `suite_parameter_matrix.py`, `suite_preset.py` |
-| Any core module | `suite_compat.py` (cross-version) |
+- `__init__.py`：插件入口、模块注册、`bl_info`
+- `blender_manifest.toml`：Blender 新版 manifest 信息
 
-### 7.3 Performance Benchmarks
+这两者共同定义插件对外可见的基本身份。它们必须与文档中的版本、链接和支持范围保持一致。
 
-```bash
-# Run performance tests
-blender -b --python automation/cli_runner.py -- --suite unit --test test_performance
-```
+### 2.2 UI 与交互
 
-### 7.4 Debugging Techniques
+- `ui.py`：所有面板绘制
+- `ops.py`：UI 操作触发的 operator
+- `property.py`：Job、设置、自定义贴图、节点烘焙等数据结构
+- `translations.py` / `translations.json`：界面文案与翻译
 
-```python
-# Add breakpoint in tests
-import code; code.interact(local=dict(globals(), **locals()))
+这一层的健康度不仅取决于“面板能画出来”，还取决于 UI 所引用的 operator 和属性是否真实存在。发布前本轮修复已经说明，如果这里失步，用户会第一时间撞上硬错误。
 
-# Print scene state
-print(f"Objects: {len(bpy.data.objects)}")
-print(f"Images: {len(bpy.data.images)}")
-print(f"Materials: {len(bpy.data.materials)}")
-```
+### 2.3 核心执行
 
----
+- `core/engine.py`：执行编排、队列构造、打包、导出等核心逻辑
+- `core/image_manager.py`：图像创建、保存、颜色空间处理
+- `core/node_manager.py`：节点相关操作
+- `core/uv_manager.py`：UV/UDIM 相关辅助
+- `core/api.py`：公共 API
+- 其他 `core/*.py`：兼容、公共工具和辅助逻辑
 
-## 8. Best Practices
+这是 BakeTool 的“工作引擎”，也是自动化最需要保护的部分。
 
-### 8.1 Test Naming Conventions
+## 3. 自动化验证子系统
 
-```python
-# Naming pattern: test_<feature>_<scenario>_<expected>
-def test_image_manager_creates_with_correct_resolution(self):
-    pass
+BakeTool 的自动化并不是一个附属目录，而是项目交付的一部分。原因很简单：Blender 插件的错误很多都和上下文、版本和执行状态相关，不做自动化就很难保持发布质量。
 
-def test_export_hidden_object_no_crash(self):
-    pass
+### 3.1 自动化入口
 
-def test_memory_leak_no_accumulation_after_bake(self):
-    pass
-```
+- `automation/cli_runner.py`
+- `automation/multi_version_test.py`
+- `automation/headless_bake.py`
 
-### 8.2 Test Isolation
+这三个脚本分别对应：
 
-```python
-def setUp(self):
-    cleanup_scene()  # Ensure clean environment
+- 单版本套件执行
+- 多版本矩阵验证
+- 无界面烘焙入口
 
-def tearDown(self):
-    cleanup_scene()  # Clean test artifacts
-```
+### 3.2 测试集合
 
-### 8.3 Mock Object Strategy
+- `test_cases/suite_unit.py`
+- `test_cases/suite_export.py`
+- `test_cases/suite_ui_logic.py`
+- `test_cases/suite_verification.py`
+- `test_cases/suite_production_workflow.py`
+- 其他专项套件
 
-```python
-# Prefer using MockSetting from helpers.py
-from test_cases.helpers import MockSetting
+这些测试不是平均分布价值的。发布前应优先确保保护核心协议和真实工作流的套件可用，而不是执着于“所有测试名都跑一次”。
 
-setting = MockSetting(
-    res_x=512,
-    res_y=512,
-    bake_type="BSDF"
-)
-```
+### 3.3 报告与临时输出
 
-### 8.4 Continuous Improvement
+- `reports/`：跨版本验证报告
+- `test_output/`：测试生成物
 
-1. **TDD First**: Write tests before features
-2. **Test Coverage**: Target >80%
-3. **Automation**: All tests run in CI/CD
-4. **Documentation**: Tests are documentation
+它们属于验证产物，不属于插件分发内容。当前仓库已经将这类目录加入忽略规则，发布前也应清理不再需要的临时内容。
 
----
+## 4. 文档与规范子系统
 
-## Appendix A: Blender Testing Resources
+文档是 BakeTool 生态的第三条腿。没有它，运行时和自动化再完整，项目依然会在发布前或交接时失真。
 
-- [Blender Python API Docs](https://docs.blender.org/api/current/)
-- [Blender Stack Exchange](https://blender.stackexchange.com/)
-- [Blender Development Forum](https://developer.blender.org/)
+### 4.1 用户文档
 
-## Appendix B: Related Tools
+- `README.md`
+- `docs/USER_MANUAL.md`
 
-| Tool | Usage |
-|------|------|
-| [pytest-blender](https://github.com/puckow/pytest-blender) | pytest plugin |
-| [blender-addon-tests](https://github.com/p2or/blender-addon-tests) | Test templates |
-| [pre-commit-blender](https://github.com/scientific-assets/pre-commit-blender) | pre-commit hooks |
+用户文档负责告诉使用者：
 
----
+- 插件是什么
+- 能做什么
+- 怎么开始
+- 有哪些限制
+- 出问题先看哪里
 
-*Maintained by BakeTool Team - Last updated 2026-04-20*
+### 4.2 开发文档
+
+- `docs/dev/DEVELOPER_GUIDE.md`
+- `docs/dev/AUTOMATION_REFERENCE.md`
+- `docs/dev/ECOSYSTEM_GUIDE.md`
+- `docs/dev/STANDARDIZATION_GUIDE.md`
+
+开发文档的目标不是重复代码注释，而是给维护者提供：
+
+- 结构边界
+- 协议约定
+- 自动化入口
+- 标准化要求
+- 发布前应关注什么
+
+### 4.3 项目状态文档
+
+- `docs/ROADMAP.md`
+- `docs/task.md`
+- `docs/RELEASE_CHECKLIST.md`
+- `CHANGELOG.md`
+
+这部分文档负责记录“现在项目在哪个阶段、接下来做什么、这次发布改了什么”。
+
+## 5. 开发辅助子系统
+
+### 5.1 `dev_tools/`
+
+这里放开发辅助脚本，例如翻译提取等。它们服务于开发流程，但不应混入插件运行时核心路径，也不应进入最终面向用户的分发包。
+
+### 5.2 `docs/legacy/`
+
+这是历史参考材料归档区，用于保存旧文档、API 摘录或调研资料。它的存在是合理的，但它不是当前行为的权威来源，也不应被当成对外文档。当前打包规则已将其排除在分发之外。
+
+## 6. 分发与发布子系统
+
+### 6.1 元数据
+
+- `__init__.py` 中的 `bl_info`
+- `blender_manifest.toml`
+- `MANIFEST.in`
+
+三者共同决定：
+
+- 版本信息
+- Blender 支持范围
+- 项目链接
+- 源分发或打包包含哪些文件
+
+### 6.2 忽略规则
+
+- `.gitignore`
+- `.gitattributes`
+
+前者用于避免验证产物和本地临时目录污染仓库，后者用于统一文本文件换行和基础属性。这些看似外围，实际上会直接影响多人协作和发布包整洁度。
+
+## 7. 生态内部的关键依赖关系
+
+### 7.1 UI 依赖属性和 operator
+
+`ui.py` 中每一个用户入口都依赖：
+
+- `property.py` 中真实存在的属性
+- `ops.py` 中真实注册的 operator
+
+如果新增了按钮但没有注册 operator，用户会直接看到运行时错误。当前自动化已经把这一点纳入回归保护。
+
+### 7.2 引擎依赖参数协议
+
+`core/engine.py` 不直接信任 UI，而是依赖属性和常量层提供的参数结构。若属性名变化、默认值变化或枚举协议变化，但引擎没有同步更新，就会出现“界面能改、执行无效”的问题。本轮修复的 pass filter 失配就是典型案例。
+
+### 7.3 文档依赖真实脚本名和行为
+
+一旦自动化脚本名变化、参数变化或功能边界变化，文档必须同步更新。过去文档里曾出现对不存在脚本的引用，这类问题会在团队交接和发布说明里造成直接混乱，因此已经在本轮收尾中清理。
+
+### 7.4 发布包依赖忽略和打包规则
+
+如果没有正确的 `MANIFEST.in` 和清理步骤，开发脚本、测试目录、历史资料或临时输出就可能混入发布物。BakeTool 当前已经把：
+
+- `automation/`
+- `dev_tools/`
+- `test_cases/`
+- `docs/dev/`
+- `docs/legacy/`
+
+从分发包中排除，只保留运行所需文件和必要用户文档。
+
+## 8. 推荐的生态工作流
+
+下面是一条更适合 BakeTool 现状的开发到发布路径：
+
+1. 在 `core/` 或属性层实现变更。
+2. 补充或修改对应测试。
+3. 在单版本下跑最相关套件。
+4. 收口前跑 `verification` 与跨版本验证。
+5. 同步更新 README、用户文档和开发文档。
+6. 清理临时文件和报告。
+7. 依据发布检查清单执行最终打包与烟测。
+
+这条流程的价值在于让代码、测试、文档和发布动作形成闭环，而不是互相脱节。
+
+## 9. 当前版本生态层最重要的经验
+
+本轮发布前收尾暴露了几个很有代表性的经验：
+
+- 单靠 UI 看起来“像是有功能”并不可靠，必须验证 operator 和执行链都已接通。
+- 单靠存在某条测试也不可靠，测试本身也可能因为验证方法错误而失效。
+- 文档一旦落后，哪怕代码已经修复，外部使用和内部维护仍然会被误导。
+- 发布清理不是可有可无，它直接影响仓库整洁度和分发质量。
+
+## 10. 结论
+
+BakeTool 的生态不是“代码仓库外加一些说明文件”，而是一整套彼此约束的交付系统：
+
+- 运行时代码提供能力
+- 自动化提供验证
+- 文档提供解释和约束
+- 打包规则提供分发边界
+
+只要其中任意一个长期失真，项目就会重新回到“作者自己知道怎么用，但别人难以接手”的状态。当前版本的文档和验证整理，目的就是避免再次回到那个状态。

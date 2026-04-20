@@ -1,76 +1,215 @@
-# Blender Addon Standardization Guide (The BakeTool Pattern)
+# BakeTool 标准化指南
 
-This document outlines the architectural standards and engineering practices developed for **BakeTool**, intended as a reference for creating professional-grade, industrial-strength Blender middleware.
+本文档用于固化 BakeTool 当前已经形成并经过本轮发布前修复验证的工程规范。它不是抽象的软件工程口号，而是直接针对这个 Blender 插件项目的实际维护问题而写。换句话说，下面这些规则存在，是因为不遵守它们已经在项目里制造过真实问题，或者几乎必然会制造问题。
 
----
+## 1. 分层原则
 
-## 1. Core Mandates
+### 1.1 UI 只负责表达，不负责核心执行
 
-### 1.1 Engine-UI Decoupling
-*   **Principle**: `ui.py` should only handle drawing and basic context gathering. All heavy logic must reside in `core/`.
-*   **Standard**: Use a "Task-Step" architecture. The UI creates a `BakeTask`, which the `BakeStepRunner` executes. This allows for headless execution and automated testing without viewport dependencies.
+`ui.py` 的职责是绘制、组织和展示，不应承担复杂烘焙逻辑。任何难以在测试或 headless 场景中复用的逻辑，都不应直接写在 UI 绘制过程中。
 
-### 1.2 Translation-Driven Development (TDD)
-*   **Principle**: Zero hardcoded strings in the UI.
-*   **Standard**: All user-facing text must be defined in `translations.json`. Use `pgettext_iface` for contextual translations to support Blender's localized UI seamlessly.
+### 1.2 operator 是桥，不是引擎
 
-### 1.3 Triple-Point Parameter Alignment
-*   **Principle**: Prevent desynchronization between UI properties and engine parameters.
-*   **Standard**:
-    1.  **Constants**: Define defaults, ranges, and types in `constants.py`.
-    2.  **Property**: Map RNA properties to these constants in `property.py`.
-    3.  **Engine**: Use these constants to validate incoming tasks.
-    *   *Self-Verification*: Implement a `suite_parameter_matrix.py` test to verify this alignment dynamically.
+`ops.py` 可以做上下文检查和调用编排，但不应把核心业务写成巨大的 operator。真正和烘焙结果、通道组合、导出状态、颜色空间相关的逻辑，应放在 `core/` 中。
 
----
+### 1.3 核心模块优先服务于复用和测试
 
-## 2. Code Quality & Style (Google Python Style Adaptation)
+`core/` 中的逻辑应尽量具备：
 
-### 2.1 Namespace Isolation
-*   Avoid using common module names like `property`. Use `prop_module` or `property_group` to prevent shadowing Python's built-ins.
-*   Prefix temporary scene data (Materials, Images) with `BT_` or `_bt_`.
+- 明确输入输出
+- 较少 UI 依赖
+- 可被自动化直接覆盖
 
-### 2.2 Defensive Programming
-*   **Safe Context Overrides**: Always use `context.temp_override()` or a robust custom context manager for operations requiring specific areas (like the Image Editor).
-*   **Exception Specificity**: Replace bare `except:` with specific exceptions (e.g., `AttributeError`, `RuntimeError`).
-*   **Material Factories**: Use UUIDs for temporary materials created during baking to avoid naming collisions with user data.
+## 2. 参数与属性同步原则
 
-### 2.3 Documentation & Type Hinting
-*   **Format**: Use **Google Style** docstrings for all core functions.
-*   **Type Hints**: Enforce type hinting for all public APIs in the `core/` module.
+### 2.1 三点同步
 
----
+任何用户可配置参数都至少涉及三个位置：
 
-## 3. Testing & Automation Pipeline
+1. `constants.py`
+2. `property.py`
+3. `core/` 执行读取逻辑
 
-### 3.1 Cross-Version Matrix Testing
-*   Addons must be verified against a matrix of Blender versions (e.g., 3.3, 3.6, 4.2 LTS, 5.0+).
-*   Use `multi_version_test.py` to automate this process locally before deployment.
+这三处必须同步，不允许出现以下情况：
 
-### 3.2 Resilience Testing
-*   **Leak Detection**: Use a `DataLeakChecker` in tests to ensure data blocks (Meshes, Images) are correctly unlinked and removed after operations.
-*   **Negative Testing**: Explicitly test failure states (e.g., missing UVs, disk full, corrupted JSON presets).
+- UI 有开关，但引擎不读取
+- 引擎需要值，但属性层没有暴露
+- 常量层和属性层默认值不一致
 
----
+本轮修复前，light/combine 的 pass filter 就属于典型的“UI 有、执行无”的失配案例。
 
-## 4. Future Standardization Frontiers
+### 2.2 枚举值不是 UI 文案
 
-### 4.1 Bake Metadata Standard (.btmeta)
-Standardize a sidecar JSON file that records the exact environment under which a texture was baked (samples, engine version, high-poly source names).
+属性层的内部枚举值必须稳定，不要把显示文案直接当协议值使用。文档、预设和执行路径依赖的是协议，而不是某次临时改动后的按钮文字。
 
-### 4.2 VRAM Audit Mechanism
-Before starting a heavy batch, standardize a pre-computation step to estimate VRAM usage and warn the user if it exceeds a safety threshold.
+## 3. Operator 注册完整性原则
 
-### 4.3 Addon-as-Middleware
-Standardize a public API entry point (`core/api.py`). Any functionality exposed via UI buttons should be reachable via a clean Python function call for other addon developers.
+### 3.1 UI 中引用的 operator 必须都已注册
 
----
+这看起来像废话，但本项目已经出现过 UI 有按钮、实际 operator 不存在的情况。后续新增 operator 时，必须同时完成：
 
-## 5. Summary of the Development Workflow
-1.  **Define Constants** in `constants.py`.
-2.  **Implement Logic** in `core/` with type hints.
-3.  **Expose via API** in `core/api.py`.
-4.  **Connect UI** in `property.py` and `ui.py` using translations.
-5.  **Write Tests** in `test_cases/`.
-6.  **Verify Cross-Version** via `automation/`.
-7.  **Standardized Commit** following the versioning protocol.
+- 实现类
+- 注册
+- UI 接线
+- 基本测试
+
+### 3.2 不使用 `hasattr(bpy.ops...)` 验证 operator 是否存在
+
+当前标准做法是调用 RNA 层的真实查询，例如 `get_rna_type()`。原因是 `hasattr` 对不存在的 operator 也可能返回误导性的结果，导致测试看似通过、实际功能缺失。
+
+## 4. 自定义结果键标准
+
+### 4.1 命名规则
+
+自定义贴图结果键统一使用：
+
+```text
+BT_CUSTOM_<name>
+```
+
+### 4.2 适用范围
+
+这条规则应同时适用于：
+
+- 执行结果字典
+- 通道打包来源
+- 测试断言
+- 文档说明
+
+### 4.3 兼容处理
+
+如果需要兼容旧值，应在规范化函数中处理，而不是在每个调用点各自猜测。当前标准是通过 `normalize_source_id()` 进行集中处理。
+
+## 5. 颜色空间标准
+
+### 5.1 插件内部值和 Blender 实际值分离
+
+属性中可使用统一枚举，例如 `NONCOL`、`SRGB`、`LINEAR`，但在写入 Blender 图像对象时必须映射到实际存在的 colorspace 名称。
+
+### 5.2 数据图默认使用非颜色数据
+
+法线、粗糙度、金属度、AO 等数据图不应按颜色图处理。任何相关逻辑或文档变更，都要重新核查颜色空间设置。
+
+## 6. 导出副作用控制标准
+
+### 6.1 进入导出前必须保存状态
+
+至少保存：
+
+- 当前选择集
+- 当前激活对象
+- 对象隐藏状态
+- `hide_viewport`
+
+### 6.2 导出结束后必须恢复
+
+导出不是免责区。为了完成导出而临时修改对象状态是可以接受的，但导出结束后必须恢复。当前版本已将 `hide_viewport` 恢复纳入标准，不允许只恢复一部分状态。
+
+## 7. Headless 与 API 标准
+
+### 7.1 Headless 必须能在干净会话中启动
+
+背景脚本不能假设插件属性已经提前存在。当前标准要求：
+
+- 能自行补足导入路径
+- 必要时自动注册插件
+- 注册成功后再访问场景属性
+
+### 7.2 API 不应依赖 UI 按钮
+
+公共 API 应直接调用核心逻辑，而不是反向触发 UI operator。这样才能保证：
+
+- 外部脚本可调用
+- 测试更简单
+- headless 更稳定
+
+## 8. 测试标准
+
+### 8.1 每个真实 bug 都应尽量转成回归测试
+
+如果某个 bug 只被修一次、不留测试，未来大概率会再次出现。BakeTool 当前已经把以下问题纳入回归保护：
+
+- 缺失 operator
+- headless 属性初始化
+- 自定义图执行
+- 自定义图打包
+- pass filter 映射
+- 导出状态恢复
+
+### 8.2 测试验证真实协议，不验证表面幻象
+
+不要写“看起来像通过”的测试。比如：
+
+- 不要用 `hasattr` 验证 operator
+- 不要只验证某字段存在，不验证它是否被执行路径实际消费
+- 不要只验证输出文件被创建，不验证关键状态是否恢复
+
+## 9. 文档同步标准
+
+### 9.1 用户可见行为变化必须更新 README 和用户手册
+
+例如：
+
+- 新增/删除按钮
+- One-Click PBR 行为变化
+- headless 参数变化
+- 自定义图或打包行为变化
+
+### 9.2 开发约束变化必须更新开发文档
+
+例如：
+
+- 结果键命名协议变化
+- 自动化脚本名变化
+- 发布包边界变化
+- 新的测试要求
+
+### 9.3 发布前统一过一遍路线图、任务看板和 changelog
+
+这三份文档是项目状态说明，不允许长期和实际状态脱节。
+
+## 10. 打包标准
+
+### 10.1 发布包只包含必要内容
+
+发布包应包含：
+
+- 插件运行代码
+- 必要用户文档
+- 版本与许可信息
+
+发布包不应包含：
+
+- 自动化测试目录
+- 开发工具目录
+- 历史归档资料
+- 临时输出和报告
+
+### 10.2 `MANIFEST.in` 必须与当前目录结构一致
+
+目录结构一旦调整，打包规则也必须同步更新。否则用户拿到的分发包可能缺文件，或者混入不该带出的内容。
+
+## 11. 变更提交流程建议
+
+对 BakeTool 这样的 Blender 插件项目，更合理的提交流程通常是：
+
+1. 明确变更边界。
+2. 修改代码。
+3. 补测试。
+4. 跑相关套件。
+5. 更新文档。
+6. 收口前再做一次发布级验证。
+
+如果顺序反过来，尤其是把文档和测试放到最后“有空再补”，质量会迅速下滑。
+
+## 12. 结论
+
+BakeTool 当前已经具备了一套足够实用的标准化基础。后续维护时，真正需要坚持的不是形式，而是下面这些底线：
+
+- 分层清晰
+- 协议稳定
+- 回归可测
+- 文档同步
+- 发布包干净
+
+只要这些底线被持续执行，BakeTool 后续无论做 1.0.x 修复还是 1.1 重构，都会比现在更稳，而不是越来越依赖作者个人记忆。

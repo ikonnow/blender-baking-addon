@@ -1,510 +1,173 @@
-# BakeTool Roadmap
+# BakeTool 路线图
 
-**Version:** 1.0.0
-**Last Updated:** 2026-04-17
-**Status:** Production Hardened
+本文档不是“想做什么就都写上去”的愿望清单，而是面向发布和维护的现实路线图。它基于当前代码结构、已经完成的验证工作和实际维护压力来制定优先级。BakeTool 目前正处于 `1.0.0` 正式发布前的最后收尾阶段，因此路线图的核心不是继续堆功能，而是确保当前版本在行为、文档、测试和发布物上都足够可控。
 
----
+## 1. 当前阶段定位
 
-## Overview
+### 1.1 状态
 
-BakeTool is a professional-grade texture baking plugin designed for Blender, supporting versions 3.3 through 5.0+. This roadmap details the strategic vision for evolving from a practical utility tool to a professional-grade baking middleware.
+- 当前版本：`1.0.0`
+- 当前阶段：发布前收尾与验证完成
+- 当前目标：形成可以公开发布的首个稳定版本，而不是继续扩大功能面
 
-### Version History
+### 1.2 当前版本已经完成的关键工作
 
-| Version | Date | Status | Key Features |
-|---------|------|--------|-------------|
-| 1.0.0-rc | 2026-04-20 | Current | Core stability, full translation alignment |
-| 1.0.0 | 2026-04-17 | Stable | Initial release, compatibility fixes |
+这一轮收尾解决的不是小瑕疵，而是会直接影响发布质量的阻断项：
 
----
+- 补齐 UI 缺失 operator，避免界面按钮与注册状态不一致
+- 修复 headless 背景模式初始化逻辑
+- 将自定义通道接入真实执行链
+- 统一自定义结果键，保证打包逻辑可复用自定义图
+- 将光照和 Combined 的 pass filter 选项真正写入 Blender bake 设置
+- 修复导出后对象 `hide_viewport` 未恢复的问题
+- 增加颜色空间枚举到 Blender 实际 colorspace 的映射
+- 增补回归测试，并完成多版本 verification 验证
+- 重写发布前的核心说明文档
 
-## Phase 1: Experimental Phase (v1.0.0-rc)
+这意味着 1.0.0 的优先任务已经从“修功能”转向“控风险”。
 
-**Goal**: Minimize risk through AI-assisted static analysis and controlled environment testing.
+## 2. 1.0.0 发布目标
 
-### 1.5 Core Stability & Internationalization (Completed)
+1.0.0 的目标不是把所有设想一次做完，而是提供一套可被信任的基础能力：
 
-**Status**: Completed (2026-04-20)
+- 用户可以在主流 Blender 版本中安装并找到插件
+- 主面板、结果面板和节点烘焙入口行为一致
+- 常见 PBR、Selected-to-Active、UDIM、自定义图和导出联动能跑通
+- 自动化入口可用于本地验证
+- 文档与代码行为一致，不再依赖口头说明或临时记忆
 
-**Key Changes**:
-- **Exception Chain Hardening**: Added fault-tolerant catching for cleanup callbacks to prevent crashes from individual object failures
-- **Dynamic Parameter Alignment**: Established validation logic between UI properties and engine tasks, fixed bugs like `save_and_quit` logic reversal
-- **Full Localization**: Deep scanned UI definitions, eliminated hardcoded English strings, fixed case mismatches causing translation misses
+只要上述目标达成，1.0.0 就是成立的。相反，如果继续向这个版本追加大功能，风险会高于收益。
 
----
+## 3. 发布前必须守住的边界
 
-## Phase 2: Future Experimental Plans
+在正式发布前，以下内容不建议再做大改：
 
-Due to the project's small user base and slow feedback cycle, future development will proceed with extreme caution:
+- 不做大规模 UI 重设计
+- 不做 `core/engine.py` 级别的深度拆分重构
+- 不新增会改写预设结构的大功能
+- 不改变现有 Job 概念和主要工作流
+- 不引入额外第三方运行时依赖
 
-### First Phase: Visual and User Experience Exploration
+这些内容不是永远不做，而是应该放到 1.1 或之后的版本，在已有稳定发布基础上推进。
 
-**Goal**: Explore more intuitive baking feedback, reduce configuration confusion for new users.
+## 4. 1.0.0 发布后优先方向
 
----
+### 4.1 第一优先级：稳定性维护与反馈闭环
 
-### Second Phase: Pipeline Integration
+这是发布后的首要工作。真实用户会暴露本地测试难以完全覆盖的场景差异，因此 1.0.x 的重点应当是：
 
-**Goal**: Further decouple engine from UI. Acknowledging current single-file `engine.py` maintenance pressure.
+- 归档和分类用户反馈
+- 快速定位高频失败路径
+- 补回归测试而不是只做一次性修复
+- 保持 changelog 和任务看板持续更新
 
-- **Refactoring Vision**: Split task building, export, and core execution into reusable, testable chunks
-- **AI Transparency**: Add more AI-generated test cases to compensate for manual testing gaps
+尤其需要关注：
 
----
+- 不同 Blender 安装路径与本地环境差异
+- 不同颜色管理配置下的颜色空间映射
+- 大场景、多对象和长序列输出的稳定性
+- 导出联动对第三方插件启用状态的依赖
 
-### Third Phase: Code Quality and Maintainability
+### 4.2 第二优先级：执行引擎结构化拆分
 
-**Goal**: Strictly follow Google Python Style Guide, eliminate overconfidence biases in AI-generated code.
+当前 `core/engine.py` 承载了较多职责，这对快速修复有利，但对长期维护压力较大。发布后更合理的方向是逐步拆分，而不是一次性重写：
 
----
+- 将队列准备、单步执行、打包、导出、后处理拆为更清晰模块
+- 保持 `BakePassExecutor`、`BakeStepRunner` 的外部行为稳定
+- 让测试能更直接覆盖分离后的子模块
 
-## Important Notice
+这里最重要的不是“文件拆得多漂亮”，而是不要破坏现有调用协议。
 
-BakeTool is an **early-stage experimental project**. It largely demonstrates AI's capability in assisting Blender scripting. We strongly advise users to **save and backup scene data before any operations**.
+### 4.3 第三优先级：预设与数据模式稳态化
 
----
+一旦插件开始进入真实项目，预设兼容性会迅速变重要。未来应逐步引入：
 
-## Completed Features
+- 更明确的 preset schema 版本标识
+- 更完整的属性迁移映射
+- 对弃用字段的显式提示
+- 对缺失字段和新字段的更清晰回退策略
 
-### 1.2 Visual Cage Analysis
+目标是让升级插件不必等于重做全部预设。
 
-**Status**: Completed (v0.9.5)
+### 4.4 第四优先级：高级工作流扩展
 
-**Function Description**:
-Generates "heatmap" overlay on meshes showing cage intersection or detail-missing areas with high poly.
+当基础稳定性足够时，可以考虑扩展以下方向：
 
-**Technical Implementation**:
-- Uses BVH-Tree for raycast analysis between low-poly (with cage extrusion) and high-poly
-- Red areas indicate "collision/missing", green indicates "safe"
-- Error total displayed directly in object list
+- 更细粒度的节点烘焙流程
+- 更丰富的自定义图层来源
+- 更完整的批量导出模板
+- 面向管线的 metadata 输出
+- 更系统的 UDIM 批处理与命名策略
 
-**User Experience Value**:
-- Visualize "missing rays" or artifacts before committing to bake
-- Reduce rework from improper cage settings
+这些都应建立在现有工作流清晰、测试充足的基础上。
 
----
+## 5. 中期规划：1.1.x
 
-### 1.3 Asynchronous Progress UI
+`1.1.x` 可以视为“在不破坏 1.0 工作流前提下的架构提升版”。候选方向如下：
 
-**Status**: Completed (Modal Progress event loop decoupling)
+### 5.1 引擎进一步模块化
 
-**Technical Implementation**:
-- Uses `BakeModalOperator` to keep UI responsive during heavy baking
-- Displays current channel, object, estimated remaining time
-- Supports cancellation while preserving completed results
+- 将打包和自定义图组装逻辑进一步独立
+- 抽离导出流程的上下文保护与状态恢复逻辑
+- 对 bake queue 引入更清晰的数据结构边界
 
----
+### 5.2 预设与自动化更严格
 
-### 1.4 Automated UI Logic Guardian
+- 增加 preset roundtrip 验证矩阵
+- 针对自定义图、动画烘焙、UDIM 和导出联动补更多组合测试
+- 强化 headless 与 API 路径的一致性验证
 
-**Status**: Completed (v0.9.0)
+### 5.3 文档与国际化同步机制
 
-**Function Description**:
-Statically analyzes `CHANNEL_UI_LAYOUT` and Blender RNA properties to prevent runtime UI crashes.
+- 明确新功能进入主分支前必须补文档
+- 为 `translations.json` 建立更强的变更检查
+- 让开发文档和用户文档之间的术语保持一致
 
-**Technical Implementation**:
-- Auto-validates all UI channel properties exist
-- Ensures new bake channels have 100% confidence
-- Automated regression test coverage
+## 6. 长期方向
 
----
+长期来看，BakeTool 更有价值的方向不是变成“另一个大而全材质系统”，而是成为一层可复用、可脚本化、可验证的 Blender 烘焙中间件。可能的长期目标包括：
 
-## Second Phase: Pipeline Integration
+- 更稳定的公共 API
+- 更明确的自动化与无界面运行规范
+- 面向项目模板的标准化输出结构
+- 更完善的崩溃恢复与任务恢复策略
+- 将复杂的烘焙上下文整理成对外更清晰的接口
 
-**Goal**: Decouple engine from UI, enable headless operations and external script integration.
+## 7. 暂不推进的方向
 
-### 2.1 Engine-UI Decoupling
+以下事项当前不建议优先投入：
 
-**Status**: Completed (v0.9.0 refinement)
+- 复杂的在线服务集成
+- 依赖外部数据库或守护进程的任务调度系统
+- 高度侵入式的 UI 视觉重构
+- 未经充分测试的新型材质推断机制
 
-**Technical Implementation**:
-- Split god functions into granular methods:
-  - `_create_target_image`: Image creation
-  - `_execute_blender_bake_op`: Blender bake call
-  - `_apply_numpy_processing`: NumPy processing
+这些方向要么会引入额外依赖，要么会大幅扩大维护面，不适合 1.0 到 1.1 的阶段。
 
-**User Experience Value**:
-- Fully headless operations without active Viewport context
-- Support for render farm and CI/CD pipeline integration
+## 8. 版本推进条件
 
----
+### 8.1 可以发布 1.0.0 的条件
 
-### 2.2 Public Python API
+- 发布检查清单全部完成
+- 关键文档与代码行为一致
+- 多版本 verification 通过
+- 至少一个 LTS 版本上的关键套件通过
+- 安装、基础烘焙、节点烘焙、UDIM、导出和 headless 烟测完成
 
-**Status**: Completed (v1.0.0)
+### 8.2 可以推进 1.1.0 的条件
 
-**API Example**:
-```python
-from baketool.core import api
+- 1.0 用户反馈中没有持续高频阻断问题
+- 自动化套件能够稳定覆盖当前核心工作流
+- 引擎拆分方案有明确边界和回归测试支持
 
-# Basic baking - use current scene's Job settings
-result = api.bake(objects=bpy.context.selected_objects)
-# Or use viewport selection
-result = api.bake(use_selection=True)
+## 9. 结论
 
-# Get UDIM tiles
-tiles = api.get_udim_tiles(bpy.context.selected_objects)
+BakeTool 当前最正确的方向不是继续堆更多新功能，而是把已经具备的能力稳定交付出去。1.0.0 的成功标准不是“看起来像大版本”，而是：
 
-# Validate settings
-is_valid, msg = api.validate_settings(bpy.context.scene.BakeJobs.jobs[0])
-```
+- 能装
+- 能用
+- 能验证
+- 能解释
+- 出问题能定位
 
----
-
-### 2.3 Preset Library 2.0 (Visual UI)
-
-**Status**: Completed (v0.9.3)
-
-**Features**:
-- Dedicated preset gallery with thumbnail preview
-- Dynamic refresh logic
-- Support for custom library paths
-
----
-
-### 2.4 Baking Performance Profiler
-
-**Status**: Completed (v0.9.3)
-
-**Features**:
-- Bake Time vs Save Time for each channel
-- Helps identify bottlenecks in large-scale asset production
-
----
-
-## Third Phase: Intelligence and Algorithms
-
-**Goal**: Use algorithmic assistance to replace manual trial-and-error.
-
-### 3.1 Auto-Cage 2.1 (Proximity-Based)
-
-**Status**: Completed (v0.9.0 Production Hardened)
-
-**Technical Implementation**:
-- NumPy ray tracing proximity analysis
-- Algorithm predicts safe average extrusion distance
-- Supports two modes:
-  - `Uniform`: Traditional uniform extrusion
-  - `Proximity`: Smart proximity mode
-
----
-
-### 3.2 Smart Texel Density
-
-**Status**: Completed (v1.0.0)
-
-**Features**:
-- Auto-calculates output resolution based on physical object size
-- Ensures asset library quality consistency
-- Supports target density in px/unit
-
----
-
-### 3.3 Anti-Aliasing and Denoise Pipeline
-
-**Status**: Completed (v0.9.3)
-
-**Technical Implementation**:
-- Integrated Intel OIDN (Open Image Denoise)
-- Implemented via temporary compositor nodes
-- Zero-leak scene cleanup
-
----
-
-## Fourth Phase: Production Hardening and Ecosystem
-
-**Goal**: 100% architecture stability, zero-leak scene management, cross-version parameter alignment.
-
-### 4.1 Parameter Consistency & Dynamic Alignment
-
-**Status**: 100% CI PASS (3.3, 3.6, 4.2, 4.5, 5.0+)
-
-**Technical Implementation**:
-- **Three-Point Alignment Protocol**: Constants ↔ Engine ↔ Automation
-- Standardized `add_bake_result_to_ui` ensures metadata (bake_time, resolution) uses strict RNA contract mapping
-- `suite_parameter_matrix.py` dynamically validates mapping across all Blender versions
-
-**Test Coverage**:
-- 70+ core test suites
-- 80+ individual use cases
-- Full coverage across 5 Blender versions
-
----
-
-### 4.2 Zero-Leak Denoise Pipeline (Recursive Cleanup)
-
-**Status**: Completed (v1.0.0)
-
-**Technical Implementation**:
-- Dedicated `finally` block logic
-- Recursively identifies and clears all `BT_Denoise_Temp*` scenes
-- Clears node trees and uses `user_clear()` to satisfy B5.0 deletion constraints
-
-**Benefits**:
-- Prevents memory spikes during batch baking
-- Avoids "active scene" conflicts
-
----
-
-### 4.3 Blender 5.0.x Full Support
-
-**Status**: Completed (v1.0.0)
-
-**Technical Implementation**:
-- Robust tree discovery (Direct ↔ Compositor Object ↔ Fallback creation)
-- Supports B5.0 unified node system (uses `CompositorNodeTree` ↔ `NodeGroupOutput`)
-- Solves B5.0 registration constraints through forced integer defaults
-
-**Cross-Version Validation**:
-- Blender 3.3.21 ↔ Blender 3.6.23 ↔ Blender 4.2.14 LTS ↔ Blender 4.5.3 LTS ↔ Blender 5.0.1+
-
----
-
-### 4.4 Production E2E Validation Loop
-
-**Status**: Completed (v1.0.0)
-
-**Toolchain**:
-- `multi_version_test.py`: Auto-monitors multiple local Blender installations, 70+ core test suite
-- Negative test suite ensures error path popups
-- Comprehensive validation scripts
-
----
-
-### 4.5 UI/UX Production Refactor
-
-**Status**: Completed (v1.0.0)
-
-**Features**:
-- Comprehensive dashboard-style refactor
-- Replaced nested layouts with aligned columns
-- Grouped functional areas for better vertical flow
-- Professional, streamlined aesthetic matching high-end Blender plugins
-
----
-
-### 4.6 Multi-Version Image & Operator Audit
-
-**Status**: Completed (v1.0.0)
-
-**Features**:
-- Auto integrity check (`test_ui_operator_integrity`)
-- Verifies each operator in `ui.py` registers correctly
-- Audited and replaced high-version icons (e.g., `SYNCHRONIZED`, `RAYCAST`) with broadly compatible alternatives
-
----
-
-## Fifth Phase: Asynchrony and Performance
-
-**Goal**: Decouple baking process and enhance external connectivity.
-
-### 5.1 Background Process Baking (Work Threads)
-
-**Concept**: Generate separate Blender worker processes for heavy baking, keeping main UI 100% responsive for modeling.
-
-**Priority**: HIGH (v1.6.0 Focus)
-
-**Technical Challenges**:
-- Inter-process communication
-- Progress synchronization
-- Error handling and recovery
-
----
-
-### 5.2 Asset Bridge: Zero-Friction Delivery
-
-**Concept**: GLB/USDZ export is live; next step is auto PBR material embedding after baking.
-
-**Status**: Partially Completed
-
----
-
-### 5.3 Parallel Tile Baking (UDIM Optimization)
-
-**Concept**: Multi-process tile baking for UDIM projects, utilizing high core count CPUs.
-
-**Technical Requirements**:
-- Multi-process collaboration
-- Tile dependency management
-- Result merging
-
----
-
-## Sixth Phase: Code Quality and Maintainability
-
-**Goal**: Improve code maintainability, follow Google Python Style Guide, prevent future regressions.
-
-### 6.1 Import Standardization
-
-**Status**: Completed (v1.0.0)
-
-**Fixes**:
-- Renamed `property` module to `prop_module` to avoid Python built-in conflicts
-- Standardized import order (stdlib ↔ bpy ↔ local modules)
-
----
-
-### 6.2 Type Hints & Docstring Consistency
-
-**Status**: Completed (v1.0.0)
-
-**Fixes**:
-- Added type hints to core functions in `common.py`, `image_manager.py`, `ops.py`
-- Unified docstring style to Google Style (English)
-
----
-
-### 6.3 Magic Number Extraction
-
-**Status**: Completed (v1.0.0)
-
-**Fixes**:
-- Extracted constants to `constants.py`:
-  - `UDIM_DEFAULT_TILE`
-  - `GOLDEN_RATIO`
-  - `MIN_THRESHOLD`
-  - And more
-
----
-
-### 6.4 Exception Handling Hardening
-
-**Status**: Completed (v1.0.0)
-
-**Fixes**:
-- Replaced bare `except` with specific exception types (`AttributeError`, `RuntimeError`)
-- Added safe fallbacks using `.get()` for dictionary access
-
-**Fixed Files**:
-- `core/cleanup.py` - 3 instances
-- `state_manager.py` - 3 instances
-- `core/engine.py` - 7 instances
-- `ops.py` - 3 instances
-
----
-
-### 6.5 Test Coverage Expansion
-
-**Status**: Completed (v1.0.0)
-
-**Additions**:
-- `suite_code_review.py` validates all bug fixes
-- Comprehensive validation scripts
-- Multi-version test framework `multi_version_test.py`
-
----
-
-## Seventh Phase: Future Evolution...
-
----
-
-## Eighth Phase: Industrial Productivity Enhancement (TexTools Benchmark)
-
-**Goal**: Introduce mature industrial workflows, elevate BakeTool to top-tier asset processing platform.
-
-### 8.1 Explode Baking System
-
-**Concept**: Auto-push overlapping low-poly/high-poly pairs by name suffix, eliminate normal bleeding artifacts, auto-restore coordinates after baking.
-
-**Core Advantage**: Solves projection occlusion issues for complex mechanical structures.
-
-### 8.2 Advanced Geometry Passes
-
-**Concept**: Introduce more TexTools-style preset channels:
-- **Bevel Mask**: Simulate edge wear
-- **Soft/Fine Curvature**: Detail capture at different scales
-- **Tangent/World Space Normal**: Flexible normal space transformations
-- **Dust/Cavity**: Topology-based dirt distribution map
-
-### 8.3 Smart Suffix Matching 2.0
-
-**Concept**: Enhance `SMART_SET` logic with regex support and multi-suffix (e.g., `_high`, `_hp`, `_source`) automatic identification and batch pairing.
-
----
-
-## Version Release Plan
-
-### v1.0.0 (Current Version) - Production Ready & Code Consolidation
-
-**Release Date**: 2026-04-17
-
-**Main Work**:
-- Architecture unification: single automation entry and bootstrap testing
-- Code consolidation: full Google Style Docstrings and type hints
-- Quality hardening: fixed 17+ exception handling issues and syntax bugs
-- Cross-version validation: 100% pass on Blender 3.3 - 5.0
-
----
-
-### v1.1.0 (Planned) - Industrial Enhancement (TexTools Tribute)
-
-**Goal**: Background work thread implementation, multi-GPU tile baking
-
-**Main Features**:
-- [ ] Background process baking
-- [ ] Progress event API
-- [ ] Multi-GPU support
-
----
-
-### v1.7.0 (Planned) - Smart Enhancement
-
-**Goal**: AI-assisted features
-
-**Main Features**:
-- [ ] Smart parameter recommendations
-- [ ] Material auto-analysis
-- [ ] Workflow templates
-
----
-
-### v2.0.0 (Distant) - Ecosystem
-
-**Goal**: Become Blender ecosystem's baking middleware
-
-**Main Features**:
-- [ ] External engine bridges (Marmoset, Substance)
-- [ ] Cloud rendering integration
-- [ ] AI-assisted retopology bridge
-
----
-
-## Contribution Guidelines
-
-Contributions welcome! Please:
-1. Fork this repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. Create Pull Request
-
-### Development Environment Requirements
-- Python 3.10+
-- Blender 3.3 - 5.0+
-- Git
-
-### Running Tests
-
-```bash
-# Single version test
-blender -b --python automation/cli_runner.py -- --suite all
-
-# Multi-version test
-python automation/multi_version_test.py --verification
-```
-
----
-
-## Resource Links
-
-- [User Manual](USER_MANUAL.md)
-- [Developer Guide](docs/dev/DEVELOPER_GUIDE.md)
-- [Ecosystem Integration Guide](docs/dev/ECOSYSTEM_GUIDE.md)
-- [Automation Reference](docs/dev/AUTOMATION_REFERENCE.md)
-- [Style Analysis](STYLE_GUIDE_ANALYSIS.md)
-
----
-
-*This roadmap is maintained by the BakeTool Team*
-*Last Updated: 2026-04-17*
+只要这五点成立，BakeTool 就有资格进入正式发布阶段。之后再围绕真实反馈做 1.0.x 和 1.1.x 的稳步演进，会比在发布前继续扩大范围更理性。

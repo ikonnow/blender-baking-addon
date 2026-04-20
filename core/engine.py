@@ -15,7 +15,12 @@ from .common import (
     reset_channels_logic,
 )
 from .image_manager import set_image, save_image
-from .math_utils import process_pbr_numpy, setup_mesh_attribute, pack_channels_numpy
+from .math_utils import (
+    get_image_pixels_as_numpy,
+    process_pbr_numpy,
+    setup_mesh_attribute,
+    pack_channels_numpy,
+)
 from .uv_manager import (
     get_active_uv_udim_tiles,
     UDIMPacker,
@@ -336,8 +341,7 @@ class BakeStepRunner:
                         )
                         BakePostProcessor.apply_denoise(img, reuse_scene=denoise_scene)
 
-                    key = c["name"] if c["id"] == "CUSTOM" else c["id"]
-                    baked_images[key] = img
+                    baked_images[BakePassExecutor.get_result_key(c)] = img
 
                     save_start = time.time()
                     path = self._handle_save(job.setting, task, img, f_info)
@@ -426,7 +430,9 @@ class BakeStepRunner:
         """
         pack_map = {}
         for idx, attr in enumerate(["pack_r", "pack_g", "pack_b", "pack_a"]):
-            src_id = getattr(s, attr)
+            src_id = BakePassExecutor.normalize_source_id(
+                getattr(s, attr), baked_images
+            )
             if src_id != "NONE" and src_id in baked_images:
                 pack_map[idx] = baked_images[src_id]
 
@@ -911,6 +917,9 @@ class BakePassExecutor:
     Blender bake pipeline.
     """
 
+    CUSTOM_SOURCE_PREFIX = "BT_CUSTOM_"
+    _CHANNEL_INDEX = {"r": 0, "g": 1, "b": 2, "a": 3}
+
     @classmethod
     def execute(
         cls,
@@ -944,7 +953,10 @@ class BakePassExecutor:
         # 1. Prepare Target Image
         img = cls._create_target_image(setting, task, c_config, udim_tiles)
 
-        # 2. Path A: Numpy-based PBR Conversion (Bypass Blender Bake)
+        # 2. Path A: NumPy-based post-processing (Bypass Blender Bake)
+        if cls._try_custom_channel(chan_id, prop, img, current_results, array_cache):
+            return img
+
         if cls._try_numpy_pbr(chan_id, prop, img, current_results, array_cache):
             return img
 
@@ -1046,7 +1058,11 @@ class BakePassExecutor:
                     }
                 )
 
-            bpy.ops.object.bake(**params)
+            bake_settings = BakePassExecutor._get_pass_filter_settings(
+                setting, prop, bake_type
+            )
+            with SceneSettingsContext("bake", bake_settings, scene=scene):
+                bpy.ops.object.bake(**params)
             return True
         except Exception as e:
             from .common import log_error
@@ -1091,6 +1107,153 @@ class BakePassExecutor:
         if spec and process_pbr_numpy(img, spec, diff, chan_id, threshold, array_cache):
             return True
         return False
+
+    @classmethod
+    def _try_custom_channel(cls, chan_id, prop, img, current_results, array_cache):
+        if chan_id != "CUSTOM" or not prop:
+            return False
+        current_results = current_results or {}
+
+        width, height = img.size
+        num_pixels = width * height
+        result = np.zeros((num_pixels, 4), dtype=np.float32)
+        result[:, 3] = 1.0
+
+        if getattr(prop, "bw", False):
+            bw_arr = cls._resolve_custom_source_array(
+                getattr(prop, "bw_settings", None),
+                current_results,
+                array_cache,
+                "bw",
+                num_pixels,
+            )
+            result[:, 0] = bw_arr
+            result[:, 1] = bw_arr
+            result[:, 2] = bw_arr
+        else:
+            for channel_name, idx in cls._CHANNEL_INDEX.items():
+                result[:, idx] = cls._resolve_custom_source_array(
+                    getattr(prop, f"{channel_name}_settings", None),
+                    current_results,
+                    array_cache,
+                    channel_name,
+                    num_pixels,
+                )
+
+        img.pixels.foreach_set(np.clip(result, 0.0, 1.0).ravel())
+        img.update()
+        return True
+
+    @classmethod
+    def _resolve_custom_source_array(
+        cls,
+        source_settings,
+        current_results,
+        array_cache,
+        target_channel,
+        num_pixels,
+    ):
+        default_value = 1.0 if target_channel == "a" else 0.0
+        default_arr = np.full(num_pixels, default_value, dtype=np.float32)
+
+        if not source_settings or not getattr(source_settings, "use_map", False):
+            return default_arr
+
+        source_id = cls.normalize_source_id(
+            getattr(source_settings, "source", "NONE"), current_results
+        )
+        src_img = current_results.get(source_id)
+        if not src_img:
+            logger.debug("Custom channel source '%s' is unavailable", source_id)
+            return default_arr
+
+        src_arr = array_cache.get(src_img) if array_cache is not None else None
+        if src_arr is None:
+            src_arr = get_image_pixels_as_numpy(src_img)
+            if array_cache is not None and src_arr is not None:
+                array_cache[src_img] = src_arr
+
+        if src_arr is None or src_arr.shape[0] != num_pixels:
+            logger.debug(
+                "Custom channel source '%s' has incompatible resolution", source_id
+            )
+            return default_arr
+
+        if getattr(source_settings, "sep_col", False):
+            chan_index = {"R": 0, "G": 1, "B": 2, "A": 3}.get(
+                getattr(source_settings, "col_chan", "R"),
+                0,
+            )
+            values = src_arr[:, chan_index].copy()
+        elif target_channel in cls._CHANNEL_INDEX:
+            chan_index = cls._CHANNEL_INDEX[target_channel]
+            values = src_arr[:, chan_index].copy()
+            if target_channel == "a" and np.allclose(values, 1.0):
+                values = src_arr[:, 0].copy()
+        else:
+            weights = np.array([0.2126, 0.7152, 0.0722], dtype=np.float32)
+            values = np.dot(src_arr[:, :3], weights)
+
+        if getattr(source_settings, "invert", False):
+            values = 1.0 - values
+        return np.clip(values, 0.0, 1.0)
+
+    @classmethod
+    def get_result_key(cls, c_config):
+        if c_config["id"] == "CUSTOM":
+            return f"{cls.CUSTOM_SOURCE_PREFIX}{c_config['name']}"
+        return c_config["id"]
+
+    @classmethod
+    def normalize_source_id(cls, source_id, current_results=None):
+        if not source_id:
+            return "NONE"
+        if source_id.startswith(cls.CUSTOM_SOURCE_PREFIX):
+            return source_id
+        if current_results and source_id in current_results:
+            return source_id
+
+        custom_id = f"{cls.CUSTOM_SOURCE_PREFIX}{source_id}"
+        if current_results and custom_id in current_results:
+            return custom_id
+        return source_id
+
+    @staticmethod
+    def _get_pass_filter_settings(setting, prop, bake_type):
+        if bake_type in {"DIFFUSE", "GLOSSY", "TRANSMISSION"}:
+            pass_settings = getattr(prop, "pass_settings", None)
+            return {
+                "use_pass_direct": getattr(
+                    pass_settings,
+                    "use_direct",
+                    getattr(setting, "use_direct", True),
+                ),
+                "use_pass_indirect": getattr(
+                    pass_settings,
+                    "use_indirect",
+                    getattr(setting, "use_indirect", True),
+                ),
+                "use_pass_color": getattr(
+                    pass_settings,
+                    "use_color",
+                    getattr(setting, "use_color", True),
+                ),
+            }
+
+        if bake_type == "COMBINED":
+            combine_settings = getattr(prop, "combine_settings", None)
+            return {
+                "use_pass_direct": getattr(combine_settings, "use_direct", True),
+                "use_pass_indirect": getattr(combine_settings, "use_indirect", True),
+                "use_pass_diffuse": getattr(combine_settings, "use_diffuse", True),
+                "use_pass_glossy": getattr(combine_settings, "use_glossy", True),
+                "use_pass_transmission": getattr(
+                    combine_settings, "use_transmission", True
+                ),
+                "use_pass_emit": getattr(combine_settings, "use_emission", True),
+            }
+
+        return {}
 
     @staticmethod
     def _get_mesh_type(chan_id):
@@ -1176,7 +1339,10 @@ class ModelExporter:
             if context.object and context.object.mode != "OBJECT":
                 bpy.ops.object.mode_set(mode="OBJECT")
 
-            orig_hide_states[obj.name] = obj.hide_get()
+            orig_hide_states[obj.name] = {
+                "hidden": obj.hide_get(),
+                "hide_viewport": getattr(obj, "hide_viewport", False),
+            }
             try:
                 obj.hide_set(False)
                 obj.hide_viewport = False
@@ -1288,11 +1454,15 @@ class ModelExporter:
                     context.view_layer.objects.active = prev_act
                 except (AttributeError, RuntimeError):
                     pass
-            for name, was_hidden in hide_states.items():
+            for name, state in hide_states.items():
                 try:
                     obj_by_name = bpy.data.objects.get(name)
                     if obj_by_name:
-                        obj_by_name.hide_set(was_hidden)
+                        obj_by_name.hide_set(state.get("hidden", False))
+                        if hasattr(obj_by_name, "hide_viewport"):
+                            obj_by_name.hide_viewport = state.get(
+                                "hide_viewport", False
+                            )
                 except (ReferenceError, AttributeError):
                     pass
         except Exception as e:

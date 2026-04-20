@@ -6,8 +6,8 @@ bl_info = {
     "blender": (3, 3, 0),
     "location": "View3D > Sidebar > Baking",
     "warning": "Beta version - Testing in progress",
-    "doc_url": "https://example.com/baketool",
-    "tracker_url": "https://example.com/baketool/issues",
+    "doc_url": "https://github.com/lastraindrop/baketool",
+    "tracker_url": "https://github.com/lastraindrop/baketool/issues",
     "category": "Render",
 }
 
