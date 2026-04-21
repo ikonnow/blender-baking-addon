@@ -61,6 +61,8 @@ operator 层是 UI 与核心执行之间的桥。它可以做：
 - 测试
 - 文档
 
+当前版本的预设链路已经支持常见 Blender ID 指针的序列化与恢复，例如 `Object`、`Material`、`Image` 等。这类引用会按类型、名称和可选库路径保存；恢复时如果目标数据块已经不存在，加载会安全跳过而不是崩溃。
+
 ### 2.4 `constants.py`
 
 这里不是“便于复制粘贴的常量池”，而是 BakeTool 的参数元数据中心。很多 UI 配置、通道信息和映射关系都依赖这个模块。维护时应优先把规则放到这里，而不是在 UI 和引擎两边各写一份。
@@ -101,6 +103,13 @@ BakeTool 的典型执行过程可以概括为：
 
 它的职责是“决定要做什么”，不是“真正去做”。如果一个问题出现在错误对象进入队列、空队列、模式解释不正确等阶段，优先检查这里。
 
+当前版本还把以下保护前移到了这一层：
+
+- 对象、active object、cage object 的 View Layer 可达性校验
+- 对空对象列表、缺失 target、缺失 UV 等输入问题的明确跳过
+
+这类问题不应再等到 `bpy.ops.object.bake()` 时报错才暴露。
+
 ### 4.2 `BakeStepRunner`
 
 它是队列执行控制器，主要负责：
@@ -130,6 +139,7 @@ BakeTool 的典型执行过程可以概括为：
 - 自定义图结果键使用 `BT_CUSTOM_<name>`
 - 打包源通过 `normalize_source_id()` 统一处理
 - pass filter 通过 `_get_pass_filter_settings()` 映射到 Blender bake 设置
+- 如果某个通道 bake 失败，本次新建的目标 image datablock 会被回收，避免场景里留下无效残留图像
 
 ### 4.4 `ModelExporter`
 
@@ -179,6 +189,8 @@ sbt_last_session.json
 
 适用于交互式 Blender 会话。优势是可视化和即时反馈，代价是更多依赖当前界面上下文。
 
+需要特别注意的是：调试按钮不等于“可以在当前会话里直接做任何破坏性事情”。本轮崩溃修复已经证明，如果一个 UI operator 会大量改写 scene/job/result 数据，Blender 在 operator 返回后的 RNA 路径解析阶段仍可能因为旧引用而硬崩。
+
 ### 6.2 Headless 路径
 
 `automation/headless_bake.py` 现在会在干净会话中自动注册插件，然后从当前 `.blend` 中读取已保存的 Job 配置并执行。这一路径适用于：
@@ -203,6 +215,10 @@ sbt_last_session.json
 
 API 适合外部脚本或其他插件集成。如果某个功能只能通过 UI operator 访问，而无法通过 API 或核心模块调用，那通常说明结构还不够干净。
 
+### 6.4 交互式调试路径
+
+`bake.run_dev_tests` 现在走隔离子进程。它会复用 `automation/cli_runner.py`，在单独的后台 Blender 实例里执行测试，再把结果摘要回填当前场景。这条约束不是“实现细节偏好”，而是为了避免交互式会话中原地跑测试时破坏 UI 正在引用的 RNA 数据。
+
 ## 7. 测试策略
 
 ### 7.1 基础原则
@@ -216,7 +232,9 @@ API 适合外部脚本或其他插件集成。如果某个功能只能通过 UI 
 
 - `suite_unit.py`：核心逻辑、协议和回归测试
 - `suite_export.py`：导出安全与状态恢复
+- `suite_negative.py`：异常输入、失败清理与防崩保护
 - `suite_ui_logic.py`：UI/属性联动
+- `suite_localization.py`：翻译提取与词典审计
 - `suite_verification.py`：综合验证
 - `suite_production_workflow.py`：端到端工作流
 
@@ -227,6 +245,8 @@ API 适合外部脚本或其他插件集成。如果某个功能只能通过 UI 
 - headless 初始化测试
 - pass filter 映射测试
 - `hide_viewport` 恢复测试
+- View Layer 预检与失败图像清理测试
+- 调试测试隔离执行与 UI 状态回填测试
 
 如果后续再出现“文档写得有，UI 也画出来了，但执行没接上”的问题，说明测试还不够贴近真实链路。
 
@@ -263,6 +283,21 @@ API 适合外部脚本或其他插件集成。如果某个功能只能通过 UI 
 3. 用户文档是否需要更新。
 
 本轮缺失 operator 的问题已经说明，UI 引用和实际注册状态不一致是非常容易漏掉、但用户一上手就会踩到的错误。
+
+### 8.4 修改参数或动态 UI 绑定前
+
+如果某个行为依赖：
+
+- `constants.py` 中的配置映射
+- `property.py` 中的 RNA 字段
+- `ui.py` 中动态拼接出来的属性名、标题或按钮文本
+- `core/` 中对这些参数的实际消费
+
+那么它们应被视为同一个协议面维护。不要只改一端。至少同步检查：
+
+1. 属性名或枚举值是否仍可被 UI 正确引用。
+2. 引擎是否仍真实消费该参数，而不是仅存在于界面。
+3. `suite_ui_logic`、`suite_negative` 或更贴近的回归是否需要补充。
 
 ## 9. 文档维护要求
 

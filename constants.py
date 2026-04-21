@@ -1008,6 +1008,7 @@ UI_MESSAGES = {
     "NO_OBJECTS": "Select mesh objects to bake.",
     "JOB_SKIPPED_NO_OBJS": "Job '{}' skipped: No objects assigned.",
     "JOB_SKIPPED_NO_TARGET": "Job '{}' skipped: No active object target for Select-to-Active.",
+    "JOB_SKIPPED_NOT_IN_VIEW_LAYER": "Job '{}' skipped: Objects not in current View Layer: {}",
     "JOB_SKIPPED_MISSING_UV": "Job '{}' skipped: Missing UVs on {}",
     "JOB_SKIPPED_NO_MESH": "Job '{}' skipped: No valid Mesh target.",
     "CAGE_MISSING": "Warning: Cage object missing for selective bake.",

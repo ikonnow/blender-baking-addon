@@ -13,8 +13,10 @@
 
 - 删除或忽略本次发布不需要携带的临时文件。
 - 确认没有残留 `__pycache__`、`test_output` 等运行期目录。
+- 确认工作区内没有残留 `blender.crash.txt`、`crash_log.txt`、临时截图或类似一次性调试文件。
 - 确认不将本地临时验证脚本误带入发布。
 - 确认最新验证报告已归档，旧的临时报告已清理或忽略。
+- 确认旧的 `dist/` 产物已清理或准备重新生成，避免误把过期 ZIP 当成本次正式发布物。
 
 ## 3. 文档同步
 
@@ -22,6 +24,7 @@
 - `docs/USER_MANUAL.md` 与当前 UI、工作流、限制条件一致。
 - `docs/dev/DEVELOPER_GUIDE.md` 与当前核心架构和扩展点一致。
 - `docs/dev/AUTOMATION_REFERENCE.md` 中的命令和脚本名可直接运行。
+- `docs/dev/STANDARDIZATION_GUIDE.md` 中关于参数一致化、动态 UI 对齐和测试隔离的约束与当前代码一致。
 - `docs/ROADMAP.md` 与 `docs/task.md` 反映真实阶段状态，不使用失真表述。
 - `CHANGELOG.md` 记录了当前发布包含的关键修复。
 
@@ -46,6 +49,11 @@ blender -b --factory-startup --python automation/cli_runner.py -- --suite produc
 ```
 
 如果运行环境对临时目录写入有限制，应显式将 `TEMP` 和 `TMP` 指向工作区内的可写目录后再执行端到端套件。
+
+如果本次改动触及以下方向，还应补跑对应套件：
+
+- 输入校验、View Layer、失败清理、异常路径：`negative`
+- 翻译提取、词典回写、多语言显示：`localization`
 
 ## 5. 跨版本验证
 
@@ -82,6 +90,7 @@ python automation/multi_version_test.py --verification
 - 节点烘焙
 - 导出联动
 - 崩溃恢复提示与清理入口
+- `Run Safety Audit` 返回隔离测试摘要，且不会把当前交互式会话改乱
 - headless CLI 运行已保存 Job
 
 ## 7. 输出正确性核查
@@ -90,6 +99,7 @@ python automation/multi_version_test.py --verification
 - 自定义图能正确生成，不是纯黑或空白错误结果。
 - 通道打包读取的是最新结果，而不是旧缓存或错误键。
 - 导出结束后对象 `hide_viewport` 与 `hide_set()` 状态正确恢复。
+- 对象不在当前 View Layer 时，Job 会被明确跳过而不是在 Blender 原生 bake 阶段炸栈。
 
 ## 8. 分发包内容
 
@@ -97,6 +107,14 @@ python automation/multi_version_test.py --verification
 - 包内不包含自动化测试、开发脚本和历史归档资料。
 - `MANIFEST.in` 与当前目录结构一致。
 - 插件目录结构在 Blender 中可直接识别。
+
+推荐直接使用仓库内脚本生成分发包，而不是手工压缩整个工作目录：
+
+```bash
+python automation/build_release_zip.py
+```
+
+这样可以稳定排除 `.venv/`、`test_output/`、`docs/legacy/`、`automation/`、`dev_tools/` 和 `test_cases/` 等本地或开发期内容。
 
 ## 9. 发布说明
 

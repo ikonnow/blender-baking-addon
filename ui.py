@@ -8,6 +8,7 @@ import bpy
 import os
 import json
 from typing import Any, Tuple
+from bpy.app.translations import pgettext
 from .constants import (
     FORMAT_SETTINGS,
     CAT_MESH,
@@ -29,7 +30,7 @@ def draw_header(layout: bpy.types.UILayout, text: str, icon: str = "NONE") -> No
     """
     row = layout.row()
     row.alignment = "LEFT"
-    row.label(text=text, icon=icon)
+    row.label(text=pgettext(text), icon=icon)
 
 
 def draw_file_path(
@@ -123,7 +124,10 @@ def draw_active_channel_properties(
 
     box = layout.box()
     row = box.row()
-    row.label(text=f"{channel.name} Settings", icon="PREFERENCES")
+    row.label(
+        text=f"{pgettext(channel.name)}{pgettext('Settings Suffix')}",
+        icon="PREFERENCES",
+    )
 
     # Minimal public properties
     col = box.column(align=True)
@@ -221,8 +225,8 @@ def draw_results(scene: bpy.types.Scene, layout: bpy.types.UILayout, bj: Any) ->
         box = layout.box()
 
         row = box.row()
-        row.label(text=f"Detail: {res.channel_type}", icon="INFO")
-        row.label(text=f"Obj: {res.object_name}", icon="OBJECT_DATA")
+        row.label(text=f"{pgettext('Detail')}: {pgettext(res.channel_type)}", icon="INFO")
+        row.label(text=f"{pgettext('Obj')}: {res.object_name}", icon="OBJECT_DATA")
 
         inner = box.column(align=True)
 
@@ -236,14 +240,14 @@ def draw_results(scene: bpy.types.Scene, layout: bpy.types.UILayout, bj: Any) ->
         c1 = split.column()
         c1.label(text=f"{res.res_x} x {res.res_y}", icon="FULLSCREEN_ENTER")
         dur_str = f"{res.duration:.2f} s" if res.duration is not None else "N/A"
-        c1.label(text=f"Total: {dur_str}", icon="TIME")
+        c1.label(text=f"{pgettext('Total')}: {dur_str}", icon="TIME")
 
         c2 = split.column()
         row = c2.row(align=True)
         bake_str = f"{res.bake_time:.2f}s" if res.bake_time is not None else "N/A"
         save_str = f"{res.save_time:.2f}s" if res.save_time is not None else "N/A"
-        row.label(text=f"Bake: {bake_str}")
-        row.label(text=f"Save: {save_str}")
+        row.label(text=f"{pgettext('Bake')}: {bake_str}")
+        row.label(text=f"{pgettext('Save')}: {save_str}")
         c2.label(text=f"{res.bake_type} ({res.device})", icon="NODE_COMPOSITING")
 
     layout.separator()
@@ -300,12 +304,12 @@ def draw_crash_report(layout: bpy.types.UILayout, context: bpy.types.Context) ->
     total = data.get("total_steps", "?")
     err = data.get("last_error", "")
 
-    col.label(text=f"Time: {t}")
-    col.label(text=f"Last Object: {obj}")
-    col.label(text=f"Progress: {curr} / {total}")
+    col.label(text=f"{pgettext('Time')}: {t}")
+    col.label(text=f"{pgettext('Last Object')}: {obj}")
+    col.label(text=f"{pgettext('Progress')}: {curr} / {total}")
 
     if err:
-        col.label(text=f"Last Error: {err}")
+        col.label(text=f"{pgettext('Last Error')}: {err}")
     else:
         col.label(text=msg_check)
 
@@ -331,9 +335,9 @@ class UI_UL_ObjectList(bpy.types.UIList):
 
             row.label(text=obj.name, icon="OBJECT_DATA" if has_uv else "ERROR")
             if not has_uv:
-                row.label(text="(No UV!)", icon="NONE")
+                row.label(text=pgettext("(No UV!)"), icon="NONE")
         else:
-            row.label(text="Missing", icon="ERROR")
+            row.label(text=pgettext("Missing"), icon="ERROR")
 
         # Contextual UI for Custom UDIM
         scene = context.scene
@@ -346,7 +350,7 @@ class UI_UL_ObjectList(bpy.types.UIList):
             s = job.setting
             if s.bake_mode == "UDIM":
                 if s.udim_mode in {"CUSTOM", "REPACK"}:
-                    row.prop(item, "udim_tile", text="Tile", emboss=False)
+                    row.prop(item, "udim_tile", text=pgettext("Tile"), emboss=False)
 
                 # Resolution Override UI
                 row.separator()
@@ -387,7 +391,7 @@ class BAKETOOL_UL_ChannelList(bpy.types.UIList):
 
         row = layout.row(align=True)
         row.prop(item, "enabled", text="")
-        row.label(text=item.name, icon=ic)
+        row.label(text=pgettext(item.name), icon=ic)
 
 
 class LIST_UL_JobsList(bpy.types.UIList):
@@ -450,8 +454,8 @@ def draw_env_status(layout: bpy.types.UILayout, setting: Any) -> None:
             box = layout.box()
             box.alert = True
             row = box.row()
-            row.label(text=f"{setting.export_format} Addon is disabled!", icon="ERROR")
-            row.operator("bake.open_addon_prefs", text="Fix", icon="SETTINGS")
+            row.label(text=f"{setting.export_format} {pgettext('Addon is disabled!')}", icon="ERROR")
+            row.operator("bake.open_addon_prefs", text=pgettext("Fix"), icon="SETTINGS")
             any_issue = True
 
     # 2. Check Path Validity (Cached in RNA property)
@@ -465,7 +469,7 @@ def draw_env_status(layout: bpy.types.UILayout, setting: Any) -> None:
         if not setting.path_valid:
             box = layout.box()
             box.alert = True
-            box.label(text="Invalid Export Path!", icon="ERROR")
+            box.label(text=pgettext("Invalid Export Path!"), icon="ERROR")
             any_issue = True
 
     if any_issue:

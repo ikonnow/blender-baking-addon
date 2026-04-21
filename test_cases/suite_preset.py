@@ -2,8 +2,9 @@ import unittest
 import bpy
 import os
 import tempfile
+from bpy import props
 from .helpers import cleanup_scene, create_test_object, JobBuilder, ensure_cycles
-from ..preset_handler import PropertyIO
+from ..preset_handler import PropertyIO, load_preset_into_jobs_manager
 from ..state_manager import BakeStateManager
 from ..core.common import reset_channels_logic
 
@@ -57,6 +58,101 @@ class SuitePresetAndState(unittest.TestCase):
         self.assertEqual(s.res_x, 512)
         self.assertEqual(s.res_y, 256)
         self.assertEqual(s.sample, 4)
+
+    def test_single_job_preset_loads_into_jobs_manager(self):
+        """Single-job exports should remain reusable for startup/library presets."""
+        obj = create_test_object("SingleJobPresetObj")
+        builder = JobBuilder("SingleJobPreset")
+        builder.add_objects(obj).mode('SINGLE_OBJECT').type('BSDF')
+        builder.setting.res_x = 768
+        builder.setting.res_y = 384
+        builder.enable_channel('color')
+
+        bj = bpy.context.scene.BakeJobs
+        job_data = PropertyIO().to_dict(bj.jobs[0])
+
+        bj.jobs.clear()
+        loaded = load_preset_into_jobs_manager(bj, job_data)
+
+        self.assertTrue(loaded)
+        self.assertEqual(len(bj.jobs), 1)
+        self.assertEqual(bj.jobs[0].name, "SingleJobPreset")
+        self.assertEqual(bj.jobs[0].setting.res_x, 768)
+        self.assertEqual(bj.jobs[0].setting.res_y, 384)
+
+    def test_property_io_preserves_object_pointers(self):
+        """Object pointers should round-trip by stable ID reference."""
+        low = create_test_object("PointerLow")
+        high = create_test_object("PointerHigh", location=(2, 0, 0))
+        cage = create_test_object("PointerCage", location=(4, 0, 0))
+
+        builder = JobBuilder("PointerJob")
+        builder.add_objects([high]).mode('SELECT_ACTIVE').type('BSDF')
+        builder.setting.active_object = low
+        builder.setting.cage_object = cage
+
+        bj = bpy.context.scene.BakeJobs
+        data = PropertyIO().to_dict(bj)
+
+        active_ref = data["jobs"][0]["setting"]["active_object"]["__id_pointer__"]
+        cage_ref = data["jobs"][0]["setting"]["cage_object"]["__id_pointer__"]
+        bake_ref = data["jobs"][0]["setting"]["bake_objects"][0]["bakeobject"]["__id_pointer__"]
+        self.assertEqual(active_ref["name"], low.name)
+        self.assertEqual(cage_ref["name"], cage.name)
+        self.assertEqual(bake_ref["name"], high.name)
+
+        bj.jobs.clear()
+        PropertyIO().from_dict(bj, data)
+
+        setting = bj.jobs[0].setting
+        self.assertEqual(setting.active_object, low)
+        self.assertEqual(setting.cage_object, cage)
+        self.assertEqual(setting.bake_objects[0].bakeobject, high)
+
+    def test_property_io_preserves_image_pointers(self):
+        """Image pointers on result items should survive round-trip load."""
+        img = bpy.data.images.new("PresetImagePointer", 8, 8)
+        result = bpy.context.scene.baked_image_results.add()
+        result.image = img
+        result.channel_type = "Color"
+
+        data = PropertyIO().to_dict(result)
+        self.assertEqual(data["image"]["__id_pointer__"]["name"], img.name)
+
+        restored = bpy.context.scene.baked_image_results.add()
+        PropertyIO().from_dict(restored, data)
+        self.assertEqual(restored.image, img)
+
+    def test_property_io_preserves_material_pointers(self):
+        """Generic Material pointer properties should also resolve on load."""
+        class BT_TEST_PG_MaterialPointer(bpy.types.PropertyGroup):
+            material: props.PointerProperty(type=bpy.types.Material)
+
+        attr_name = "bt_test_material_pointer"
+        try:
+            bpy.utils.register_class(BT_TEST_PG_MaterialPointer)
+            setattr(
+                bpy.types.Scene,
+                attr_name,
+                props.PointerProperty(type=BT_TEST_PG_MaterialPointer),
+            )
+
+            prop_group = getattr(bpy.context.scene, attr_name)
+            material = bpy.data.materials.new("PresetMaterialPointer")
+            prop_group.material = material
+
+            data = PropertyIO().to_dict(prop_group)
+            prop_group.material = None
+            PropertyIO().from_dict(prop_group, data)
+
+            self.assertEqual(prop_group.material, material)
+        finally:
+            if hasattr(bpy.types.Scene, attr_name):
+                delattr(bpy.types.Scene, attr_name)
+            try:
+                bpy.utils.unregister_class(BT_TEST_PG_MaterialPointer)
+            except RuntimeError:
+                pass
 
     # --- State Manager Lifecycle ---
     def test_state_manager_lifecycle(self):

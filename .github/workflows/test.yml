@@ -87,7 +87,7 @@ jobs:
 
       - name: Run linting
         run: |
-          pycodestyle --max-line-length=120 --exclude=.venv,__pycache__ baketool/*.py baketool/core/*.py baketool/test_cases/*.py || true
+          pycodestyle --max-line-length=120 --exclude=.venv,__pycache__,docs/legacy . || true
 
   style-check:
     runs-on: ubuntu-latest
@@ -99,9 +99,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-
-      - name: Install tools
-        run: pip install py_compile
 
       - name: Check Python syntax
         run: |

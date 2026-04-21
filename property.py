@@ -646,11 +646,13 @@ def update_library_preset(self, context):
         try:
             with open(path, "r", encoding="utf-8") as f:
                 data = json.load(f)
-            preset_handler.PropertyIO().from_dict(self, data)
-            # Reset the enum so it can be re-selected if needed
-            self.library_preset = "NONE"
+            if not preset_handler.load_preset_into_jobs_manager(self, data):
+                raise ValueError("Unsupported preset schema")
         except Exception as e:
             logger.error(f"Failed to load preset from library: {e}")
+        finally:
+            # Allow retrying the same preset after either success or failure.
+            self.library_preset = "NONE"
 
 
 def get_library_preset_items(self, context):

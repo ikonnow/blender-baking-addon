@@ -8,6 +8,8 @@ import bpy
 from bpy import props
 import logging
 import os
+import subprocess
+import tempfile
 import traceback
 import json
 from pathlib import Path
@@ -78,8 +80,113 @@ class BAKETOOL_OT_RunDevTests(bpy.types.Operator):
     bl_idname = "bake.run_dev_tests"
     bl_label = "Run Development Tests"
 
+    _SUBPROCESS_TIMEOUT_SECONDS = 1800
+
+    @staticmethod
+    def _summarize_subprocess_report(report: Dict[str, Any]) -> str:
+        """Build a concise UI summary from the CLI JSON report."""
+        summary = report.get("summary", {})
+        total = int(summary.get("total", 0))
+        passed = int(summary.get("passed", 0))
+        failures = int(summary.get("failures", 0))
+        errors = int(summary.get("errors", 0))
+        skipped = int(summary.get("skipped", 0))
+        return (
+            f"Isolated audit: {passed}/{total} passed, "
+            f"{failures} fails, {errors} errors, {skipped} skipped."
+        )
+
+    @classmethod
+    def _run_isolated_test_suite(cls) -> tuple[bool, str]:
+        """Run the full suite in a separate Blender process.
+
+        Running tests inside the current interactive session is unsafe because
+        they mutate scene RNA that the UI may still reference, which can lead
+        to hard crashes during redraw/path resolution.
+        """
+        addon_root = Path(__file__).resolve().parent
+        cli_runner = addon_root / "automation" / "cli_runner.py"
+        blender_binary = Path(bpy.app.binary_path) if bpy.app.binary_path else None
+
+        if not blender_binary or not blender_binary.exists():
+            return False, "Safety audit unavailable: Blender executable not found."
+        if not cli_runner.exists():
+            return False, "Safety audit unavailable: automation runner not packaged."
+
+        report_path: Optional[Path] = None
+        creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if os.name == "nt" else 0
+
+        try:
+            with tempfile.NamedTemporaryFile(
+                prefix="baketool_devtests_",
+                suffix=".json",
+                delete=False,
+            ) as handle:
+                report_path = Path(handle.name)
+
+            cmd = [
+                str(blender_binary),
+                "-b",
+                "--factory-startup",
+                "--python",
+                str(cli_runner),
+                "--",
+                "--discover",
+                "--json",
+                str(report_path),
+            ]
+            completed = subprocess.run(
+                cmd,
+                cwd=str(addon_root),
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=cls._SUBPROCESS_TIMEOUT_SECONDS,
+                creationflags=creationflags,
+                check=False,
+            )
+
+            report = {}
+            if report_path.exists() and report_path.stat().st_size > 0:
+                with open(report_path, "r", encoding="utf-8") as handle:
+                    report = json.load(handle)
+
+            if report:
+                summary = report.get("summary", {})
+                info = cls._summarize_subprocess_report(report)
+                success = (
+                    completed.returncode == 0
+                    and not summary.get("errors")
+                    and not summary.get("failures")
+                )
+                return success, info
+
+            output_lines = [
+                line.strip()
+                for line in (completed.stdout + "\n" + completed.stderr).splitlines()
+                if line.strip()
+            ]
+            tail = (
+                " | ".join(output_lines[-3:])
+                if output_lines
+                else f"exit code {completed.returncode}"
+            )
+            return completed.returncode == 0, f"Isolated audit finished without report: {tail}"
+        except subprocess.TimeoutExpired:
+            return False, f"Safety audit timed out after {cls._SUBPROCESS_TIMEOUT_SECONDS}s."
+        except Exception as exc:
+            logger.exception("Failed to launch isolated BakeTool safety audit")
+            return False, f"Safety audit launch failed: {exc}"
+        finally:
+            if report_path and report_path.exists():
+                try:
+                    report_path.unlink()
+                except OSError:
+                    pass
+
     def execute(self, context: bpy.types.Context) -> Set[str]:
-        """Execute the full test suite.
+        """Execute the full test suite in an isolated Blender process.
 
         Args:
             context: Blender context.
@@ -87,76 +194,17 @@ class BAKETOOL_OT_RunDevTests(bpy.types.Operator):
         Returns:
             Set[str]: {'FINISHED'}.
         """
-        import unittest
-        import io
-        from .test_cases import (
-            suite_unit,
-            suite_shading,
-            suite_negative,
-            suite_memory,
-            suite_export,
-            suite_api,
-            suite_code_review,
-            suite_compat,
-            suite_context_lifecycle,
-            suite_denoise,
-            suite_parameter_matrix,
-            suite_preset,
-            suite_production_workflow,
-            suite_udim_advanced,
-            suite_ui_logic,
-            suite_verification,
-        )
-
-        loader = unittest.TestLoader()
-        suites = [
-            loader.loadTestsFromTestCase(suite_unit.SuiteUnit),
-            loader.loadTestsFromTestCase(suite_shading.SuiteShading),
-            loader.loadTestsFromTestCase(suite_negative.SuiteNegative),
-            loader.loadTestsFromTestCase(suite_memory.SuiteMemory),
-            loader.loadTestsFromTestCase(suite_memory.SuiteMemoryIntegration),
-            loader.loadTestsFromTestCase(suite_export.SuiteExport),
-            loader.loadTestsFromTestCase(suite_code_review.SuiteCodeReviewFixes),
-            loader.loadTestsFromTestCase(suite_verification.SuiteVerification),
-            loader.loadTestsFromTestCase(suite_compat.SuiteCompat),
-            loader.loadTestsFromTestCase(suite_context_lifecycle.SuiteContextLifecycle),
-            loader.loadTestsFromTestCase(suite_denoise.SuiteDenoise),
-            loader.loadTestsFromTestCase(suite_preset.SuitePresetAndState),
-            loader.loadTestsFromTestCase(
-                suite_production_workflow.SuiteProductionWorkflow
-            ),
-            loader.loadTestsFromTestCase(suite_udim_advanced.SuiteUDIMAdvanced),
-            loader.loadTestsFromTestCase(suite_ui_logic.SuiteUILogic),
-        ]
-
-        try:
-            suites.append(loader.loadTestsFromTestCase(suite_api.SuiteAPI))
-        except (AttributeError, ImportError):
-            pass
-        try:
-            suites.append(
-                loader.loadTestsFromTestCase(suite_parameter_matrix.SuiteParameterMatrix)
-            )
-        except (AttributeError, ImportError):
-            pass
-
-        consolidated = unittest.TestSuite(suites)
-
-        stream = io.StringIO()
-        runner = unittest.TextTestRunner(stream=stream, verbosity=1)
-        result = runner.run(consolidated)
-
-        info = f"Ran {result.testsRun} tests. {len(result.errors)} Errors, {len(result.failures)} Fails."
+        passed, info = self._run_isolated_test_suite()
         try:
             context.scene.last_test_info = info
-            context.scene.test_pass = result.wasSuccessful()
+            context.scene.test_pass = passed
         except (AttributeError, RuntimeError):
             pass
 
-        if result.wasSuccessful():
-            self.report({"INFO"}, f"All {result.testsRun} tests passed!")
+        if passed:
+            self.report({"INFO"}, info)
         else:
-            self.report({"ERROR"}, f"Tests Failed: {info}")
+            self.report({"ERROR"}, info)
 
         return {"FINISHED"}
 

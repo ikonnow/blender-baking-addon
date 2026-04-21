@@ -1,4 +1,5 @@
 import unittest
+from unittest import mock
 import bpy
 from .helpers import cleanup_scene, create_test_object
 from ..ui import BAKE_PT_BakePanel
@@ -37,7 +38,7 @@ class SuiteUILogic(unittest.TestCase):
         """Ensure all expected system feedback strings exist."""
         expected_keys = [
             'NO_JOBS', 'PREP_FAILED', 'QUICK_PREP_FAILED', 'NO_OBJECTS',
-            'JOB_SKIPPED_NO_OBJS', 'JOB_SKIPPED_NO_TARGET', 'JOB_SKIPPED_MISSING_UV',
+            'JOB_SKIPPED_NO_OBJS', 'JOB_SKIPPED_NO_TARGET', 'JOB_SKIPPED_NOT_IN_VIEW_LAYER', 'JOB_SKIPPED_MISSING_UV',
             'JOB_SKIPPED_NO_MESH', 'CAGE_MISSING', 'VALIDATION_SUCCESS', 'VALIDATION_ERROR',
             'B5_SYNC_NOTICE'
         ]
@@ -148,6 +149,28 @@ class SuiteUILogic(unittest.TestCase):
         )
         draw_crash_report(mock_layout, mock_context)
         mock_layout.box.assert_called()
+
+    def test_run_dev_tests_updates_ui_from_isolated_runner(self):
+        """Verify the dev test operator uses isolated execution and stores the summary."""
+        from ..ops import BAKETOOL_OT_RunDevTests
+
+        class DummyOperator:
+            def report(self, *args, **kwargs):
+                return None
+
+            def _run_isolated_test_suite(self):
+                return BAKETOOL_OT_RunDevTests._run_isolated_test_suite()
+
+        with mock.patch.object(
+            BAKETOOL_OT_RunDevTests,
+            "_run_isolated_test_suite",
+            return_value=(True, "Isolated audit: 12/12 passed, 0 fails, 0 errors, 0 skipped."),
+        ):
+            result = BAKETOOL_OT_RunDevTests.execute(DummyOperator(), bpy.context)
+
+        self.assertEqual(result, {"FINISHED"})
+        self.assertTrue(bpy.context.scene.test_pass)
+        self.assertIn("12/12 passed", bpy.context.scene.last_test_info)
 
 
 if __name__ == '__main__':

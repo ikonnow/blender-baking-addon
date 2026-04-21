@@ -642,7 +642,7 @@ class JobPreparer:
         scene = context.scene
 
         for job in jobs:
-            result = JobPreparer.validate_job(job, scene)
+            result = JobPreparer.validate_job(job, scene, context.view_layer)
             if not result.success:
                 logger.error(result.message)
                 scene.bake_error_log += result.message + "\n"
@@ -675,12 +675,17 @@ class JobPreparer:
         return queue
 
     @staticmethod
-    def validate_job(job: Any, scene: bpy.types.Scene) -> "ValidationResult":
+    def validate_job(
+        job: Any,
+        scene: bpy.types.Scene,
+        view_layer: Optional[bpy.types.ViewLayer] = None,
+    ) -> "ValidationResult":
         """Standalone validation logic for CLI and UI usage.
 
         Args:
             job: BakeJob to validate.
             scene: Target scene for properties check.
+            view_layer: Active Blender view layer used for operator execution.
 
         Returns:
             ValidationResult with success flag and message.
@@ -702,6 +707,23 @@ class JobPreparer:
                     UI_MESSAGES["JOB_SKIPPED_NO_TARGET"].format(job.name),
                     job.name,
                 )
+
+        missing_from_view_layer = JobPreparer._get_objects_outside_view_layer(
+            objs,
+            view_layer=view_layer,
+            active_object=s.active_object,
+            cage_object=getattr(s, "cage_object", None),
+        )
+        if missing_from_view_layer:
+            return ValidationResult(
+                False,
+                UI_MESSAGES["JOB_SKIPPED_NOT_IN_VIEW_LAYER"].format(
+                    job.name, ", ".join(missing_from_view_layer)
+                ),
+                job.name,
+            )
+
+        if s.bake_mode == "SELECT_ACTIVE":
             if missing_uvs := check_objects_uv([s.active_object]):
                 return ValidationResult(
                     False,
@@ -729,6 +751,40 @@ class JobPreparer:
                 )
 
         return ValidationResult(True, "", job.name)
+
+    @staticmethod
+    def _get_objects_outside_view_layer(
+        objects: List[bpy.types.Object],
+        view_layer: Optional[bpy.types.ViewLayer] = None,
+        active_object: Optional[bpy.types.Object] = None,
+        cage_object: Optional[bpy.types.Object] = None,
+    ) -> List[str]:
+        """Return object names that are not available in the active view layer."""
+        if view_layer is None:
+            view_layer = getattr(bpy.context, "view_layer", None)
+        if view_layer is None:
+            return []
+
+        try:
+            visible_names = {obj.name for obj in view_layer.objects}
+        except (AttributeError, RuntimeError):
+            return []
+
+        missing = []
+        seen = set()
+        for obj in list(objects) + [active_object, cage_object]:
+            if not obj:
+                continue
+            try:
+                obj_name = obj.name
+            except ReferenceError:
+                continue
+            if obj_name in seen:
+                continue
+            seen.add(obj_name)
+            if obj_name not in visible_names:
+                missing.append(obj_name)
+        return missing
 
     @staticmethod
     def prepare_quick_bake_queue(
@@ -951,7 +1007,9 @@ class BakePassExecutor:
         prop = c_config["prop"]
 
         # 1. Prepare Target Image
-        img = cls._create_target_image(setting, task, c_config, udim_tiles)
+        img, cleanup_on_failure = cls._create_target_image(
+            setting, task, c_config, udim_tiles
+        )
 
         # 2. Path A: NumPy-based post-processing (Bypass Blender Bake)
         if cls._try_custom_channel(chan_id, prop, img, current_results, array_cache):
@@ -962,7 +1020,7 @@ class BakePassExecutor:
 
         # 3. Path B: Standard Blender Bake Pipeline
         return cls._run_blender_bake_pipeline(
-            context, setting, task, c_config, handler, img
+            context, setting, task, c_config, handler, img, cleanup_on_failure
         )
 
     @classmethod
@@ -970,6 +1028,7 @@ class BakePassExecutor:
         prop = c_config["prop"]
         target_cs, is_float = cls._get_color_settings(setting, prop, c_config)
         img_name = f"{c_config['prefix']}{task.base_name}{c_config['suffix']}"
+        cleanup_on_failure = bpy.data.images.get(img_name) is None
 
         tile_resolutions = {}
         if setting.bake_mode == "UDIM":
@@ -979,23 +1038,35 @@ class BakePassExecutor:
                 if bo.bakeobject and bo.override_size
             }
 
-        return set_image(
-            img_name,
-            setting.res_x,
-            setting.res_y,
-            alpha=setting.use_alpha,
-            full=is_float,
-            space=target_cs,
-            clear=setting.use_clear_image,
-            basiccolor=setting.color_base,
-            use_udim=(setting.bake_mode == "UDIM"),
-            udim_tiles=udim_tiles,
-            tile_resolutions=tile_resolutions,
-            setting=setting,
+        return (
+            set_image(
+                img_name,
+                setting.res_x,
+                setting.res_y,
+                alpha=setting.use_alpha,
+                full=is_float,
+                space=target_cs,
+                clear=setting.use_clear_image,
+                basiccolor=setting.color_base,
+                use_udim=(setting.bake_mode == "UDIM"),
+                udim_tiles=udim_tiles,
+                tile_resolutions=tile_resolutions,
+                setting=setting,
+            ),
+            cleanup_on_failure,
         )
 
     @classmethod
-    def _run_blender_bake_pipeline(cls, context, setting, task, c_config, handler, img):
+    def _run_blender_bake_pipeline(
+        cls,
+        context,
+        setting,
+        task,
+        c_config,
+        handler,
+        img,
+        cleanup_on_failure=False,
+    ):
         chan_id = c_config["id"]
         prop = c_config["prop"]
         mesh_type = cls._get_mesh_type(chan_id)
@@ -1018,10 +1089,31 @@ class BakePassExecutor:
             success = cls._execute_blender_bake_op(
                 context, setting, task, prop, c_config["bake_pass"], mesh_type, chan_id
             )
-            return img if success else None
+            if success:
+                return img
+            cls._cleanup_failed_image(img, remove_datablock=cleanup_on_failure)
+            return None
         finally:
             if is_data_pass:
                 context.scene.cycles.samples = orig_samples
+
+    @staticmethod
+    def _cleanup_failed_image(
+        image: Optional[bpy.types.Image], remove_datablock: bool = False
+    ) -> None:
+        """Remove a newly created target image after a failed bake attempt."""
+        if not image or not remove_datablock:
+            return
+
+        try:
+            image.use_fake_user = False
+        except (AttributeError, ReferenceError, RuntimeError):
+            pass
+
+        try:
+            bpy.data.images.remove(image, do_unlink=True)
+        except (ReferenceError, RuntimeError):
+            pass
 
     @staticmethod
     def _execute_blender_bake_op(

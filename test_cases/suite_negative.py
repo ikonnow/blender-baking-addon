@@ -1,4 +1,5 @@
 import unittest
+from unittest import mock
 import bpy
 import os
 import tempfile
@@ -35,6 +36,27 @@ class SuiteNegative(unittest.TestCase):
         # This should fail validation/preparation but NOT crash Blender
         queue = JobPreparer.prepare_execution_queue(bpy.context, [job])
         self.assertEqual(len(queue), 0)
+
+    def test_bake_job_outside_current_view_layer_is_skipped(self):
+        """Verify jobs are rejected before bake when objects are outside the active view layer."""
+        from ..core.engine import JobPreparer
+
+        other_scene = bpy.data.scenes.new("BT_OffViewLayerScene")
+        other_mesh = bpy.data.meshes.new("BT_OffViewLayerMesh")
+        other_obj = bpy.data.objects.new("BT_OffViewLayerObj", other_mesh)
+        other_scene.collection.objects.link(other_obj)
+        self.assertNotIn(
+            other_obj.name, {obj.name for obj in bpy.context.view_layer.objects}
+        )
+
+        builder = JobBuilder("HiddenViewLayerJob").add_objects(other_obj)
+        job = builder.build()
+        bpy.context.scene.bake_error_log = ""
+
+        queue = JobPreparer.prepare_execution_queue(bpy.context, [job])
+
+        self.assertEqual(len(queue), 0)
+        self.assertIn("View Layer", bpy.context.scene.bake_error_log)
 
     def test_preset_load_malformed_json(self):
         """Verify PropertyIO doesn't crash on invalid JSON data."""
@@ -132,6 +154,49 @@ class SuiteNegative(unittest.TestCase):
         queue = JobPreparer.prepare_execution_queue(bpy.context, [job])
         # It should probably return 0 steps
         self.assertEqual(len(queue), 0)
+
+    def test_failed_bake_removes_new_temp_image(self):
+        """Verify failed bake attempts do not leave behind a newly created image datablock."""
+        from ..core.engine import BakePassExecutor, BakeTask, JobPreparer
+
+        builder = JobBuilder("FailedBakeCleanup").add_objects(self.obj)
+        job = builder.build()
+        for channel in job.setting.channels:
+            channel.enabled = channel.id == "color"
+
+        c_config = JobPreparer._collect_channels(job)[0]
+        expected_name = f"{c_config['prefix']}FailedBakeCleanup{c_config['suffix']}"
+        self.assertNotIn(expected_name, bpy.data.images)
+
+        task = BakeTask(
+            [self.obj],
+            [slot.material for slot in self.obj.material_slots if slot.material],
+            self.obj,
+            "FailedBakeCleanup",
+            "FailedBakeCleanup",
+        )
+
+        class DummyHandler:
+            def __init__(self):
+                self.temp_attributes = []
+
+            def setup_for_pass(self, *args, **kwargs):
+                return None
+
+        with mock.patch.object(
+            BakePassExecutor, "_execute_blender_bake_op", return_value=False
+        ):
+            result = BakePassExecutor.execute(
+                bpy.context,
+                job.setting,
+                task,
+                c_config,
+                DummyHandler(),
+                current_results={},
+            )
+
+        self.assertIsNone(result)
+        self.assertNotIn(expected_name, bpy.data.images)
 
 if __name__ == '__main__':
     unittest.main()

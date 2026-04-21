@@ -2,12 +2,23 @@
 
 本文件记录 BakeTool 在正式发布前的主要版本变化。这里不追求逐提交流水账，而是保留对用户、开发者和验证流程有实际意义的版本信息。
 
-## 1.0.0 - 2026-04-21
+## 1.0.0 - 2026-04-22
 
 这是发布前的关键收尾版本，重点是修复会直接影响发布质量和自动化可信度的缺陷。
 
+### 补充
+
+- 预设/属性保存链路现在支持常见 Blender ID 指针的稳定往返保存与恢复，包括 `Object`、`Material`、`Image` 等，缺失目标会安全跳过而不是破坏导入流程。
+- 多版本测试脚本补齐了 `--blender`、`--paths-file`、`--timeout`、`--report-dir` 等入口，并改为优先读取 `cli_runner.py` 的 JSON 结果判断成功/失败，降低了仅靠控制台关键字判断的误报风险。
+- 翻译提取脚本升级为 AST 级提取/审计/同步工具，补齐了 `AnnAssign` 属性声明、UI `text=`、`report()`、`pgettext()`、枚举项与消息字典等来源。
+- 翻译审计现在会额外标记坏掉的 locale 值和“键存在但仍回落到英文原文”的条目，能直接拦截 `????`、乱码回写和覆盖不足问题。
+- UI 中原本绕过词典的动态拼接文本已接入翻译系统，例如通道设置标题和结果面板元数据标签。
+- `fr_FR`、`ja_JP`、`ru_RU`、`zh_CN` 四个 locale 现已全部达到 `missing=0 / broken=0 / untranslated=0`，并完成 Blender `3.3.21 / 3.6.23 / 4.2.14 LTS / 4.5.3 LTS / 5.0.1` 的本地化回归。
+- 正式翻译表已清洗为 476 个当前有效键，移除了陈旧键和内部标识键，并补齐本轮新增键的 `zh_CN` 翻译；清洗后的翻译表在 Blender `3.3.21 / 3.6.23 / 4.2.14 LTS / 4.5.3 LTS / 5.0.1` 上完成了注册回归。
+
 ### 修复
 
+- 统一了预设加载兼容策略，启动默认预设和库预设现在同时接受单 Job 导出与完整 `BakeJobs` 快照，避免导出的 JSON 在复用时被静默忽略。
 - 补齐了 UI 已经引用但未注册的三个 operator：
   - `bake.set_save_local`
   - `bake.selected_node_bake`
@@ -18,6 +29,9 @@
 - 将 diffuse、glossy、transmission 和 combined 的 pass filter 选项实际映射到 Blender bake 设置，不再是“界面可改但执行不生效”的状态。
 - 修复导出流程只恢复 `hide_set()` 不恢复 `hide_viewport` 的问题，避免导出后对象可见性被污染。
 - 增加颜色空间枚举与 Blender 实际 colorspace 名称的映射，避免 `NONCOL`、`LINEAR` 等内部值直接写入 RNA 导致的异常。
+- 将 View Layer 预检前移到 `JobPreparer`，对象、active object 或 cage object 不在当前 View Layer 时会明确跳过 Job，而不再等到 Blender 原生 bake 阶段才报运行时错误。
+- 为失败 bake 增加新建图像回收逻辑，避免通道执行失败后在场景里残留无效 image datablock。
+- 将 `Run Safety Audit` 改为启动独立 Blender 后台进程执行测试，并回填 JSON 摘要，避免在当前交互式会话里原地跑测试导致 RNA 路径解析崩溃。
 
 ### 自动化
 
@@ -29,15 +43,20 @@
   - 自定义结果参与通道打包测试
   - pass filter 映射测试
   - 导出可见性恢复测试
+- 新增 View Layer 预检回归、失败 bake 图像清理回归，以及开发调试测试隔离执行回归。
 - 在 Blender 4.5.3 LTS 上通过了 `unit`、`export`、`ui_logic`、`verification` 和 `production_workflow` 关键套件。
 - 通过了 `3.3.21`、`3.6.23`、`4.2.14 LTS`、`4.5.3 LTS`、`5.0.1` 的跨版本 verification 验证。
+- 通过了 `3.3.21`、`3.6.23`、`4.2.14 LTS`、`4.5.3 LTS`、`5.0.1` 的跨版本 negative 验证。
 
 ### 文档与发布准备
 
 - 更新 `__init__.py` 中的 `doc_url` 和 `tracker_url`，替换占位链接。
+- 清理 `bl_info.warning` 的 Beta 提示，并修正 GitHub Actions 中未真正命中当前仓库源码的 lint/style 配置。
+- 增加正式分发 ZIP 打包脚本，避免本地 `.venv/`、测试输出和历史资料被误带入发布包。
 - 重写 `README.md`、用户手册、开发者文档和自动化说明，移除乱码与旧脚本引用。
 - 增加发布检查清单，统一正式打包前需要执行的验证和人工验收动作。
 - 修正 `MANIFEST.in`，使其与当前仓库布局一致。
+- 补充参数一致化、动态 UI 对齐和交互式调试隔离的开发约束说明，并同步更新路线图与任务看板。
 
 ## 1.0.0-pre - 2026-04-17
 

@@ -55,11 +55,13 @@ blender -b --factory-startup --python automation/cli_runner.py -- --suite unit
 - `shading`
 - `negative`
 - `memory`
+- `automation_tools`
 - `export`
 - `api`
 - `context_lifecycle`
 - `cleanup`
 - `denoise`
+- `localization`
 - `parameter_matrix`
 - `preset`
 - `production_workflow`
@@ -88,6 +90,17 @@ blender -b --factory-startup --python automation/cli_runner.py -- --test baketoo
 blender -b --factory-startup --python automation/cli_runner.py -- --list
 ```
 
+### 2.7 交互式 Safety Audit 按钮
+
+`ops.py` 中的 `bake.run_dev_tests` 不是在当前 Blender 会话里原地跑整套测试，而是会：
+
+1. 启动一个独立的后台 Blender 进程
+2. 复用 `automation/cli_runner.py --discover`
+3. 读取 JSON 摘要
+4. 将结果写回 `scene.last_test_info` 和 `scene.test_pass`
+
+这样做的原因很直接：交互式会话中的 UI 仍在持有当前 scene/job/result 的 RNA 引用，如果直接在同一会话里运行整套测试，测试对数据结构的修改可能会让 Blender 在 redraw 或 operator 返回后崩溃。这个按钮因此是“自动化入口的 UI 外壳”，而不是另一套独立测试逻辑。
+
 ## 3. 推荐的发布前套件组合
 
 正式发布前，至少建议执行：
@@ -107,6 +120,11 @@ blender -b --factory-startup --python automation/cli_runner.py -- --suite produc
 - `ui_logic` 防止界面与属性链失步
 - `verification` 作为综合稳定性检查
 - `production_workflow` 覆盖更接近真实使用的端到端流程
+
+如果这轮改动涉及以下主题，建议把附加套件也视为发布前必跑项：
+
+- 输入校验、对象上下文、失败清理：`negative`
+- 翻译键提取、词典回写、多语言显示：`localization`
 
 ## 4. `automation/multi_version_test.py`
 
@@ -131,6 +149,10 @@ python automation/multi_version_test.py --list
 | `--category` | 指定类别 |
 | `--verification` | 直接运行 verification 套件 |
 | `--json` | 自定义 JSON 输出路径 |
+| `--blender` | 直接追加某个 Blender 可执行文件路径，可重复传入 |
+| `--paths-file` | 从文本或 JSON 文件读取 Blender 路径 |
+| `--timeout` | 单个 Blender 版本的超时时间，单位秒 |
+| `--report-dir` | 自定义报告输出目录 |
 | `--list` | 列出检测到的 Blender 安装 |
 
 ### 4.4 Blender 路径来源
@@ -139,9 +161,15 @@ python automation/multi_version_test.py --list
 
 ```text
 BLENDER_PATHS
+BLENDER_PATHS_FILE
 ```
 
-多个路径使用分号分隔。若未提供，则脚本会尝试内置的一组常见安装路径。
+`BLENDER_PATHS` 使用分号分隔。`BLENDER_PATHS_FILE` 或 `--paths-file` 可以指向：
+
+- 纯文本路径列表
+- 或包含 `paths` 数组的 JSON 文件
+
+若未提供，脚本会尝试内置的一组常见安装路径。
 
 ### 4.5 输出
 
@@ -149,6 +177,8 @@ BLENDER_PATHS
 
 - `cross_version_report_<timestamp>.txt`
 - `cross_version_report_<timestamp>.json`
+
+当传入 `--json path/to/report.json` 时，JSON 汇总会写到指定路径，对应文本摘要会写到同目录同名 `.txt` 文件。
 
 这些报告属于验证产物，不应作为插件发布包内容。
 
@@ -237,8 +267,47 @@ blender -b scene.blend -P automation/headless_bake.py -- --job "JobName" --outpu
 - pass filter 是否仍真正生效
 - 导出是否仍恢复 `hide_viewport`
 - 数据图颜色空间是否仍正确映射
+- View Layer 预检是否仍在入队阶段就拦住非法对象
+- 失败 bake 后是否仍会回收本次新建的图像 datablock
+- `Run Safety Audit` 是否仍通过隔离子进程执行
 
-## 10. 结论
+## 10. 翻译工作流
+
+`dev_tools/extract_translations.py` 现在承担三件事：
+
+- 从源码中提取当前有效的人类可见文本
+- 对比 `translations.json`，给出 `missing/stale/suspicious/broken/untranslated` 审计结果
+- 生成可直接回写的同步结果
+
+推荐命令：
+
+```bash
+python dev_tools/extract_translations.py --sync --prune --existing translations.json --output translations.cleaned.json --report translation_clean_audit.json --print-missing
+```
+
+推荐收口顺序：
+
+1. 先跑上面的同步/清洗命令，确认 `missing/stale/suspicious` 的真实规模。
+2. 只在确认审计结果合理后，用 `translations.cleaned.json` 回写正式 `translations.json`。
+3. 对新增键补齐目标语言翻译；如果某些非主语言本轮来不及完成，至少明确使用英文原文占位，而不是留空。
+4. 回写后再次运行同一条命令，目标是 `missing/stale/suspicious` 都归零。
+   对正式发布建议同时确认 `broken_by_locale` 和主目标语言的 `untranslated_by_locale` 也归零。
+5. 最后在真实 Blender 里跑 `localization` 套件，确认翻译表注册不会破坏插件加载。
+
+建议把主目标 locale 的验收标准明确成：
+
+- `missing_by_locale[locale] == 0`
+- `broken_by_locale[locale] == 0`
+- `untranslated_by_locale[locale] == 0`
+
+本轮发布前验证命令：
+
+```bash
+python dev_tools/extract_translations.py --sync --prune --existing translations.json --output translations.cleaned.json --report translation_clean_audit.json --print-missing
+python automation/multi_version_test.py --suite localization --json reports/multi_version_localization.json
+```
+
+## 11. 结论
 
 BakeTool 当前的自动化体系并不依赖外部 CI 平台就能完成高质量本地验证，这对 Blender 插件开发是现实且重要的优势。真正需要维持的不是“脚本数量很多”，而是：
 

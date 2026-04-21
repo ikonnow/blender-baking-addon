@@ -76,4 +76,4 @@ def get_udim_tiles(objects):
 
 def validate_settings(job):
     """Programmatically validate a BakeJob's settings."""
-    return JobPreparer.validate_job(job, bpy.context.scene)
+    return JobPreparer.validate_job(job, bpy.context.scene, bpy.context.view_layer)
