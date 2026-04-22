@@ -36,13 +36,7 @@ _CANONICAL_MODE_KEYS = {"RGBA", "RGB", "BW"}
 
 
 def _as_key_set(values):
-    if not values:
-        return set()
-    if isinstance(values, set):
-        return values
-    if isinstance(values, (list, tuple)):
-        return set(values)
-    return set(values)
+    return set(values) if values else set()
 
 
 def _canonical_depth(value):
@@ -110,9 +104,19 @@ def get_channel_source_items(self, context):
                     (c.id, c.name, f"Use {c.name} result as source", "NONE", i)
                 )
 
+        # Prevent self-reference
+        current_custom_name = None
+        for chan in job.custom_bake_channels:
+            if any(getattr(chan, f"{s}_settings") == self for s in ["r", "g", "b", "a", "bw"]):
+                current_custom_name = chan.name
+                break
+
         base_len = len(items)
         for i, c in enumerate(job.custom_bake_channels):
-            # P-01: Add unique prefix to custom identifiers to prevent conflict with standard IDs
+            # Self-reference filter
+            if current_custom_name and c.name == current_custom_name:
+                continue
+
             identifier = f"BT_CUSTOM_{c.name}"
             items.append(
                 (
@@ -266,9 +270,10 @@ def update_preview(self, context):
         else:
             shading.remove_preview(obj)
 
-    for area in context.screen.areas:
-        if area.type == "VIEW_3D":
-            area.tag_redraw()
+    if context and context.screen:
+        for area in context.screen.areas:
+            if area.type == "VIEW_3D":
+                area.tag_redraw()
 
 
 # --- Sub-Setting Groups ---
@@ -353,6 +358,7 @@ class BakeChannelSource(bpy.types.PropertyGroup):
     invert: props.BoolProperty(name="Invert", default=False)
     sep_col: props.BoolProperty(name="Separate", default=False)
     col_chan: props.EnumProperty(items=CUSTOM_CHANNEL_SEP, name="Channel")
+    default_value: props.FloatProperty(name="Default Value", default=0.0, min=0.0, max=1.0)
 
 
 class BakeChannel(bpy.types.PropertyGroup):

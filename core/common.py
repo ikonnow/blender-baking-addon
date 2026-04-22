@@ -227,6 +227,8 @@ def manage_channels_logic(
     job_index = bj.job_index if bj.jobs else -1
     if job_index < 0 or job_index >= len(bj.jobs):
         job_index = 0 if bj.jobs else -1
+        # M-05: Update the actual property to stay in sync
+        bj.job_index = job_index
     job = bj.jobs[job_index] if 0 <= job_index < len(bj.jobs) else None
 
     dispatch = {

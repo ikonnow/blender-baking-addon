@@ -85,6 +85,11 @@ def bake_node_to_image(
                             img,
                             settings.external_save_path,
                             file_format=settings.image_settings.external_save_format,
+                            color_depth=settings.image_settings.color_depth,
+                            color_mode=settings.image_settings.color_mode,
+                            quality=settings.image_settings.quality,
+                            exr_code=settings.image_settings.exr_code,
+                            tiff_codec=settings.image_settings.tiff_codec,
                         )
                     else:
                         img.pack()

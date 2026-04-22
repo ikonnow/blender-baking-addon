@@ -6,6 +6,7 @@ Extracted from ops.py for better separation of concerns.
 import os
 import bpy
 import logging
+import time
 from ..state_manager import BakeStateManager
 from .engine import BakeStepRunner
 from .common import log_error
@@ -89,7 +90,6 @@ class BakeModalOperator:
         context.scene.bake_status = "Initializing..."
         
         # HI-04: Append session separator instead of clearing history
-        import time
         timestamp = time.strftime('%H:%M:%S')
         context.scene.bake_error_log += f"\n--- New bake session {timestamp} ---\n"
         
@@ -203,12 +203,13 @@ class BakeModalOperator:
         if self.bake_queue and hasattr(self.bake_queue[0].job, 'setting'):
              s = self.bake_queue[0].job.setting
              if getattr(s, 'save_and_quit', False): 
-                if bpy.data.is_dirty:
-                    logger.warning("BakeTool: save_and_quit enabled - saving and exiting Blender now.")
-                    bpy.ops.wm.save_mainfile(exit=True)
-                else:
-                    # Even if not dirty, we might want to exit if the user requested it
-                    bpy.ops.wm.quit_blender()
+                logger.warning("BakeTool: save_and_quit enabled - saving and exiting Blender.")
+                # M-06: Always try to save before exit if this flag is set
+                try:
+                    bpy.ops.wm.save_mainfile()
+                except Exception as e:
+                    logger.error(f"Failed to save before exit: {e}")
+                bpy.ops.wm.quit_blender()
 
     def cancel(self, context):
         self._cleanup_state(context, "Cancelled")

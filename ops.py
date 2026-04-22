@@ -735,7 +735,6 @@ class BAKETOOL_OT_ExportResult(bpy.types.Operator):
         if not default_path:
             default_path = "untitled"
 
-        import os
         name = os.path.splitext(os.path.basename(default_path))[0]
         self.filepath = f"{name}_{img.name}.png"
 
@@ -755,6 +754,10 @@ class BAKETOOL_OT_ExportResult(bpy.types.Operator):
             return {"CANCELLED"}
 
         img = res.image
+        # H-06: Save original state to restore later
+        old_path = img.filepath_raw
+        old_fmt = img.file_format
+        
         try:
             # Save the image to the selected filepath
             img.filepath_raw = self.filepath
@@ -764,6 +767,10 @@ class BAKETOOL_OT_ExportResult(bpy.types.Operator):
         except Exception as e:
             self.report({"ERROR"}, f"Export failed: {e}")
             return {"CANCELLED"}
+        finally:
+            # Restore original metadata
+            img.filepath_raw = old_path
+            img.file_format = old_fmt
 
         return {"FINISHED"}
 
@@ -806,30 +813,44 @@ class BAKETOOL_OT_ExportAllResults(bpy.types.Operator):
             # Fallback to scene path or temp
             export_dir = bpy.data.filepath
             if export_dir:
-                import os
                 export_dir = os.path.dirname(export_dir)
             else:
                 import tempfile
                 export_dir = tempfile.gettempdir()
 
-        import os
         success_count = 0
         error_count = 0
+
+        # C-01: Use Job result settings instead of hardcoded PNG
+        from .constants import FORMAT_SETTINGS
+        bj = context.scene.BakeJobs
+        res_settings = bj.bake_result_settings.image_settings
+        target_fmt = res_settings.external_save_format
+        ext = FORMAT_SETTINGS.get(target_fmt, {}).get("extensions", [".png"])[0]
 
         for i, res in enumerate(results):
             if not res.image:
                 continue
             img = res.image
-            filename = f"{img.name}.png"
+            filename = f"{img.name}{ext}"
             filepath = os.path.join(export_dir, filename)
+            
+            # H-06: Save original state
+            old_path = img.filepath_raw
+            old_fmt = img.file_format
+            
             try:
                 img.filepath_raw = filepath
-                img.file_format = "PNG"
+                img.file_format = target_fmt
                 img.save()
                 success_count += 1
             except Exception as e:
                 logger.error(f"Failed to export {img.name}: {e}")
                 error_count += 1
+            finally:
+                # Restore original metadata
+                img.filepath_raw = old_path
+                img.file_format = old_fmt
 
         if success_count > 0:
             self.report({"INFO"}, f"Exported {success_count} images to {export_dir}")

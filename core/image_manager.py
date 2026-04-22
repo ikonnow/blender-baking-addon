@@ -399,6 +399,11 @@ def save_image(
     fillnum: int = 4,
     save: bool = True,
     separator: str = "_",
+    color_depth: str = "8",
+    color_mode: str = "RGBA",
+    quality: int = 90,
+    exr_code: str = "ZIP",
+    tiff_codec: str = "DEFLATE",
 ) -> Optional[str]:
     """Save image to disk with automatic directory creation.
 
@@ -408,34 +413,39 @@ def save_image(
         folder: Whether to create a subfolder.
         folder_name: Subfolder name.
         file_format: Output format.
-        motion: Whether part of a sequence.
-        frame: Frame number.
-        reload: Whether to reload image.
-        fillnum: Digit padding.
-        save: Whether to perform save.
-        separator: Name/frame separator.
+        motion: If animation frame.
+        frame: Frame index.
+        reload: Reload image after save.
+        fillnum: Frame padding digits.
+        save: Actually perform save.
+        separator: Animation separator string.
+        color_depth: Bit depth ('8', '10', '12', '16', '32').
+        color_mode: Color mode ('BW', 'RGB', 'RGBA').
+        quality: Compression quality (0-100).
+        exr_code: OpenEXR compression codec.
+        tiff_codec: TIFF compression codec.
 
     Returns:
-        Absolute path to saved file, or None if failed.
+        Optional[str]: Absolute path to saved file or None if failed.
     """
-    if not save or not image:
+    if not image or not save:
         return None
 
-    base = Path(bpy.path.abspath(path))
-    if str(base) == "." or not bpy.data.filepath:
-        if not bpy.data.filepath and path in {"//", ""}:
-            base = Path(bpy.app.tempdir)
-        elif bpy.data.filepath:
-            base = Path(bpy.data.filepath).parent
-    directory = base / folder_name if folder else base
+    directory = Path(bpy.path.abspath(path))
+    if folder:
+        directory = directory / folder_name
+
     try:
         directory.mkdir(parents=True, exist_ok=True)
-    except (OSError, IOError, PermissionError) as e:
-        logger.error(f"Failed to create directory {directory}: {e}")
+    except OSError as e:
+        logger.error(f"Could not create directory {directory}: {e}")
         return None
 
-    info = FORMAT_SETTINGS.get(file_format, {})
-    ext = info.get("extensions", ["." + file_format.lower()])[0]
+    ext = ".png"
+    from ..constants import FORMAT_SETTINGS
+    if file_format in FORMAT_SETTINGS:
+        ext = FORMAT_SETTINGS[file_format]["extensions"][0]
+
     fname = (
         f"{image.name}{separator}{str(frame).zfill(fillnum)}{ext}"
         if motion
@@ -448,18 +458,43 @@ def save_image(
 
     filepath = directory / fname
     abs_path = str(filepath.resolve())
-    old_path = image.filepath_raw
-    old_fmt = image.file_format
-
+    
+    # H-05: Set format settings via scene render settings
+    render = bpy.context.scene.render
+    s = render.image_settings
+    
+    old_fmt = s.file_format
+    old_depth = s.color_depth
+    old_mode = s.color_mode
+    old_quality = s.quality
+    old_exr = s.exr_codec
+    old_tiff = s.tiff_codec
+    
     try:
+        s.file_format = file_format
+        s.color_depth = color_depth
+        s.color_mode = color_mode
+        s.quality = quality
+        s.exr_codec = exr_code
+        s.tiff_codec = tiff_codec
+        
+        # We also set it on image for consistency, though image.save() 
+        # is heavily dependent on scene settings for the details.
         image.filepath_raw = abs_path
         image.file_format = file_format
         image.save()
     except (OSError, RuntimeError, AttributeError) as e:
         logger.error(f"Save failed: {e}")
-        image.filepath_raw = old_path
-        image.file_format = old_fmt
         return None
+    finally:
+        # Restore original scene settings
+        s.file_format = old_fmt
+        s.color_depth = old_depth
+        s.color_mode = old_mode
+        s.quality = old_quality
+        s.exr_codec = old_exr
+        s.tiff_codec = old_tiff
+
 
     if not motion and reload:
         try:

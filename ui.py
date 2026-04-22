@@ -877,13 +877,15 @@ class BAKE_PT_BakePanel(bpy.types.Panel):
                         )
                         if chan_settings.sep_col:
                             r.prop(chan_settings, "col_chan", text="")
+                    else:
+                        r.prop(chan_settings, "default_value", text="")
 
 
-class BAKETOOL_PT_BakedResults(bpy.types.Panel):
+class BAKE_PT_BakedResults(bpy.types.Panel):
     """Dashboard for inspecting baked textures in 3D Viewport."""
 
     bl_label = "Baked Results"
-    bl_idname = "BAKETOOL_PT_baked_results"
+    bl_idname = "BAKE_PT_BakedResults"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "Baking"

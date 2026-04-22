@@ -407,6 +407,11 @@ class BakeStepRunner:
                 fillnum=f_info["digits"] if f_info else 4,
                 separator=s.bake_motion_separator,
                 save=True,
+                color_depth=s.color_depth,
+                color_mode=s.color_mode,
+                quality=s.quality,
+                exr_code=s.exr_code,
+                tiff_codec=s.tiff_codec,
             )
         else:
             img.pack()
@@ -1245,11 +1250,10 @@ class BakePassExecutor:
         target_channel,
         num_pixels,
     ):
-        default_value = 1.0 if target_channel == "a" else 0.0
-        default_arr = np.full(num_pixels, default_value, dtype=np.float32)
-
+        fallback_default = 1.0 if target_channel == "a" else 0.0
         if not source_settings or not getattr(source_settings, "use_map", False):
-            return default_arr
+            val = getattr(source_settings, "default_value", fallback_default)
+            return np.full(num_pixels, val, dtype=np.float32)
 
         source_id = cls.normalize_source_id(
             getattr(source_settings, "source", "NONE"), current_results

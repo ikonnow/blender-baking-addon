@@ -247,8 +247,8 @@ def _setup_island_id_bmesh(obj, id_type, attr_name, start_color, manual_start, s
         for island_idx, island_faces in enumerate(islands):
             color = palette[island_idx]
             for face in island_faces:
-                for loop_index in face.loops:
-                    loop_colors[loop_index] = color
+                for loop in face.loops:
+                    loop_colors[loop.index] = color
 
         attr = obj.data.attributes.new(name=attr_name, type="BYTE_COLOR", domain="CORNER")
         attr.data.foreach_set("color", loop_colors.flatten())
@@ -365,11 +365,12 @@ class TexelDensityCalculator:
                     uv_coords.append(uv_data[li].uv)
                 # Shoelace formula for polygon area
                 n = len(uv_coords)
+                poly_uv_area = 0.0
                 for i in range(n):
                     j = (i + 1) % n
-                    total_uv_area += uv_coords[i].x * uv_coords[j].y
-                    total_uv_area -= uv_coords[j].x * uv_coords[i].y
-                total_uv_area = abs(total_uv_area) / 2.0
+                    poly_uv_area += uv_coords[i].x * uv_coords[j].y
+                    poly_uv_area -= uv_coords[j].x * uv_coords[i].y
+                total_uv_area += abs(poly_uv_area) / 2.0
 
             world_area = sum(
                 poly.area for poly in mesh.polygons if poly.select

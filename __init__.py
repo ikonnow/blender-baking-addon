@@ -36,8 +36,6 @@ from . import ui
 from . import property as prop_module
 from .constants import CHANNEL_BAKE_INFO
 
-HAS_TESTS = False
-
 logger = logging.getLogger(__name__)
 
 
@@ -108,7 +106,7 @@ def get_classes():
         prop_module.BakeJobs,
         # Primary Panels
         ui.BAKE_PT_BakePanel,
-        ui.BAKETOOL_PT_BakedResults,
+        ui.BAKE_PT_BakedResults,
         ui.BAKE_PT_NodePanel,
         ui.BAKETOOL_PT_ImageEditorResults,
     ]
