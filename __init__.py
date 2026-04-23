@@ -5,7 +5,7 @@ bl_info = {
     "version": (1, 0, 0),
     "blender": (3, 6, 0),
     "location": "View3D > Sidebar > Baking",
-    "warning": "",
+    "warning": "Early Beta: Single-maintainer project, limited production testing. Backup your scenes!",
     "doc_url": "https://github.com/lastraindrop/baketool",
     "tracker_url": "https://github.com/lastraindrop/baketool/issues",
     "category": "Render",

@@ -1430,6 +1430,8 @@ class ModelExporter:
         prev_sel = context.selected_objects[:]
         prev_act = context.active_object
         orig_hide_states = {}
+        export_obj = None
+        is_temp = False
 
         try:
             if context.object and context.object.mode != "OBJECT":
@@ -1454,19 +1456,18 @@ class ModelExporter:
             abs_filepath = str(file_path_base.resolve())
             ModelExporter._execute_format_export(abs_filepath, setting)
 
-            if is_temp:
-                mesh_ref = export_obj.data
-                bpy.data.objects.remove(export_obj, do_unlink=True)
-                try:
-                    if mesh_ref and hasattr(mesh_ref, 'users') and mesh_ref.users == 0:
-                        bpy.data.meshes.remove(mesh_ref, do_unlink=True)
-                except (ReferenceError, RuntimeError):
-                    pass
-
             logger.info(f"Exported: {setting.export_format} -> {abs_filepath}")
         except (RuntimeError, IOError) as e:
             logger.exception(f"Export Error: {e}")
         finally:
+            if is_temp and export_obj:
+                mesh_ref = export_obj.data
+                try:
+                    bpy.data.objects.remove(export_obj, do_unlink=True)
+                    if mesh_ref and hasattr(mesh_ref, 'users') and mesh_ref.users == 0:
+                        bpy.data.meshes.remove(mesh_ref, do_unlink=True)
+                except (ReferenceError, RuntimeError):
+                    pass
             ModelExporter._restore_state(context, prev_sel, prev_act, orig_hide_states)
 
     @staticmethod

@@ -250,6 +250,13 @@
             "ru_RU": "Настройки аддона",
             "zh_CN": "插件偏好设置"
         },
+        "Addon is disabled!": {
+            "en_US": "Addon is disabled!",
+            "fr_FR": "L'addon est désactivé !",
+            "ja_JP": "アドオンが無効です！",
+            "ru_RU": "Аддон отключён!",
+            "zh_CN": "插件已禁用！"
+        },
         "All bake settings are valid and ready.": {
             "en_US": "All bake settings are valid and ready.",
             "fr_FR": "Tous les paramètres de bake sont valides et prêts.",
@@ -1034,6 +1041,13 @@
             "ru_RU": "Конфигурация запуска по умолчанию",
             "zh_CN": "默认启动配置"
         },
+        "Default Value": {
+            "en_US": "Default Value",
+            "fr_FR": "Valeur par défaut",
+            "ja_JP": "デフォルト値",
+            "ru_RU": "Значение по умолчанию",
+            "zh_CN": "默认值"
+        },
         "Deflate": {
             "en_US": "Deflate",
             "fr_FR": "Compression Deflate",
@@ -1075,6 +1089,13 @@
             "ja_JP": "深度",
             "ru_RU": "Глубина",
             "zh_CN": "深度"
+        },
+        "Detail": {
+            "en_US": "Detail",
+            "fr_FR": "Détail",
+            "ja_JP": "詳細",
+            "ru_RU": "Подробности",
+            "zh_CN": "详情"
         },
         "Detected Unexpected Exit (Crash)": {
             "en_US": "Detected Unexpected Exit (Crash)",
@@ -1594,6 +1615,9 @@
             "ru_RU": "Задача '{}' пропущена: нет корректной цели Mesh.",
             "zh_CN": "任务 '{}' 已跳过：无有效的网格目标。"
         },
+        "Job '{}' skipped: Objects not in current View Layer: {}": {
+            "en_US": "Job '{}' skipped: Objects not in current View Layer: {}"
+        },
         "Job Name": {
             "en_US": "Job Name",
             "fr_FR": "Nom de la tâche",
@@ -1614,6 +1638,20 @@
             "ja_JP": "LZW压缩",
             "ru_RU": "Сжатие LZW",
             "zh_CN": "LZW 压缩"
+        },
+        "Last Error": {
+            "en_US": "Last Error",
+            "fr_FR": "Dernière erreur",
+            "ja_JP": "最後のエラー",
+            "ru_RU": "Последняя ошибка",
+            "zh_CN": "最后错误"
+        },
+        "Last Object": {
+            "en_US": "Last Object",
+            "fr_FR": "Dernier objet",
+            "ja_JP": "最後のオブジェクト",
+            "ru_RU": "Последний объект",
+            "zh_CN": "最后对象"
         },
         "Last Test Info": {
             "en_US": "Last Test Info",
@@ -1978,6 +2016,13 @@
             "ja_JP": "ORMパッキング (R+G+B+A)",
             "ru_RU": "ORM Упаковка (R+G+B+A)",
             "zh_CN": "ORM 打包 (R+G+B+A)"
+        },
+        "Obj": {
+            "en_US": "Obj",
+            "fr_FR": "Objet",
+            "ja_JP": "オブジェクト",
+            "ru_RU": "Объект",
+            "zh_CN": "对象"
         },
         "Obj-Mat": {
             "en_US": "Obj-Mat",
@@ -2532,6 +2577,13 @@
             "ru_RU": "Сэмплинг",
             "zh_CN": "采样"
         },
+        "Save": {
+            "en_US": "Save",
+            "fr_FR": "Enregistrer",
+            "ja_JP": "保存",
+            "ru_RU": "Сохранить",
+            "zh_CN": "保存"
+        },
         "Save And Quit": {
             "en_US": "Save And Quit",
             "fr_FR": "Sauvegarder et quitter",
@@ -2615,6 +2667,13 @@
             "ja_JP": "区切り文字",
             "ru_RU": "Разделитель",
             "zh_CN": "分隔符"
+        },
+        "Settings Suffix": {
+            "en_US": " Settings",
+            "fr_FR": " - paramètres",
+            "ja_JP": "設定",
+            "ru_RU": " — настройки",
+            "zh_CN": "设置"
         },
         "Shadow": {
             "en_US": "Shadow",
@@ -2952,6 +3011,13 @@
             "ru_RU": "Плитка",
             "zh_CN": "瓦片"
         },
+        "Time": {
+            "en_US": "Time",
+            "fr_FR": "Temps",
+            "ja_JP": "時間",
+            "ru_RU": "Время",
+            "zh_CN": "时间"
+        },
         "To Disk": {
             "en_US": "To Disk",
             "fr_FR": "Sur disque",
@@ -2965,6 +3031,13 @@
             "ja_JP": "プレビュー切替",
             "ru_RU": "Переключить предпросмотр",
             "zh_CN": "切换预览"
+        },
+        "Total": {
+            "en_US": "Total",
+            "fr_FR": "Total",
+            "ja_JP": "合計",
+            "ru_RU": "Всего",
+            "zh_CN": "总计"
         },
         "Tran": {
             "en_US": "Tran",
@@ -3266,76 +3339,6 @@
             "ja_JP": "sRGB 色空間",
             "ru_RU": "Цветовое пространство sRGB",
             "zh_CN": "sRGB 色彩空间"
-        },
-        "Addon is disabled!": {
-            "en_US": "Addon is disabled!",
-            "fr_FR": "L'addon est désactivé !",
-            "ja_JP": "アドオンが無効です！",
-            "ru_RU": "Аддон отключён!",
-            "zh_CN": "插件已禁用！"
-        },
-        "Detail": {
-            "en_US": "Detail",
-            "fr_FR": "Détail",
-            "ja_JP": "詳細",
-            "ru_RU": "Подробности",
-            "zh_CN": "详情"
-        },
-        "Last Error": {
-            "en_US": "Last Error",
-            "fr_FR": "Dernière erreur",
-            "ja_JP": "最後のエラー",
-            "ru_RU": "Последняя ошибка",
-            "zh_CN": "最后错误"
-        },
-        "Last Object": {
-            "en_US": "Last Object",
-            "fr_FR": "Dernier objet",
-            "ja_JP": "最後のオブジェクト",
-            "ru_RU": "Последний объект",
-            "zh_CN": "最后对象"
-        },
-        "Obj": {
-            "en_US": "Obj",
-            "fr_FR": "Objet",
-            "ja_JP": "オブジェクト",
-            "ru_RU": "Объект",
-            "zh_CN": "对象"
-        },
-        "Save": {
-            "en_US": "Save",
-            "fr_FR": "Enregistrer",
-            "ja_JP": "保存",
-            "ru_RU": "Сохранить",
-            "zh_CN": "保存"
-        },
-        "Settings": {
-            "en_US": "Settings",
-            "fr_FR": "Paramètres",
-            "ja_JP": "設定",
-            "ru_RU": "Настройки",
-            "zh_CN": "设置"
-        },
-        "Time": {
-            "en_US": "Time",
-            "fr_FR": "Temps",
-            "ja_JP": "時間",
-            "ru_RU": "Время",
-            "zh_CN": "时间"
-        },
-        "Total": {
-            "en_US": "Total",
-            "fr_FR": "Total",
-            "ja_JP": "合計",
-            "ru_RU": "Всего",
-            "zh_CN": "总计"
-        },
-        "Settings Suffix": {
-            "en_US": " Settings",
-            "fr_FR": " - paramètres",
-            "ja_JP": "設定",
-            "ru_RU": " — настройки",
-            "zh_CN": "设置"
         }
     }
 }
