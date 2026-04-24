@@ -2,13 +2,24 @@ import unittest
 import bpy
 import os
 import re
-import tomllib
 from pathlib import Path
 
 class SuiteExtensionValidation(unittest.TestCase):
     """
     Validates the addon's compliance with Blender 4.2+ Extensions system.
     """
+
+    @classmethod
+    def setUpClass(cls):
+        try:
+            import tomllib
+            cls._tomllib = tomllib
+        except ImportError:
+            try:
+                import tomli as tomllib
+                cls._tomllib = tomllib
+            except ImportError:
+                cls._tomllib = None
 
     def setUp(self):
         self.addon_root = Path(__file__).resolve().parents[1]
@@ -21,8 +32,11 @@ class SuiteExtensionValidation(unittest.TestCase):
 
     def test_manifest_schema_compliance(self):
         """Verify that mandatory fields for Extensions are present and correct."""
+        if self._tomllib is None:
+            self.skipTest("tomllib not available in Blender < 4.2")
+        
         with open(self.manifest_path, "rb") as f:
-            data = tomllib.load(f)
+            data = self._tomllib.load(f)
 
         self.assertIn("schema_version", data, "Missing schema_version")
 
@@ -35,10 +49,13 @@ class SuiteExtensionValidation(unittest.TestCase):
 
     def test_sync_between_manifest_and_bl_info(self):
         """Verify that version and metadata are synced between bl_info and manifest."""
+        if self._tomllib is None:
+            self.skipTest("tomllib not available in Blender < 4.2")
+        
         from baketool import bl_info
         
         with open(self.manifest_path, "rb") as f:
-            manifest = tomllib.load(f)
+            manifest = self._tomllib.load(f)
 
         manifest_version = tuple(int(x) for x in manifest["version"].split("."))
         self.assertEqual(bl_info["version"], manifest_version, "Version mismatch between bl_info and manifest")
@@ -50,8 +67,11 @@ class SuiteExtensionValidation(unittest.TestCase):
 
     def test_permissions_declaration(self):
         """Verify that file permissions are declared for baking operations."""
+        if self._tomllib is None:
+            self.skipTest("tomllib not available in Blender < 4.2")
+        
         with open(self.manifest_path, "rb") as f:
-            data = tomllib.load(f)
+            data = self._tomllib.load(f)
         
         permissions = data.get("permissions")
         self.assertIsNotNone(permissions, "BakeTool requires [permissions] to save textures")
@@ -59,8 +79,11 @@ class SuiteExtensionValidation(unittest.TestCase):
 
     def test_recommended_metadata_presence(self):
         """Verify that recommended fields for better marketplace visibility are present."""
+        if self._tomllib is None:
+            self.skipTest("tomllib not available in Blender < 4.2")
+        
         with open(self.manifest_path, "rb") as f:
-            manifest = tomllib.load(f)
+            manifest = self._tomllib.load(f)
         
         recommended = ["tagline", "website", "tags", "maintainer"]
         for field in recommended:
