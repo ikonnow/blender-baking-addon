@@ -1,62 +1,17 @@
 # BakeTool
 
-BakeTool is a professional texture baking suite for Blender.
+Professional texture baking suite for Blender.
 
 > [!CAUTION]
 > **Project Disclaimer**
 >
-> 1. **Development Context**: This project is a fork of the original BakeTool by lastraindrop, maintained by **ikonnow**. The original code logic heavily relied on **vibecode (AI-assisted development)**. While 150+ automated tests pass, AI-generated code may have unpredictable behavior in extreme edge cases or complex production environments.
->
-> 2. **Stability Status**: BakeTool is in **early verification stage (Experimental Prototype)**. It performs well in lab environments but seriously lacks large-scale production validation.
->
-> 3. **Core Warning**: **"All tests pass, production fails" is very likely.** It is far from production-grade stability.
->
-> 4. **Usage Recommendation**: **Backup your .blend scenes before production use.** Developer assumes no liability for data loss.
+> This is a fork maintained by **ikonnow**. While 150+ automated tests pass, it's in **early verification stage (Experimental Prototype)**. Backup your .blend scenes before production use.
 
 ---
 
-## Current Position
-
-- Professional texture baking tool for Blender 3.3 to 5.x
-- Supports Single Object, Selected-to-Active, UDIM and more
-- Built-in batch jobs, non-destructive workflow and automation
-
-## Core Features
-
-- **Non-Destructive Workflow**: Automatically create and clean temporary images, nodes, and context states
-- **Batch Jobs**: Maintain multiple Bake Jobs in one scene
-- **Multiple Target Modes**: Single Object, Combined, Selected-to-Active, Split Material, UDIM
-- **Channel Control**: PBR, Lighting, Auxiliary and Custom Maps
-- **Channel Packing**: Multiple bakes to one RGBA texture
-- **Custom Maps**: Assemble grayscale or RGBA from channel sources
-- **Node Baking**: Bake directly in Node Editor
-- **Export Integration**: FBX, GLB, USD export
-- **Crash Recovery**: state_manager.py records incomplete tasks
-- **Automation**: CLI suite, cross-version verification
-
-## Version & Compatibility
-
-| Item | Value |
-|------|-------|
-| Plugin Version | `1.0.0` |
-| Manifest | `blender_manifest.toml` (Extensions) |
-| Min Version | Blender 4.2.0+ (Extensions) / 3.3.0 (Legacy) |
-| Tested Versions | 3.3.21, 3.4.1, 3.5.1, 3.6.23, 4.0.2, 4.1.1, 4.2.14, 4.3.2, 4.4.3, 4.5.3, 5.0.1, 5.1.0 |
-
 ## Installation
 
-### From Release Package
-
-1. Download release ZIP
-2. Blender: `Edit > Preferences > Add-ons` → `Install...`
-3. Select ZIP → `Install Add-on`
-4. Enable BakeTool
-
-### From Source
-
-1. Put repo in Blender add-ons folder
-2. Directory must be named `baketool`
-3. Access via `3D View > Sidebar > Baking` after enabling
+Download release ZIP and drag into Blender, or install via `Edit > Preferences > Add-ons`. Find the `Baking` panel in the 3D Viewport sidebar.
 
 ## Quick Start
 
@@ -69,18 +24,16 @@ BakeTool is a professional texture baking suite for Blender.
 7. START BAKE PIPELINE
 8. Check results in Image Editor
 
-For quick PBR textures, use `One-Click PBR` (enables Base Color/Roughness/Normal).
-
 ## Typical Workflows
 
 ### Single Object
 
-For low-poly with target material.
+For low-poly with target material:
 - Create Job → Select SINGLE_OBJECT → Set resolution → Select channels → Run
 
 ### Selected-to-Active
 
-For high-poly to low-poly baking.
+For high-poly to low-poly baking:
 - Prepare high+low → Select SELECT_ACTIVE → Set cage → Run
 
 ### Split Material & UDIM
@@ -94,7 +47,7 @@ Generate new maps from existing, pack to RGBA.
 
 ### Node Baking
 
-Activate node in Editor → Bake via node panel
+Activate node in Editor → Bake via node panel.
 
 ## Automation & Verification
 
@@ -111,14 +64,6 @@ blender -b --factory-startup --python automation/cli_runner.py -- --suite verifi
 blender -b --factory-startup --python automation/cli_runner.py -- --category integration
 ```
 
-### Cross-Version Verification
-
-```bash
-python automation/multi_version_test.py --verification
-python automation/multi_version_test.py --suite unit
-python automation/multi_version_test.py --list
-```
-
 ### Headless Baking
 
 ```bash
@@ -127,6 +72,22 @@ blender -b scene.blend -P automation/headless_bake.py -- --output "C:/baked"
 ```
 
 > Note: `headless_bake.py` auto-registers plugin. Requires saved Job config in .blend.
+
+## Features
+
+- Non-destructive workflow with auto-cleanup
+- Batch jobs in one scene
+- Target Modes: Single Object, Combined, Selected-to-Active, Split Material, UDIM
+- Channel Control: PBR, Lighting, Auxiliary, Custom Maps
+- Channel Packing: Multiple bakes to one RGBA texture
+- Export Integration: FBX, GLB, USD export
+- Crash Recovery
+
+## Compatibility
+
+- Version: `1.0.0`
+- Blender: 4.2.0+ (Extensions) / 3.3.0 (Legacy)
+- Tested: 3.3-5.1
 
 ## Documentation
 
@@ -138,23 +99,6 @@ blender -b scene.blend -P automation/headless_bake.py -- --output "C:/baked"
 - [Roadmap](docs/ROADMAP.md) - Future directions
 - [Task Board](docs/task.md) - Task status
 - [Changelog](CHANGELOG.md) - Version changes
-
-## Repository Structure
-
-```
-baketool/
-  automation/       Automation entries
-  core/             Execution engine
-  docs/             Documentation
-  test_cases/       Test suites
-  __init__.py       Entry point
-  ops.py            Operators
-  property.py       Properties
-  ui.py             UI layout
-  constants.py      Constants
-  preset_handler.py Presets
-  state_manager.py  State management
-```
 
 ## License
 
