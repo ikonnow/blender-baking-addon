@@ -785,7 +785,7 @@ class BAKE_PT_BakePanel(bpy.types.Panel):
         # Smart Intelligence
         sub = col.box()
         r = sub.row()
-        r.label(text="Smart Intelligence", icon="LIGHTPROBE_CUBEMAP")
+        r.label(text="Smart Intelligence", icon="LIGHTPROBE_SPHERE")
 
         row = sub.row(align=True)
         row.prop(s, "auto_cage_mode", text="Cage")

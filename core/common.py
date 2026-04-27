@@ -396,7 +396,7 @@ class SceneSettingsContext:
         if self.category == "scene":
             return scene.render
         if self.category == "cycles":
-            return scene.cycles
+            return getattr(scene, "cycles", None)
         if self.category == "image":
             return scene.render.image_settings
         if self.category == "cm":

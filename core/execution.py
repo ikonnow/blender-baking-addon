@@ -7,12 +7,53 @@ import os
 import bpy
 import logging
 import time
+from contextlib import contextmanager
 from ..state_manager import BakeStateManager
 from .engine import BakeStepRunner
 from .common import log_error
 from . import compat
 
 logger = logging.getLogger(__name__)
+
+
+@contextmanager
+def temporary_render_engine(context, engine="CYCLES"):
+    """Context manager to temporarily switch render engine.
+
+    Args:
+        context: Blender context.
+        engine: Target render engine (default: CYCLES).
+    """
+    scene = context.scene
+    original_engine = scene.render.engine
+    cycles_enabled = False
+
+    try:
+        # Enable Cycles addon if not already enabled
+        if engine == "CYCLES":
+            addon_name = "cycles"
+            if addon_name not in context.preferences.addons:
+                try:
+                    bpy.ops.preferences.addon_enable(module=addon_name)
+                    cycles_enabled = True
+                except Exception as e:
+                    logger.warning(f"Could not enable Cycles addon: {e}")
+
+        # Switch to target engine if different
+        if original_engine != engine:
+            scene.render.engine = engine
+        yield
+    finally:
+        # Restore original engine
+        if original_engine != engine:
+            scene.render.engine = original_engine
+
+        # Disable Cycles addon if we enabled it
+        if cycles_enabled and engine == "CYCLES":
+            try:
+                bpy.ops.preferences.addon_disable(module="cycles")
+            except Exception as e:
+                logger.warning(f"Could not disable Cycles addon: {e}")
 
 
 def add_bake_result_to_ui(context, img, type_name, obj_name, path, meta=None):
@@ -145,12 +186,14 @@ class BakeModalOperator:
     def _process_single_step(self, context, step):
         job, task, f_info = step.job, step.task, step.frame_info
         context.scene.bake_status = f"[{self.current_step_idx+1}/{self.total_steps}] {task.base_name}"
-        
-        if f_info: 
+
+        if f_info:
             context.scene.frame_set(f_info['frame'])
-        
-        runner = BakeStepRunner(context)
-        results = runner.run(step, self.state_mgr, self.current_step_idx)
+
+        # Temporarily switch to Cycles for baking
+        with temporary_render_engine(context, "CYCLES"):
+            runner = BakeStepRunner(context)
+            results = runner.run(step, self.state_mgr, self.current_step_idx)
         
         for res in results:
             add_bake_result_to_ui(context, res['image'], res['type'], res['obj'], res['path'], res.get('meta'))

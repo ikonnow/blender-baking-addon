@@ -1,36 +1,36 @@
-# BakeTool 发布检查清单
+# BakeTool Release Checklist
 
-本文档用于正式打包和对外发布前的最后核对。它的价值不在于“看起来专业”，而在于把那些最容易被遗漏、却会直接影响用户第一印象和后续维护成本的事项固定下来。建议每次发布都实际过一遍，而不是口头默认已经完成。
+This document is for final verification before official packaging and release. Its value is not in "looking professional", but in fixing the items most easily forgotten yet directly impacting user first impressions and subsequent maintenance costs. It is recommended to actually go through this each release, rather than verbally assuming it's complete.
 
-## 1. 版本与元数据
+## 1. Version and Metadata
 
-- 确认 `__init__.py` 中的 `bl_info` 版本号正确。
-- 确认 `blender_manifest.toml` 中的 `version`、`blender_version_min`、`website` 正确。
-- 确认 `README.md`、`CHANGELOG.md` 与当前版本号一致。
-- 确认 `doc_url` 和 `tracker_url` 不再使用占位地址。
+- Confirm `bl_info` version in `__init__.py` is correct
+- Confirm `version`, `blender_version_min`, `website` in `blender_manifest.toml` are correct
+- Confirm `README.md`, `CHANGELOG.md` match current version number
+- Confirm `doc_url` and `tracker_url` no longer use placeholder addresses
 
-## 2. 仓库整洁度
+## 2. Repository Cleanliness
 
-- 删除或忽略本次发布不需要携带的临时文件。
-- 确认没有残留 `__pycache__`、`test_output` 等运行期目录。
-- 确认工作区内没有残留 `blender.crash.txt`、`crash_log.txt`、临时截图或类似一次性调试文件。
-- 确认不将本地临时验证脚本误带入发布。
-- 确认最新验证报告已归档，旧的临时报告已清理或忽略。
-- 确认旧的 `dist/` 产物已清理或准备重新生成，避免误把过期 ZIP 当成本次正式发布物。
+- Delete or ignore temporary files not needed for this release
+- Confirm no residual `__pycache__`, `test_output` or other runtime directories
+- Confirm workspace has no residual `blender.crash.txt`, `crash_log.txt`, temporary screenshots, or similar one-time debug files
+- Confirm local temporary validation scripts are not accidentally included in release
+- Confirm latest validation reports are archived, old temporary reports cleaned or ignored
+- Confirm old `dist/` artifacts cleaned or prepared for regeneration, avoid mistakenly treating expired ZIP as this release artifact
 
-## 3. 文档同步
+## 3. Documentation Sync
 
-- `README.md` 与当前实际功能一致。
-- `docs/USER_MANUAL.md` 与当前 UI、工作流、限制条件一致。
-- `docs/dev/DEVELOPER_GUIDE.md` 与当前核心架构和扩展点一致。
-- `docs/dev/AUTOMATION_REFERENCE.md` 中的命令和脚本名可直接运行。
-- `docs/dev/STANDARDIZATION_GUIDE.md` 中关于参数一致化、动态 UI 对齐和测试隔离的约束与当前代码一致。
-- `docs/ROADMAP.md` 与 `docs/task.md` 反映真实阶段状态，不使用失真表述。
-- `CHANGELOG.md` 记录了当前发布包含的关键修复。
+- `README.md` consistent with current actual functionality
+- `docs/USER_MANUAL.md` consistent with current UI, workflows, limitations
+- `docs/dev/DEVELOPER_GUIDE.md` consistent with current core architecture and extension points
+- Commands and script names in `docs/dev/AUTOMATION_REFERENCE.md` can be run directly
+- Constraints on parameter consistency, dynamic UI alignment, and test isolation in `docs/dev/STANDARDIZATION_GUIDE.md` match current code
+- `docs/ROADMAP.md` and `docs/task.md` reflect true phase status, without distorted descriptions
+- `CHANGELOG.md` records key fixes included in this release
 
-## 4. 自动化验证
+## 4. Automation Validation
 
-至少完成以下验证：
+At least complete the following validations:
 
 - `unit`
 - `export`
@@ -38,7 +38,7 @@
 - `verification`
 - `production_workflow`
 
-推荐命令：
+Recommended commands:
 
 ```bash
 blender -b --factory-startup --python automation/cli_runner.py -- --suite unit
@@ -48,22 +48,22 @@ blender -b --factory-startup --python automation/cli_runner.py -- --suite verifi
 blender -b --factory-startup --python automation/cli_runner.py -- --suite production_workflow
 ```
 
-如果运行环境对临时目录写入有限制，应显式将 `TEMP` 和 `TMP` 指向工作区内的可写目录后再执行端到端套件。
+If the runtime environment restricts temp directory writing, explicitly point `TEMP` and `TMP` to writable directories in the workspace before running end-to-end suites.
 
-如果本次改动触及以下方向，还应补跑对应套件：
+If this change touches the following areas, also run corresponding suites:
 
-- 输入校验、View Layer、失败清理、异常路径：`negative`
-- 翻译提取、词典回写、多语言显示：`localization`
+- Input validation, View Layer, failure cleanup, exception paths: `negative`
+- Translation extraction, dictionary rewrite, multilingual display: `localization`
 
-## 5. 跨版本验证
+## 5. Cross-Version Validation
 
-至少执行：
+At least execute:
 
 ```bash
 python automation/multi_version_test.py --verification
 ```
 
-建议最低覆盖：
+Recommended minimum coverage:
 
 - Blender `3.3.x`
 - Blender `3.6.x`
@@ -71,71 +71,71 @@ python automation/multi_version_test.py --verification
 - Blender `4.5 LTS`
 - Blender `5.0.x`
 
-如果某个版本无法运行，不要只记录“失败”，还应记录是：
+If a version cannot run, don't just record "failed", also record whether it's:
 
-- 路径不存在
-- 环境不完整
-- 插件兼容性问题
-- 自动化脚本问题
+- Path doesn't exist
+- Environment incomplete
+- Plugin compatibility issue
+- Automation script issue
 
-## 6. 功能烟测
+## 6. Feature Smoke Testing
 
-正式发布前建议人工跑完以下场景：
+Before official release, recommended to manually run through:
 
-- 安装 ZIP 并启用插件
-- 新建 Job 并执行单对象基础烘焙
-- Selected-to-Active 烘焙
-- 自定义图生成与通道打包
-- UDIM 模式基础验证
-- 节点烘焙
-- 导出联动
-- 崩溃恢复提示与清理入口
-- `Run Safety Audit` 返回隔离测试摘要，且不会把当前交互式会话改乱
-- headless CLI 运行已保存 Job
+- Install ZIP and enable plugin
+- Create new Job and execute single object basic baking
+- Selected-to-Active baking
+- Custom map generation and channel packing
+- UDIM mode basic validation
+- Node baking
+- Export integration
+- Crash recovery prompts and cleanup entry
+- `Run Safety Audit` returns isolated test summary without messing up current interactive session
+- headless CLI runs saved Job
 
-## 7. 输出正确性核查
+## 7. Output Correctness Verification
 
-- 数据图颜色空间正确，尤其是法线、粗糙度、金属度、AO。
-- 自定义图能正确生成，不是纯黑或空白错误结果。
-- 通道打包读取的是最新结果，而不是旧缓存或错误键。
-- 导出结束后对象 `hide_viewport` 与 `hide_set()` 状态正确恢复。
-- 对象不在当前 View Layer 时，Job 会被明确跳过而不是在 Blender 原生 bake 阶段炸栈。
+- Data map color spaces correct, especially normal, roughness, metallic, AO
+- Custom maps generate correctly, not pure black or blank error results
+- Channel packing reads latest results, not old cache or wrong keys
+- Object `hide_viewport` and `hide_set()` states correctly restored after export
+- When object not in current View Layer, Job is explicitly skipped instead of crashing at Blender native bake stage
 
-## 8. 分发包内容
+## 8. Distribution Package Contents
 
-- 包内包含插件运行所需的 Python 源文件和必要用户文档。
-- 包内不包含自动化测试、开发脚本和历史归档资料。
-- `MANIFEST.in` 与当前目录结构一致。
-- 插件目录结构在 Blender 中可直接识别。
+- Package contains Python source files and necessary user documentation for plugin runtime
+- Package does not contain automation tests, development scripts, or historical archive materials
+- `MANIFEST.in` consistent with current directory structure
+- Plugin directory structure directly recognizable in Blender
 
-推荐直接使用仓库内脚本生成分发包，而不是手工压缩整个工作目录：
+Recommended to use repository script to generate distribution package, not manual compression of entire workspace:
 
 ```bash
 python automation/build_release_zip.py
 ```
 
-这样可以稳定排除 `.venv/`、`test_output/`、`docs/legacy/`、`automation/`、`dev_tools/` 和 `test_cases/` 等本地或开发期内容。
+This stably excludes `.venv/`, `test_output/`, `docs/legacy/`, `automation/`, `dev_tools/`, and `test_cases/` and other local or development-period content.
 
-## 9. 发布说明
+## 9. Release Notes
 
-对外发布说明至少应包含：
+Public release notes should at least contain:
 
-- 支持的 Blender 版本范围
-- 本次版本的关键修复
-- 已知限制
-- 建议的首轮使用方式
-- 问题反馈入口
+- Supported Blender version range
+- Key fixes in this version
+- Known limitations
+- Recommended first-time usage
+- Issue feedback entry
 
-如果本次版本有需要用户特别注意的行为变化，例如 `One-Click PBR` 实际只开启三张基础图，也应在发布说明中明确写出。
+If this version has behavioral changes users need to pay special attention to, such as `One-Click PBR` only enabling three base maps, this should also be clearly stated in release notes.
 
-## 10. 发布后第一轮观察
+## 10. Post-Release First-Round Observation
 
-即使发布前全部通过，也建议在发布后第一时间关注：
+Even if everything passed before release, recommended to immediately watch after release:
 
-- 安装反馈
-- Headless 使用反馈
-- 大场景、多对象和导出联动故障
-- 旧预设兼容问题
-- 不同 Blender 小版本下的颜色空间差异
+- Installation feedback
+- Headless usage feedback
+- Large scene, many objects, and export integration failures
+- Old preset compatibility issues
+- Color space differences under different Blender minor versions
 
-结论很简单：真正的发布质量，不只靠“本地这次跑通了”，还要靠每次发布都把验证、文档、打包和人工验收当成标准动作，而不是临时发挥。
+The conclusion is simple: true release quality depends not only on "this run passed locally", but on treating validation, documentation, packaging, and manual acceptance as standard actions every release, not improvisation.

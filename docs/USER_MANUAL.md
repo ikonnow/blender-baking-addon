@@ -1,303 +1,303 @@
-# BakeTool 用户手册
+# BakeTool User Manual
 
-本文档面向插件实际使用者。
+This document is for plugin end-users.
 
 > [!WARNING]
-> **风险提示**：BakeTool 是一款高度依赖 AI 辅助生成的实验性工具，目前由单人维护，且**严重缺乏真实生产环境的压力测试**。请阅读本手册第 12 节了解详细限制。
+> **Risk Notice**: BakeTool is an experimental tool heavily reliant on AI-assisted generation, currently maintained by a single person, and **seriously lacks real-world production stress testing**. Please read Section 12 of this manual for detailed limitations.
 
-## 1. 插件定位与适用范围
+## 1. Plugin Positioning and Scope
 
-BakeTool 的目标是把 Blender 中贴图烘焙里最容易反复出错、最耗时间的部分整理成一个流程。目前它更像是一个**功能验证原型 (PoC)**。
+BakeTool aims to organize the most error-prone and time-consuming parts of texture baking in Blender into a workflow. Currently, it functions more like a **proof-of-concept (PoC)**.
 
-- 低模对象基础贴图输出
-- 高模到低模的 Selected-to-Active 烘焙
-- 多对象批处理
-- 多材质拆分烘焙
-- UDIM 资产贴图处理
-- 节点结果烘焙
-- 自定义通道和通道打包
-- 烘焙后导出模型与贴图
+- Low-poly object base texture output
+- High-poly to low-poly Selected-to-Active baking
+- Multi-object batch processing
+- Multi-material split baking
+- UDIM asset texture processing
+- Node result baking
+- Custom channels and channel packing
+- Post-bake model and texture export
 
-它不试图替代 Blender 原生材质系统，也不会自动理解你所有自定义节点网络的语义。BakeTool 的原则是优先把“明确可判断、能被稳定验证”的流程自动化，把“项目差异大、推断成本高”的部分交给你显式配置。
+It does not attempt to replace Blender's native material system, nor will it automatically understand the semantics of all your custom node networks. BakeTool's principle is to automate processes that are "clearly determinable and stably verifiable", while leaving parts with "high project variance and inference cost" to explicit user configuration.
 
-## 2. 安装与基本访问方式
+## 2. Installation and Basic Access
 
-### 2.1 安装
+### 2.1 Installation
 
-你可以从 ZIP 包安装，也可以直接用源码目录作为插件目录。无论哪种方式，最终都需要在 Blender 的 `Edit > Preferences > Add-ons` 中启用 BakeTool。
+You can install from a ZIP package or use the source directory directly as the plugin directory. Either way, you need to enable BakeTool in Blender's `Edit > Preferences > Add-ons`.
 
-### 2.2 界面位置
+### 2.2 Interface Location
 
-主面板位于：
+Main panel located at:
 
 - `3D View > N Panel > Baking`
 
-辅助面板位于：
+Auxiliary panels located at:
 
-- 结果浏览相关面板
-- `Image Editor` 中的结果查看区域
-- `Node Editor` 中的节点烘焙面板
+- Result browsing related panels
+- `Image Editor` result viewing area
+- `Node Editor` node baking panel
 
-## 3. 核心概念
+## 3. Core Concepts
 
 ### 3.1 Job
 
-Job 是 BakeTool 的最基本工作单元。一个 Job 保存一整套烘焙配置，包括：
+Job is BakeTool's basic working unit. A Job saves a complete baking configuration, including:
 
-- 对象选择与模式
-- 分辨率与采样
-- 启用的烘焙通道
-- 输出路径与图像格式
-- 通道打包设置
-- 自定义贴图配置
-- 导出联动选项
-- 动画和命名规则
+- Object selection and mode
+- Resolution and sampling
+- Enabled baking channels
+- Output path and image format
+- Channel packing settings
+- Custom map configuration
+- Export integration options
+- Animation and naming rules
 
-如果你的项目里有角色、场景资产、道具三类对象，最直接的用法往往不是反复改一个 Job，而是为每一类对象各建一个 Job，分别保存预设。
+If your project has character, scene asset, and prop categories, the most direct approach is often not modifying one Job repeatedly, but creating a Job for each category and saving them as presets separately.
 
 ### 3.2 Bake Mode
 
-BakeTool 当前围绕几种核心模式工作：
+BakeTool currently revolves around several core modes:
 
-- `SINGLE_OBJECT`：单对象或常规对象集合烘焙
-- `COMBINE_OBJECT`：合并对象结果
-- `SELECT_ACTIVE`：高模到低模的 Selected-to-Active 流程
-- `SPLIT_MATERIAL`：按材质拆分结果
-- `UDIM`：基于 UDIM tile 的烘焙流程
+- `SINGLE_OBJECT`: Single object or regular object collection baking
+- `COMBINE_OBJECT`: Combined object results
+- `SELECT_ACTIVE`: High-poly to low-poly Selected-to-Active workflow
+- `SPLIT_MATERIAL`: Split results by material
+- `UDIM`: UDIM tile-based baking workflow
 
-模式会影响执行队列的构造、对象上下文、目标图像命名和导出行为，因此建议先确定模式，再勾通道。
+Mode affects execution queue construction, object context, target image naming, and export behavior, so it's recommended to determine the mode first, then select channels.
 
 ### 3.3 Channel
 
-Channel 指单个需要输出的贴图结果，例如颜色、粗糙度、法线、AO、Combined 或自定义图。BakeTool 最终会把这些通道转成执行步骤，并为每个步骤准备图像、节点上下文和保存逻辑。
+Channel refers to a single texture output that needs to be produced, such as color, roughness, normal, AO, Combined, or custom maps. BakeTool ultimately converts these channels into execution steps, preparing images, node context, and save logic for each step.
 
-### 3.4 自定义贴图
+### 3.4 Custom Maps
 
-自定义贴图是 BakeTool 的一个关键能力。你可以从已有烘焙结果中提取某个通道，或按 R/G/B/A 分别指定来源，组装成新的灰度或 RGBA 图。当前版本已经把这条链路真正接入执行引擎，因此自定义图不仅能生成，也能继续参与通道打包。
+Custom maps are a key capability of BakeTool. You can extract a channel from existing bake results, or specify sources per R/G/B/A to assemble new grayscale or RGBA images. The current version has connected this pipeline to the execution engine, so custom maps can be generated and also participate in channel packing.
 
-## 4. 主面板结构
+## 4. Main Panel Structure
 
-3D 视图主面板的结构大体分为四大块：
+The 3D View main panel is roughly divided into four blocks:
 
 - `SETUP & TARGETS`
 - `BAKE CHANNELS`
 - `OUTPUT & EXPORT`
 - `CUSTOM MAPS`
 
-面板顶部还会包含预设、任务管理和环境检查相关信息，底部是启动烘焙入口。使用顺序建议也是从上到下。
+The panel top also contains preset, task management, and environment check information; the bottom is the start baking entry. The recommended usage order is top to bottom.
 
-### 4.1 Job 管理区
+### 4.1 Job Management Area
 
-这里负责创建、删除、切换、保存和加载 Job。推荐做法：
+This manages Job creation, deletion, switching, saving, and loading. Recommended workflow:
 
-1. 先新建 Job。
-2. 立刻改一个有语义的名字。
-3. 先配置最常用通道和输出格式。
-4. 再保存为预设。
+1. Create a new Job first.
+2. Immediately rename it to something meaningful.
+3. Configure the most commonly used channels and output format.
+4. Then save as a preset.
 
-这样后续新场景只需要加载预设，而不是从零点选。
+This way, subsequent new scenes only need to load presets instead of starting from zero.
 
 ### 4.2 One-Click PBR
 
-`One-Click PBR` 的作用是快速启用一个最基础、最常见的 PBR 集合。当前实现只会启用：
+`One-Click PBR` serves to quickly enable a basic, common PBR set. The current implementation only enables:
 
 - `Base Color`
 - `Roughness`
 - `Normal`
 
-这很重要，因为旧版文档里把它描述成会同时启用金属度和 AO，这和当前代码不一致。若你的项目需要金属度、AO、Emission、Alpha 或其他图层，请在 `BAKE CHANNELS` 中手动勾选。
+This is important because older documentation described it as also enabling metallic and AO, which is inconsistent with current code. If your project needs metallic, AO, Emission, Alpha, or other layers, please manually check them in `BAKE CHANNELS`.
 
 ### 4.3 SETUP & TARGETS
 
-这一部分决定“谁被烘焙、如何被组织、结果尺寸和执行上下文如何建立”。通常包括：
+This section determines "what gets baked, how it's organized, result size, and execution context". Usually includes:
 
-- 目标对象列表
-- bake 类型或工作模式
-- 分辨率
-- 采样和 margin
-- 目标对象与激活对象
-- UV 相关策略
-- cage 与 extrusion
-- UDIM 行为
+- Target object list
+- Bake type or working mode
+- Resolution
+- Sampling and margin
+- Target object and active object
+- UV-related strategies
+- Cage and extrusion
+- UDIM behavior
 
-建议先确认对象和模式，再调整采样。很多看似像“贴图出错”的问题，其实是模式选错或对象上下文不对。
+It's recommended to confirm objects and mode first, then adjust sampling. Many issues that look like "texture errors" are actually wrong mode selection or incorrect object context.
 
-当前版本还会在真正执行前检查对象、active object 和 cage object 是否位于当前 `View Layer`。如果某个对象被排除在当前视图层之外，BakeTool 会直接跳过该 Job 并写出明确日志，而不是等到 Blender 原生 bake 阶段才抛出难定位的运行时错误。
+The current version also checks whether objects, active object, and cage object are in the current `View Layer` before actual execution. If an object is excluded from the current view layer, BakeTool will skip that Job directly and write a clear log, rather than waiting until Blender's native bake stage to throw a hard-to-locate runtime error.
 
 ### 4.4 BAKE CHANNELS
 
-这一部分决定“具体要输出哪些图”。你可以把它理解为一个通道清单，每一项通道都可能带有自己的一组设置。实际项目中最常见的组合通常是：
+This section determines "which specific maps to output". Think of it as a channel list where each channel may have its own settings. Common combinations in real projects:
 
-- 颜色类：Base Color、Emission
-- 表面属性类：Roughness、Metallic、Specular
-- 法线与几何辅助：Normal、AO 等
-- 光照类：Combined、Diffuse、Glossy、Transmission
+- Color: Base Color, Emission
+- Surface properties: Roughness, Metallic, Specular
+- Normal and geometric aids: Normal, AO, etc.
+- Lighting: Combined, Diffuse, Glossy, Transmission
 
-对于光照类或 Combined 类型，当前版本中的 pass filter 选项已经真正会传递到 Blender 的 bake 设置里。也就是说，界面里看到的 direct、indirect、color 等开关不再是摆设，而会实际影响结果。
+For lighting or Combined types, the current version's pass filter options actually pass through to Blender's bake settings. That means direct, indirect, color switches you see in the interface are no longer decorative—they actually affect results.
 
 ### 4.5 OUTPUT & EXPORT
 
-这一部分负责结果落盘和导出联动。可配置内容一般包括：
+This section handles result saving and export integration. Configurable items include:
 
-- 是否外部保存
-- 保存目录
-- 文件命名与后缀
-- 颜色空间
-- 图像格式、位深、质量、压缩编解码器（如 EXR/TIFF 专用选项）
-- 颜色空间
-- 动画帧输出
-- 通道打包
-- 是否导出模型
-- 模型格式和是否连带贴图输出
+- Whether to save externally
+- Save directory
+- File naming and suffix
+- Color space
+- Image format, bit depth, quality, compression codec (e.g., EXR/TIFF specific options)
+- Color space
+- Animation frame output
+- Channel packing
+- Whether to export models
+- Model format and whether to include textures
 
-如果你启用了导出，BakeTool 会在执行结束后调用相应导出逻辑。当前版本已经修复导出时对对象可见性的污染问题，`hide_set()` 和 `hide_viewport` 都会在完成后恢复。
+If you enable export, BakeTool will call the corresponding export logic after execution. The current version has fixed visibility pollution issues during export—`hide_set()` and `hide_viewport` are restored after completion.
 
 ### 4.6 CUSTOM MAPS
 
-这里用于创建自定义贴图。配置时重点注意：
+This is for creating custom maps. Key points when configuring:
 
-- 输出类型是灰度还是 RGBA
-- 每个分量来源于哪一张已烘焙结果
-- 是否需要取单通道
-- 是否反相
-- **缺省值 (Default Value)**：当未启用“Use Map”时，可自定义该通道的填充值（如 AO/Metallic 默认 1.0）
-- 是否按黑白输出
+- Output type is grayscale or RGBA
+- Which component comes from which baked result
+- Whether to extract single channel
+- Whether to invert
+- **Default Value**: When "Use Map" is disabled, you can customize the fill value for that channel (e.g., AO/Metallic default 1.0)
+- Whether to output black and white
 
 > [!TIP]
-> **自引用防护**：当前版本已自动过滤掉通道自身。例如你无法在“MaskA”的 R 来源中再次选择“MaskA”，有效避免了逻辑死循环。
+> **Self-reference Protection**: Current version automatically filters out the channel itself. For example, you cannot select "MaskA" again as the R source in "MaskA", effectively avoiding logical dead loops.
 
-如果通道打包要使用自定义图，建议先确认自定义贴图名称稳定，因为打包源会使用 `BT_CUSTOM_<name>` 这一规范化结果键。
+If channel packing uses custom maps, it's recommended to first confirm custom map names are stable, because packing sources use the `BT_CUSTOM_<name>` normalized result key.
 
-## 5. 标准操作流程
+## 5. Standard Operating Procedures
 
-### 5.1 单对象烘焙
+### 5.1 Single Object Baking
 
-适合已经有明确低模目标且只需要标准贴图的情况。
+Suitable for scenarios with clear low-poly targets that only need standard maps.
 
-1. 新建 Job。
-2. 添加目标对象。
-3. 选择 `SINGLE_OBJECT`。
-4. 设定分辨率与保存路径。
-5. 选择常用通道，例如颜色、粗糙度、法线。
-6. 检查材质和 UV。
-7. 执行。
+1. Create new Job.
+2. Add target objects.
+3. Select `SINGLE_OBJECT`.
+4. Set resolution and save path.
+5. Select common channels, e.g., color, roughness, normal.
+6. Check materials and UVs.
+7. Execute.
 
-如果只想快速起步，可以先点击 `One-Click PBR` 再微调。
+For quick start, you can click `One-Click PBR` first, then fine-tune.
 
-### 5.2 高模到低模烘焙
+### 5.2 High-Poly to Low-Poly Baking
 
-适合需要将高模细节转移到低模贴图的情况。
+Suitable for transferring high-poly detail to low-poly textures.
 
-1. 在场景中准备高模和低模。
-2. 确认低模是激活对象。
-3. 选择 `SELECT_ACTIVE`。
-4. 设置 cage 相关参数。
-5. 启用法线、AO、颜色等需要的通道。
-6. 根据结果调整 extrusion 或 cage。
+1. Prepare high-poly and low-poly in scene.
+2. Confirm low-poly is the active object.
+3. Select `SELECT_ACTIVE`.
+4. Set cage-related parameters.
+5. Enable normal, AO, color, and other needed channels.
+6. Adjust extrusion or cage based on results.
 
-如果你发现法线边缘有穿插、AO 污染或细节丢失，优先检查对象法线、UV、cage 和采样，再考虑是否是贴图设置问题。
+If you find normal edges intersecting, AO pollution, or detail loss, first check object normals, UV, cage, and sampling before considering texture settings.
 
-### 5.3 多材质拆分
+### 5.3 Multi-Material Split
 
-当一个对象需要按材质拆开输出时，使用 `SPLIT_MATERIAL`。这种模式常用于复杂资产或导出到游戏引擎前需要按材质槽管理贴图的场景。建议在命名规则和输出目录上提前统一，否则后期整理成本会明显增加。
+When an object needs to be split by material for output, use `SPLIT_MATERIAL`. This mode is commonly used for complex assets or before exporting to game engines that need texture management by material slot. It's recommended to unify naming rules and output directories in advance, otherwise later organization costs will increase significantly.
 
-### 5.4 UDIM 工作流
+### 5.4 UDIM Workflow
 
-UDIM 流程的关键不在于“能不能烘”，而在于 tile 检测、命名和结果组织是否稳定。推荐顺序：
+The key to UDIM workflow is not "can it bake", but whether tile detection, naming, and result organization are stable. Recommended order:
 
-1. 确认对象 UV 已经按 UDIM 组织。
-2. 使用 `UDIM` 模式。
-3. 选择合适的 `udim_mode`，例如自动检测或自定义。
-4. 如对象列表发生变化，可使用刷新 UDIM 位置的功能重新同步。
-5. 在导出前确认输出文件名和 tile 匹配关系。
+1. Confirm object UV is organized by UDIM.
+2. Use `UDIM` mode.
+3. Select appropriate `udim_mode`, e.g., auto-detect or custom.
+4. If object list changes, use the refresh UDIM locations feature to resync.
+5. Confirm output filename and tile matching before export.
 
-### 5.5 动画帧序列烘焙
+### 5.5 Animation Frame Sequence Baking
 
-BakeTool 支持按帧输出贴图序列。配置点包括：
+BakeTool supports frame-by-frame texture output. Configuration includes:
 
-- 是否启用动画烘焙
-- 是否使用自定义帧范围
-- 起始帧和持续帧数
-- 起始编号
-- 编号位数
-- 帧分隔符
+- Whether to enable animation baking
+- Whether to use custom frame range
+- Start frame and duration
+- Start number
+- Number padding
+- Frame separator
 
-这适合逐帧变化的缓存或特殊程序化效果，但也会显著增加时间和磁盘占用。发布资产前建议先用短帧范围做烟测。
+This is suitable for per-frame changing caches or special procedural effects, but significantly increases time and disk usage. Before releasing assets, it's recommended to do a smoke test with a short frame range first.
 
-### 5.6 节点烘焙
+### 5.6 Node Baking
 
-如果你只想把当前节点的输出直接烘成图，而不是走完整个对象级的通道配置，可以在 Node Editor 面板里使用节点烘焙功能。当前版本已经补齐了对应 operator，界面按钮与注册状态保持一致。
+If you just want to bake current node output directly instead of going through the whole object-level channel configuration, you can use the node baking feature in the Node Editor panel. The current version has completed the corresponding operator; interface buttons are consistent with registration status.
 
-使用时注意：
+Usage notes:
 
-- 需要有激活对象和激活材质
-- 需要有当前激活节点
-- 节点烘焙的输出路径和图像参数由节点烘焙设置控制
+- Requires active object and active material
+- Requires currently active node
+- Node baking output path and image parameters are controlled by node baking settings
 
-## 6. 输出与命名建议
+## 6. Output and Naming Recommendations
 
-### 6.1 路径策略
+### 6.1 Path Strategy
 
-如果项目已经保存，优先使用项目目录下的专用输出文件夹。如果当前 `.blend` 尚未保存，BakeTool 会在某些路径逻辑下退回临时目录，但正式资产不建议长期依赖这个行为。
+If the project is saved, prefer using a dedicated output folder under the project directory. If the current `.blend` is not yet saved, BakeTool will fall back to temp directory in some path logic, but it's not recommended to rely on this behavior long-term for formal assets.
 
-### 6.2 颜色空间
+### 6.2 Color Space
 
-法线、粗糙度、金属度、AO 等数据图一般应使用非颜色数据。当前版本已经增加颜色空间映射逻辑，会把插件内部枚举值正确映射到 Blender 实际支持的 colorspace 名称，例如：
+Normal, roughness, metallic, AO, and other data maps should generally use non-color data. The current version has added color space mapping logic that correctly maps internal enum values to Blender's actual supported colorspace names, e.g.:
 
-- `NONCOL` 对应 `Non-Color`
-- `SRGB` 对应 `sRGB`
-- `LINEAR` 会尝试匹配可用的线性颜色空间
+- `NONCOL` corresponds to `Non-Color`
+- `SRGB` corresponds to `sRGB`
+- `LINEAR` tries to match available linear color spaces
 
-如果你在不同 Blender 版本之间切换，建议始终检查关键数据图是否落在正确颜色空间。
+If switching between different Blender versions, it's recommended to always check that key data maps land in the correct color space.
 
-### 6.3 通道打包
+### 6.3 Channel Packing
 
-通道打包适合把多个数据图合并成单一纹理，例如常见的 ORM 或其他自定义组合。推荐在以下前提下使用：
+Channel packing is suitable for combining multiple data maps into a single texture, e.g., common ORM or other custom combinations. Recommended prerequisites:
 
-- 各源图尺寸一致
-- 都是最终确认后的结果
-- 颜色空间需求已经明确
-- 下游引擎或 DCC 管线确实需要打包贴图
+- Source maps have consistent sizes
+- All are finalized results
+- Color space requirements are clear
+- Downstream engine or DCC pipeline actually needs packed textures
 
-如果打包包含自定义贴图，请确认源来自最新生成结果，而不是旧文件名或临时缓存。
+If packing includes custom maps, confirm sources come from latest generated results, not old filenames or temp caches.
 
-## 7. 预设与复用
+## 7. Presets and Reuse
 
-BakeTool 的预设系统会序列化 Job 相关属性，并支持一定程度上的迁移兼容。建议这样使用：
+BakeTool's preset system serializes Job-related properties and supports some migration compatibility. Suggested usage:
 
-- 把“项目模板级”配置保存为预设
-- 不要把强依赖特定对象名的临时状态混入通用预设
-- 在升级插件后，先用测试场景加载旧预设验证结果
+- Save "project template-level" configurations as presets
+- Don't mix temporary states with strong dependencies on specific object names into general presets
+- After plugin upgrade, first load old presets in a test scene to verify results
 
-如果预设加载后部分字段没有恢复，通常有三种原因：
+If preset loading partially fails to restore fields, there are usually three causes:
 
-- 属性已改名且未命中迁移映射
-- 某些字段是只读或运行期字段，不参与保存
-- 目标对象、材质、图像等 Blender ID 已经在当前场景中不存在，无法按名称/库路径重新解析
+- Property renamed without hitting migration mapping
+- Some fields are read-only or runtime fields, not participating in save
+- Target objects, materials, images, and other Blender IDs no longer exist in current scene, cannot be resolved by name/library path
 
-## 8. 状态恢复与中断处理
+## 8. State Recovery and Interruption Handling
 
-BakeTool 使用 `state_manager.py` 在系统临时目录写入上一次执行状态，文件名为：
+BakeTool uses `state_manager.py` to write last execution state to the system temp directory, filename:
 
 ```text
 sbt_last_session.json
 ```
 
-它会记录：
+It records:
 
-- Job 名称
-- 总步骤数
-- 当前步骤
-- 队列索引
-- 当前对象
-- 当前通道
-- 最后一次错误
+- Job name
+- Total steps
+- Current step
+- Queue index
+- Current object
+- Current channel
+- Last error
 
-如果 Blender 崩溃或流程中断，重新打开界面后可以根据 UI 提示决定是否恢复或清理状态。恢复并不意味着“从任何内部细节处继续”，而是基于记录到的执行位置做合理续跑，因此在关键生产任务中仍然建议保留中间结果和场景备份。
+If Blender crashes or the process is interrupted, after reopening the interface you can decide whether to recover or clean state based on UI prompts. Recovery doesn't mean "continue from any internal detail", but rather reasonable continuation based on recorded execution position. Therefore, for key production tasks, it's still recommended to keep intermediate results and scene backups.
 
-## 9. Headless 与脚本化使用
+## 9. Headless and Scripted Usage
 
-### 9.1 背景烘焙
+### 9.1 Background Baking
 
 ```bash
 blender -b scene.blend -P automation/headless_bake.py -- --job "PBR_Job"
@@ -305,103 +305,103 @@ blender -b scene.blend -P automation/headless_bake.py -- --output "C:/baked"
 blender -b scene.blend -P automation/headless_bake.py -- --job "PBR_Job" --output "C:/baked"
 ```
 
-### 9.2 使用限制
+### 9.2 Usage Limitations
 
-- headless 脚本不会替你新建 Job
-- `.blend` 里必须已经存在并保存 BakeTool 的作业配置
-- 若未指定 `--job`，会运行所有已启用 Job
-- `--output` 会覆盖 Job 的外部保存目录，并自动启用外部保存
+- Headless script won't create new Jobs for you
+- `.blend` must already have BakeTool job configuration saved
+- If `--job` is not specified, it runs all enabled Jobs
+- `--output` overrides Job's external save directory and automatically enables external saving
 
-### 9.3 API 使用
+### 9.3 API Usage
 
-对其他脚本或插件集成来说，可以使用 `core/api.py` 提供的入口：
+For other scripts or plugin integration, you can use the entry points provided by `core/api.py`:
 
 - `bake(objects, use_selection=True)`
 - `get_udim_tiles(objects)`
 - `validate_settings(job)`
 
-这类入口更适合做管线集成或自定义自动化，而不是直接驱动 UI operator。
+These entry points are more suitable for pipeline integration or custom automation than directly driving UI operators.
 
-## 10. 常见问题与排查
+## 10. Common Issues and Troubleshooting
 
-### 10.1 按钮点击没反应或报 operator 错误
+### 10.1 Button clicks don't respond or operator errors
 
-当前版本已经修复已知缺失 operator 问题。如果仍出现错误，优先检查：
+Current version has fixed known missing operator issues. If errors still occur, first check:
 
-- 插件是否是最新目录
-- Blender 是否加载了旧缓存
-- 是否存在多个同名插件目录
+- Whether plugin is latest directory
+- Whether Blender loaded old cache
+- Whether multiple plugins with same name exist
 
-### 10.2 背景模式提示找不到 BakeTool 属性
+### 10.2 Background mode says BakeTool properties not found
 
-使用当前版本的 `automation/headless_bake.py` 时，该问题应该已修复。若仍出现：
+Using current version's `automation/headless_bake.py`, this should be fixed. If still occurring:
 
-- 确认脚本路径在 `automation/` 下
-- 确认仓库目录可被 Python 导入为 `baketool`
-- 确认 `.blend` 文件中确实存在作业配置
+- Confirm script path is under `automation/`
+- Confirm repo directory can be imported by Python as `baketool`
+- Confirm job configuration actually exists in `.blend` file
 
-### 10.3 控制台提示对象不在当前 View Layer
+### 10.3 Console says object not in current View Layer
 
-这通常不是引擎“随机失败”，而是当前 Job 中至少有一个对象不在你正在使用的 `View Layer` 里。优先检查：
+This is usually not the engine "randomly failing", but at least one object in current Job is not in your current `View Layer`. First check:
 
-- 目标对象是否在当前视图层可见且未被排除
-- `SELECT_ACTIVE` 模式下的低模目标是否仍在当前视图层
-- cage object 是否也位于同一视图层
+- Whether target objects are visible in current view layer and not excluded
+- Whether low-poly target in `SELECT_ACTIVE` mode is still in current view layer
+- Whether cage object is also in the same view layer
 
-当前版本会在入队阶段直接跳过这种 Job，并尽量避免生成半成品或残留图像。
+Current version skips such Jobs directly at enqueue stage and avoids generating half-finished or leftover images.
 
-### 10.4 法线图颜色不对
+### 10.4 Normal map colors are wrong
 
-优先检查：
+First check:
 
-- 图像颜色空间是否为 `Non-Color`
-- 目标材质是否正确使用法线图节点
-- 高低模方向和 cage 是否合理
+- Whether image color space is `Non-Color`
+- Whether target material correctly uses normal map nodes
+- Whether high-low direction and cage are reasonable
 
-### 10.5 通道打包里选了自定义图但结果异常
+### 10.5 Selected custom map in channel packing but results abnormal
 
-当前版本已修复自定义图打包键不一致的问题。如果仍异常，检查：
+Current version has fixed custom map packing key inconsistency. If still abnormal, check:
 
-- 自定义图是否已成功生成
-- 自定义图名称是否在生成后又被修改
-- 打包源是否仍指向旧名称
+- Whether custom map was successfully generated
+- Whether custom map name was modified after generation
+- Whether packing source still points to old name
 
-### 10.6 导出后对象可见性变化
+### 10.6 Object visibility changes after export
 
-当前版本已恢复 `hide_viewport` 和 `hide_set()`。如果你观察到场景状态仍被改变，通常说明导出流程被异常中断，此时应先检查控制台错误，再确认是否有其他插件同时修改对象可见性。
+Current version has restored `hide_viewport` and `hide_set()`. If scene state still changes, it usually means export process was abnormally interrupted. First check console errors, then confirm whether other plugins are simultaneously modifying object visibility.
 
-### 10.7 点击 Run Safety Audit 后等待较久
+### 10.7 Long wait after clicking Run Safety Audit
 
-`Run Safety Audit` 现在会启动一个独立的后台 Blender 进程来跑测试，然后把摘要写回当前界面。这样做是为了避免交互式会话里直接运行整套测试时破坏当前 UI 正在引用的 RNA 数据。
+`Run Safety Audit` now launches an independent background Blender process to run tests, then writes summary back to current interface. This avoids running full test suites in interactive sessions that would corrupt RNA data currently referenced by the UI.
 
-如果你点击后要等待几十秒，这是正常的。真正需要关注的是：
+If you wait tens of seconds after clicking, this is normal. What really matters:
 
-- 是否最终返回一条测试摘要
-- 是否有失败/错误数量
-- 当前会话是否保持可继续操作，而不是被测试过程改乱
+- Whether a test summary is eventually returned
+- Whether there are failure/error counts
+- Whether current session remains operable, not messed up by test process
 
-## 11. 使用建议
+## 11. Usage Recommendations
 
-- 首次上生产资产前，先在一个小测试场景里跑完整流程。
-- 把常用项目模板做成预设，减少人工点选。
-- 数据图尽量统一颜色空间和命名规则。
-- 对动画、UDIM、多对象合并这类高成本流程，先做小样验证。
-- 对关键项目保留 `.blend` 备份和中间输出，不要把“插件能恢复”当成主保险。
+- Before first production asset use, run full workflow in a small test scene.
+- Make commonly used project templates into presets to reduce manual selection.
+- Uniform color space and naming rules for data maps.
+- For animation, UDIM, multi-object merging, and other high-cost workflows, do small sample validation first.
+- Keep `.blend` backups and intermediate outputs for key projects; don't treat "plugin can recover" as primary insurance.
 
-## 12. 已知限制与实战风险 (Critical Limitations)
+## 12. Known Limitations and Production Risks (Critical)
 
-由于本项目目前由 **单人维护** 且深度使用了 **vibecode (AI) 开发流**，用户在使用时必须知晓以下边界：
+Since this project is currently **single-maintainer** and heavily uses **vibecode (AI) development flow**, users must be aware of the following boundaries:
 
-1. **测试不等于实战**：150+ 的自动化测试主要覆盖了标准几何体和基本 PBR 材质。面对包含复杂几何节点 (GeoNodes)、深度嵌套的 Shader 组或极端庞大的场景文件时，插件可能会由于 AI 生成的逻辑漏洞而崩溃或产生错误结果。
-2. **UI 刷新延迟**：在某些 Blender 4.5/5.0 的预发布版本中，动态列表的刷新可能存在延迟。
-3. **导出 Addon 依赖**：联动导出功能极度依赖第三方 FBX/GLB 插件的稳定性。如果这些内置 Addon 发生变化，BakeTool 的导出链可能断裂。
-4. **性能瓶颈**：针对海量物体的批处理，目前尚未进行内存极限压力测试。
-5. **恢复机制限制**：`state_manager.py` 提供的崩溃恢复仅是“尽力而为”，无法保证在硬崩溃后完美还原所有未保存的场景状态。
+1. **Tests ≠ Reality**: 150+ automated tests mainly cover standard geometry and basic PBR materials. Faced with complex Geometry Nodes, deeply nested Shader groups, or extremely large scene files, the plugin may crash or produce incorrect results due to AI-generated logic gaps.
+2. **UI refresh delays**: In some Blender 4.5/5.0 pre-release versions, dynamic list refresh may have delays.
+3. **Export addon dependencies**: Export integration heavily depends on third-party FBX/GLB plugin stability. If these built-in addons change, BakeTool's export chain may break.
+4. **Performance bottlenecks**: Batch processing for massive object quantities has not yet undergone memory limit stress testing.
+5. **Recovery mechanism limitations**: `state_manager.py` crash recovery is "best-effort", cannot guarantee perfect restoration of all unsaved scene states after hard crash.
 
-**最终建议**：BakeTool 目前是您的“第二选择”。在关键项目的最后交付阶段，请务必预留手动烘焙的时间作为兜底。
+**Final Recommendation**: BakeTool is currently your "second choice". In the final delivery phase of critical projects, please reserve manual baking time as backup.
 
 ---
 
-## 结论
+## Conclusion
 
-BakeTool 的价值在于利用 AI 赋能个体开发者实现高效的工具开发模型。只要您保持**谨慎乐观**的态度并遵循**场景备份**的原则，它将成为您探索 Blender 烘焙自动化的一柄利刃。但请记住，它依然是一件“半成品”。
+BakeTool's value lies in using AI to empower individual developers with efficient tool development models. As long as you maintain a **cautiously optimistic** attitude and follow the **scene backup** principle, it will become a sharp blade for exploring Blender baking automation. But remember, it is still a "work in progress".

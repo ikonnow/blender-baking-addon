@@ -700,6 +700,9 @@ class JobPreparer:
         s = job.setting
         objs = [o.bakeobject for o in s.bake_objects if o.bakeobject]
 
+        # Note: Cycles render engine check is handled during execution
+        # We'll temporarily switch to Cycles if needed
+
         if not objs:
             return ValidationResult(
                 False, UI_MESSAGES["JOB_SKIPPED_NO_OBJS"].format(job.name), job.name
@@ -1078,10 +1081,10 @@ class BakePassExecutor:
         attr_name = cls._ensure_attributes(task, setting, handler, chan_id)
 
         is_data_pass = chan_id in DATA_BAKE_FORCE_SINGLE_SAMPLE
-        orig_samples = context.scene.cycles.samples
+        orig_samples = getattr(context.scene.cycles, "samples", 1) if hasattr(context.scene, "cycles") else 1
 
         try:
-            if is_data_pass:
+            if is_data_pass and hasattr(context.scene, "cycles"):
                 context.scene.cycles.samples = 1
             handler.setup_for_pass(
                 c_config["bake_pass"],
@@ -1099,7 +1102,7 @@ class BakePassExecutor:
             cls._cleanup_failed_image(img, remove_datablock=cleanup_on_failure)
             return None
         finally:
-            if is_data_pass:
+            if is_data_pass and hasattr(context.scene, "cycles"):
                 context.scene.cycles.samples = orig_samples
 
     @staticmethod

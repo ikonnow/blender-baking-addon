@@ -1,192 +1,192 @@
-# BakeTool 路线图
+# BakeTool Roadmap
 
-本文档不是“想做什么就都写上去”的愿望清单，而是面向发布和维护的现实路线图。它基于当前代码结构、已经完成的验证工作和实际维护压力来制定优先级。BakeTool 目前已经完成 `1.0.0` 发布候选的主要收口，因此路线图的核心不是继续堆功能，而是确保最终发布动作和发布后的 1.0.x 维护都有明确边界。
+This document is not a wishlist of "everything we want to do", but a realistic roadmap for release and maintenance. It prioritizes based on current code structure, completed validation work, and actual maintenance pressure. BakeTool has completed the main consolidation for `1.0.0` release candidate, so the core of the roadmap is not to pile on more features, but to ensure clear boundaries for the final release and post-1.0.x maintenance.
 
-## 1. 当前阶段定位
+## 1. Current Phase Positioning
 
-### 1.1 状态
+### 1.1 Status
 
-- 当前版本：`1.0.0`
-- 当前阶段：发布候选已收口，进入最终烟测、打包与发布动作
-- 当前目标：形成可以公开发布的首个稳定版本，而不是继续扩大功能面
+- Current Version: `1.0.0`
+- Current Phase: Release candidate consolidated, entering final smoke testing, packaging, and release actions
+- Current Goal: Form the first stable version ready for public release, rather than continuing to expand feature scope
 
-### 1.2 当前版本已经完成的关键工作
+### 1.2 Key Work Completed in Current Version
 
-这一轮收尾解决的不是小瑕疵，而是会直接影响发布质量的阻断项：
+This round of consolidation addresses not minor flaws, but blockers that directly impact release quality:
 
-- 补齐 UI 缺失 operator，避免界面按钮与注册状态不一致
-- 修复 headless 背景模式初始化逻辑
-- 将自定义通道接入真实执行链
-- 统一自定义结果键，保证打包逻辑可复用自定义图
-- 将光照和 Combined 的 pass filter 选项真正写入 Blender bake 设置
-- 修复导出后对象 `hide_viewport` 未恢复的问题
-- 增加颜色空间枚举到 Blender 实际 colorspace 的映射
-- 统一预设 schema 与 Blender ID 指针保存/恢复策略
-- 完成翻译键提取、同步、审计与多语言回归
-- 将 View Layer 预检前移到入队阶段，并为失败 bake 增加新建图像回收
-- 将交互式 Safety Audit 改为隔离 Blender 进程执行，避免 RNA 崩溃
-- 增补回归测试，并完成多版本 verification 验证
-- 完成 negative 与 verification 的跨版本回归验证
-- 重写发布前的核心说明文档
-- **[v1.0.0-p1] 自定义通道加固**：增加默认值支持与自引用过滤，消除架构设计缺陷
-- **[v1.0.0-p1] 导出质量优化**：支持位深、压缩、编解码器等完整格式参数，实现场景设置安全覆盖
-- **[v1.0.0-p1] 自动化验证**：全量回归通过率 100%，新增专项加固测试套件
-- **[v1.0.0-p1] Blender Extensions 适配**：创建 blender_manifest.toml，支持 Blender 4.2+ 扩展安装格式
+- Complete missing UI operators to avoid inconsistency between interface buttons and registration status
+- Fix headless background mode initialization logic
+- Connect custom channels to actual execution chain
+- Unify custom result keys to ensure packing logic can reuse custom maps
+- Actually write lighting and Combined pass filter options to Blender bake settings
+- Fix issue where `hide_viewport` wasn't restored after export
+- Add color space enum mapping to Blender actual colorspace names
+- Unify preset schema with Blender ID pointer save/restore strategy
+- Complete translation key extraction, sync, audit, and multilingual regression
+- Move View Layer pre-check to enqueue stage and add new image cleanup for failed bakes
+- Change interactive Safety Audit to isolated Blender process execution to avoid RNA crashes
+- Add regression tests and complete multi-version verification validation
+- Complete negative and verification cross-version regression validation
+- Rewrite core pre-release documentation
+- **[v1.0.0-p1] Custom Channel Hardening**: Add default value support and self-reference filtering, eliminate architectural design defects
+- **[v1.0.0-p1] Export Quality Optimization**: Support full format parameters like bit depth, compression, codecs, achieve safe scene setting overrides
+- **[v1.0.0-p1] Automation Validation**: 100% full regression pass rate, new special hardening test suites
+- **[v1.0.0-p1] Blender Extensions Adaptation**: Create blender_manifest.toml, support Blender 4.2+ extension installation format
 
-这意味着 1.0.0 的优先任务已经从“修功能”转向“控风险”。
+This means 1.0.0's priority has shifted from "fixing features" to "risk control".
 
-## 2. 1.0.0 发布目标
+## 2. 1.0.0 Release Goals
 
-1.0.0 的目标不是把所有设想一次做完，而是提供一套可被信任的基础能力：
+The goal of 1.0.0 is not to complete all ideas at once, but to provide a trustworthy set of basic capabilities:
 
-- 用户可以在主流 Blender 版本中安装并找到插件
-- 主面板、结果面板和节点烘焙入口行为一致
-- 常见 PBR、Selected-to-Active、UDIM、自定义图和导出联动能跑通
-- 自动化入口可用于本地验证
-- 文档与代码行为一致，不再依赖口头说明或临时记忆
+- Users can install and find the plugin in mainstream Blender versions
+- Main panel, result panel, and node baking entry behave consistently
+- Common PBR, Selected-to-Active, UDIM, custom maps, and export integration work
+- Automation entry points can be used for local validation
+- Documentation matches code behavior, no longer relying on verbal explanations or temporary memory
 
-只要上述目标达成，1.0.0 就是成立的。相反，如果继续向这个版本追加大功能，风险会高于收益。
+As long as the above goals are met, 1.0.0 is valid. Conversely, if we continue adding major features to this version, the risk will outweigh the benefits.
 
-## 3. 发布前必须守住的边界
+## 3. Pre-Release Boundaries to Maintain
 
-在正式发布前，以下内容不建议再做大改：
+Before official release, the following changes are not recommended:
 
-- 不做大规模 UI 重设计
-- 不做 `core/engine.py` 级别的深度拆分重构
-- 不新增会改写预设结构的大功能
-- 不改变现有 Job 概念和主要工作流
-- 不引入额外第三方运行时依赖
+- No large-scale UI redesign
+- No deep refactoring/splitting at `core/engine.py` level
+- No new major features that would rewrite preset structure
+- No changes to existing Job concept and main workflow
+- No additional third-party runtime dependencies
 
-这些内容不是永远不做，而是应该放到 1.1 或之后的版本，在已有稳定发布基础上推进。
+These items are not "never do", but should be deferred to 1.1 or later versions, building on a stable release foundation.
 
-## 4. 1.0.0 发布后优先方向
+## 4. Post-1.0.0 Priority Directions
 
-### 4.1 第一优先级：稳定性维护与反馈闭环
+### 4.1 First Priority: Stability Maintenance and Feedback Loop
 
-这是发布后的首要工作。真实用户会暴露本地测试难以完全覆盖的场景差异，因此 1.0.x 的重点应当是：
+This is the primary work after release. Real users will expose scenario differences that local testing cannot fully cover, so 1.0.x focus should be:
 
-- 归档和分类用户反馈
-- 快速定位高频失败路径
-- 补回归测试而不是只做一次性修复
-- 保持 changelog 和任务看板持续更新
-- 把参数定义、动态 UI 绑定、引擎消费和自动化断言继续当作同一协议面维护
+- Archive and categorize user feedback
+- Quickly locate high-frequency failure paths
+- Add regression tests instead of just one-time fixes
+- Keep changelog and task board continuously updated
+- Continue treating parameter definitions, dynamic UI bindings, engine consumption, and automation assertions as the same protocol surface
 
-尤其需要关注：
+Particularly need to watch:
 
-- 不同 Blender 安装路径与本地环境差异
-- 不同颜色管理配置下的颜色空间映射
-- 大场景、多对象和长序列输出的稳定性
-- 导出联动对第三方插件启用状态的依赖
-- View Layer、上下文保护、失败清理与调试入口隔离这类“非功能性崩溃点”
+- Different Blender installation paths and local environment differences
+- Color space mapping under different color management configurations
+- Stability of large scenes, many objects, and long sequence outputs
+- Export integration dependency on third-party plugin enablement status
+- "Non-functional crash points" like View Layer, context protection, failure cleanup, and debug entry isolation
 
-### 4.2 第二优先级：执行引擎结构化拆分
+### 4.2 Second Priority: Execution Engine Structural Split
 
-当前 `core/engine.py` 承载了较多职责，这对快速修复有利，但对长期维护压力较大。发布后更合理的方向是逐步拆分，而不是一次性重写：
+Current `core/engine.py` carries many responsibilities, which is good for quick fixes but creates long-term maintenance pressure. A more reasonable post-release direction is gradual splitting rather than one-time rewriting:
 
-- 将队列准备、单步执行、打包、导出、后处理拆为更清晰模块
-- 保持 `BakePassExecutor`、`BakeStepRunner` 的外部行为稳定
-- 让测试能更直接覆盖分离后的子模块
+- Split queue preparation, single-step execution, packing, export, and post-processing into clearer modules
+- Keep external behavior of `BakePassExecutor`, `BakeStepRunner` stable
+- Allow tests to more directly cover separated sub-modules
 
-这里最重要的不是“文件拆得多漂亮”，而是不要破坏现有调用协议。
+The most important thing here is not "how pretty the file split looks", but not breaking existing calling protocols.
 
-### 4.3 第三优先级：预设与数据模式稳态化
+### 4.3 Third Priority: Preset and Data Schema Stabilization
 
-一旦插件开始进入真实项目，预设兼容性会迅速变重要。未来应逐步引入：
+Once the plugin starts entering real projects, preset compatibility quickly becomes important. Future steps should gradually introduce:
 
-- 更明确的 preset schema 版本标识
-- 更完整的属性迁移映射
-- 对弃用字段的显式提示
-- 对缺失字段和新字段的更清晰回退策略
+- More explicit preset schema version identification
+- More complete property migration mapping
+- Explicit warnings for deprecated fields
+- Clearer fallback strategies for missing and new fields
 
-目标是让升级插件不必等于重做全部预设。
+The goal is to make plugin upgrades not equal to redoing all presets.
 
-### 4.4 第四优先级：高级工作流扩展
+### 4.4 Fourth Priority: Advanced Workflow Extensions
 
-当基础稳定性足够时，可以考虑扩展以下方向：
+When basic stability is sufficient, consider extending in these directions:
 
-- 更细粒度的节点烘焙流程
-- 更丰富的自定义图层来源
-- 更完整的批量导出模板
-- 面向管线的 metadata 输出
-- 更系统的 UDIM 批处理与命名策略
+- More granular node baking workflows
+- Richer custom layer sources
+- More complete batch export templates
+- Pipeline-oriented metadata output
+- More systematic UDIM batch processing and naming strategies
 
-这些都应建立在现有工作流清晰、测试充足的基础上。
+All of these should build on clear existing workflows and sufficient testing.
 
-## 5. 中期规划：1.1.x
+## 5. Mid-term Planning: 1.1.x
 
-`1.1.x` 可以视为"在不破坏 1.0 工作流前提下的架构提升版"。候选方向如下：
+`1.1.x` can be seen as an "architecture upgrade version without breaking 1.0 workflows". Candidate directions:
 
-### 5.1 引擎进一步模块化
+### 5.1 Further Engine Modularization
 
-- 将打包和自定义图组装逻辑进一步独立
-- 抽离导出流程的上下文保护与状态恢复逻辑
-- 对 bake queue 引入更清晰的数据结构边界
+- Further separate packing and custom map assembly logic
+- Extract export flow context protection and state recovery logic
+- Introduce clearer data structure boundaries for bake queue
 
-### 5.2 预设与自动化更严格
+### 5.2 Stricter Presets and Automation
 
-- 增加 preset roundtrip 验证矩阵。
-- 针对自定义图、动画烘焙、UDIM 和导出联动补更多组合测试。
-- 强化 headless 与 API 路径的一致性验证。
-- **参数一致化与动态对齐验证**：将参数对齐约束写成真正可回归的规则，确立"属性定义-UI 映射-引擎消费"的三点一致性自动审计机制。
+- Add preset roundtrip validation matrix
+- Add more combination tests for custom maps, animation baking, UDIM, and export integration
+- Strengthen consistency validation of headless and API paths
+- **Parameter Consistency and Dynamic Alignment Validation**: Write parameter alignment constraints into truly regressable rules, establish automatic audit mechanism for three-point consistency of "property definition-UI mapping-engine consumption"
 
-### 5.3 Blender Extensions 生态集成
+### 5.3 Blender Extensions Ecosystem Integration
 
-- 持续同步 `bl_info` 和 `blender_manifest.toml` 的版本与字段。
-- 使用 `blender --command extension build/validate` 作为标准发布验证流程。
-- 保持 tags、permissions 与 Blender 扩展平台规范一致。
+- Continuously sync `bl_info` and `blender_manifest.toml` versions and fields
+- Use `blender --command extension build/validate` as standard release validation workflow
+- Keep tags, permissions consistent with Blender Extensions platform specifications
 
-### 5.4 文档与国际化同步机制
+### 5.4 Documentation and Internationalization Sync Mechanism
 
-- 明确新功能进入主分支前必须补文档。
-- 为 `translations.json` 建立更强的变更检查。
-- 让开发文档和用户文档之间的术语保持一致。
-- **vibecode 迭代模型**：固化基于 AI 辅助的快速原型到加固的开发流程。
+- Clarify that new features must have documentation before entering main branch
+- Establish stronger change checking for `translations.json`
+- Keep terminology consistent between developer and user documentation
+- **Vibecode Iteration Model**: Solidify rapid prototyping with AI assistance into a hardened development workflow
 
-## 6. 长期方向
+## 6. Long-term Direction
 
-长期来看，BakeTool 更有价值的方向不是变成“另一个大而全材质系统”，而是成为一层可复用、可脚本化、可验证的 Blender 烘焙中间件。可能的长期目标包括：
+Long-term, BakeTool's more valuable direction is not becoming "another all-encompassing material system", but becoming a reusable, scriptable, verifiable Blender baking middleware layer. Possible long-term goals include:
 
-- 更稳定的公共 API
-- 更明确的自动化与无界面运行规范
-- 面向项目模板的标准化输出结构
-- 更完善的崩溃恢复与任务恢复策略
-- 将复杂的烘焙上下文整理成对外更清晰的接口
+- More stable public API
+- More explicit automation and headless operation specifications
+- Standardized output structure for project templates
+- More complete crash recovery and task recovery strategies
+- Organize complex baking context into clearer external interfaces
 
-## 7. 暂不推进的方向
+## 7. Directions Not Currently Prioritized
 
-以下事项当前不建议优先投入：
+The following items are not recommended for priority investment:
 
-- 复杂的在线服务集成
-- 依赖外部数据库或守护进程的任务调度系统
-- 高度侵入式的 UI 视觉重构
-- 未经充分测试的新型材质推断机制
+- Complex online service integration
+- Task scheduling systems dependent on external databases or daemons
+- Highly invasive UI visual refactoring
+- New material inference mechanisms without sufficient testing
 
-这些方向要么会引入额外依赖，要么会大幅扩大维护面，不适合 1.0 到 1.1 的阶段。
+These directions either introduce additional dependencies or significantly expand the maintenance surface, not suitable for the 1.0 to 1.1 phase.
 
-## 8. 版本推进条件
+## 8. Version Advancement Conditions
 
-### 8.1 可以发布 1.0.0 的条件
+### 8.1 Conditions for 1.0.0 Release
 
-- 发布检查清单全部完成
-- 关键文档与代码行为一致
-- 多版本 verification 通过
-- 至少一个 LTS 版本上的关键套件通过
-- 安装、基础烘焙、节点烘焙、UDIM、导出和 headless 烟测完成
+- Release checklist fully completed
+- Key documentation consistent with code behavior
+- Multi-version verification passed
+- At least one critical suite passed on an LTS version
+- Installation, basic baking, node baking, UDIM, export, and headless smoke testing completed
 
-### 8.2 可以推进 1.1.0 的条件
+### 8.2 Conditions for Advancing to 1.1.0
 
-- 1.0 用户反馈中没有持续高频阻断问题
-- 自动化套件能够稳定覆盖当前核心工作流
-- 引擎拆分方案有明确边界和回归测试支持
+- No persistent high-frequency blocking issues in 1.0 user feedback
+- Automation suites can stably cover current core workflows
+- Engine split plan has clear boundaries and regression test support
 
-## 9. 结论
+## 9. Conclusion
 
-BakeTool 当前最正确的方向不是继续堆更多新功能，而是把已经具备的能力稳定交付出去。1.0.0 的成功标准不是“看起来像大版本”，而是：
+BakeTool's most correct direction now is not to pile on more new features, but to stably deliver the capabilities it already has. The success criteria for 1.0.0 is not "looking like a big version", but:
 
-- 能装
-- 能用
-- 能验证
-- 能解释
-- 出问题能定位
+- Can install
+- Can use
+- Can verify
+- Can explain
+- Can locate problems
 
-只要这五点成立，BakeTool 就有资格进入正式发布阶段。之后再围绕真实反馈做 1.0.x 和 1.1.x 的稳步演进，会比在发布前继续扩大范围更理性。
+As long as these five points hold, BakeTool qualifies for official release. Then steady evolution around real feedback in 1.0.x and 1.1.x will be more rational than continuing to expand scope before release.

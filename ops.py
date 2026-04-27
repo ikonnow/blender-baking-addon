@@ -457,7 +457,7 @@ class BAKETOOL_OT_SelectedNodeBake(bpy.types.Operator):
                 "bake_time": 0.0,
                 "save_time": 0.0,
                 "bake_type": "NODE_BAKE",
-                "device": getattr(context.scene.cycles, "device", "UNKNOWN"),
+                "device": getattr(getattr(context.scene, "cycles", None), "device", "UNKNOWN"),
             },
         )
         self.report({"INFO"}, f"Baked node '{node.name}'.")

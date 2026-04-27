@@ -1,38 +1,38 @@
-# BakeTool 生态说明
+# BakeTool Ecosystem Guide
 
-本文档用于说明 BakeTool 仓库内各类文件、脚本、测试、文档和发布物之间的关系。它回答的不是“某个函数怎么写”，而是“这个项目作为一个完整插件产品，是如何组织、验证、记录和交付的”。这对于发布前收口尤其重要，因为很多质量问题并不来自单个函数错误，而来自生态层的失配：脚本名变了、文档没改、测试还在验证旧路径、发布包混入了开发文件，等等。
+This document explains the relationships between various files, scripts, tests, documentation, and release artifacts in the BakeTool repository. It answers not "how to write a certain function", but "how this project as a complete plugin product is organized, validated, documented, and delivered". This is especially important for pre-release consolidation, because many quality issues don't come from single function errors, but from ecosystem-level mismatches: script names changed but documentation not updated, tests still validating old paths, release packages mixing in development files, etc.
 
-## 1. 仓库的基本分层
+## 1. Repository Basic Layers
 
-BakeTool 仓库大致可以看成五个子系统：
+The BakeTool repository can be roughly viewed as five subsystems:
 
-1. 运行时插件子系统
-2. 自动化验证子系统
-3. 文档与规范子系统
-4. 开发辅助子系统
-5. 发布与分发子系统
+1. Runtime plugin subsystem
+2. Automation validation subsystem
+3. Documentation and standards subsystem
+4. Development aid subsystem
+5. Release and distribution subsystem
 
-它们并不是彼此独立的岛，而是围绕同一套插件行为互相约束。
+They are not independent islands, but mutually constrain each other around the same plugin behavior.
 
-## 2. 运行时插件子系统
+## 2. Runtime Plugin Subsystem
 
-这一层决定 Blender 中真正会发生什么。
+This layer determines what actually happens in Blender.
 
-### 2.1 入口与注册
+### 2.1 Entry and Registration
 
-- `__init__.py`：插件入口、模块注册、`bl_info`
-- `blender_manifest.toml`：Blender 新版 manifest 信息
+- `__init__.py`: Plugin entry, module registration, `bl_info`
+- `blender_manifest.toml`: Blender new version manifest information
 
-这两者共同定义插件对外可见的基本身份。它们必须与文档中的版本、链接和支持范围保持一致。
+These together define the plugin's basic externally visible identity. They must be consistent with versions, links, and support scope in documentation.
 
-### 2.2 UI 与交互
+### 2.2 UI and Interaction
 
-- `ui.py`：所有面板绘制
-- `ops.py`：UI 操作触发的 operator
-- `property.py`：Job、设置、自定义贴图、节点烘焙等数据结构
-- `translations.py` / `translations.json`：界面文案与翻译
+- `ui.py`: All panel drawing
+- `ops.py`: Operators triggered by UI operations
+- `property.py`: Job, settings, custom maps, node baking and other data structures
+- `translations.py` / `translations.json`: Interface text and translations
 
-这一层的健康度不仅取决于“面板能画出来”，还取决于 UI 所引用的 operator 和属性是否真实存在。发布前本轮修复已经说明，如果这里失步，用户会第一时间撞上硬错误。
+The health of this layer depends not only on "panels can be drawn", but also on whether operators and properties referenced by UI actually exist. The current round of pre-release fixes has shown that if this gets out of sync, users will immediately hit hard errors.
 
 ### 2.3 核心执行
 
