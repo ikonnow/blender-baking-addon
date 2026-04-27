@@ -1,7 +1,7 @@
 import unittest
 import bpy
 import tracemalloc
-from .helpers import cleanup_scene, create_test_object, MockSetting
+from .helpers import selective_cleanup, create_test_object, MockSetting
 
 class SuiteVerification(unittest.TestCase):
     """
@@ -9,10 +9,10 @@ class SuiteVerification(unittest.TestCase):
     """
 
     def setUp(self):
-        cleanup_scene()
+        selective_cleanup()
 
     def tearDown(self):
-        cleanup_scene()
+        selective_cleanup()
 
     def test_fix_memory_leak_use_fake_user(self):
         """[FIX] Verify that use_fake_user is not set by default for temp images."""
