@@ -144,5 +144,7 @@ translations.audit.json
 translations.cleaned.json
 translation_audit_report.json
 translation_clean_audit.json
+scratch/
+STYLE_GUIDE_ANALYSIS.md
 # .github/ - now tracked in version control
 # code_review.md - now tracked in version control
