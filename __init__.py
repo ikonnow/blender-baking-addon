@@ -1,13 +1,13 @@
 bl_info = {
     "name": "BakeTool",
     "description": "Professional Texture Baking Suite for Blender",
-    "author": "lastraindrop",
+    "author": "ikonnow",
     "version": (1, 0, 0),
     "blender": (4, 2, 0),
     "location": "View3D > Sidebar > Baking",
     "warning": "BakeTool 1.0.0: Backup your scenes before production use",
-    "doc_url": "https://github.com/lastraindrop/baketool",
-    "tracker_url": "https://github.com/lastraindrop/baketool/issues",
+    "doc_url": "https://github.com/ikonnow/blender-baking-addon",
+    "tracker_url": "https://github.com/ikonnow/blender-baking-addon/issues",
     "category": "Render",
 }
 

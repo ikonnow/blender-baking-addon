@@ -33,7 +33,7 @@ class SuiteCodeReviewFixes(unittest.TestCase):
         self.assertEqual(bl_info["name"], "BakeTool")
         self.assertEqual(bl_info["version"], (1, 0, 0))
         self.assertEqual(bl_info["blender"], (4, 2, 0))
-        self.assertEqual(bl_info["author"], "lastraindrop")
+        self.assertEqual(bl_info["author"], "ikonnow")
 
     def test_ui_messages_get_robustness(self):
         """Verify UI_MESSAGES uses .get() for safe key access."""

@@ -5,7 +5,7 @@ BakeTool is a professional texture baking suite for Blender.
 > [!CAUTION]
 > **Project Disclaimer**
 >
-> 1. **Development Context**: This project is currently maintained by **lastraindrop** in spare time. Code logic heavily relies on **vibecode (AI-assisted development)**. While 150+ automated tests pass, AI-generated code may have unpredictable behavior in extreme edge cases or complex production environments.
+> 1. **Development Context**: This project is a fork of the original BakeTool by lastraindrop, maintained by **ikonnow**. The original code logic heavily relied on **vibecode (AI-assisted development)**. While 150+ automated tests pass, AI-generated code may have unpredictable behavior in extreme edge cases or complex production environments.
 >
 > 2. **Stability Status**: BakeTool is in **early verification stage (Experimental Prototype)**. It performs well in lab environments but seriously lacks large-scale production validation.
 >

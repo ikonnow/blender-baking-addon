@@ -39,6 +39,7 @@ DOC_FILES = [
     "docs/ROADMAP.md",
     "docs/RELEASE_CHECKLIST.md",
     "docs/task.md",
+    "docs/TRANSLATION_STATUS.md",
 ]
 
 

@@ -326,7 +326,7 @@ def build_translation_entry(source_text, existing_entry, locales):
 def build_translation_payload(strings, locales):
     return {
         "header": {
-            "author": "lastraindrop",
+            "author": "ikonnow",
             "version": "1.0.0",
             "description": "BakeTool extracted translations",
         },
@@ -410,7 +410,7 @@ def sync_translation_payload(
 
     payload = {
         "header": {
-            "author": existing_payload.get("header", {}).get("author", "lastraindrop"),
+            "author": existing_payload.get("header", {}).get("author", "ikonnow"),
             "version": existing_payload.get("header", {}).get("version", "1.0.0"),
             "description": "BakeTool translations",
         },
